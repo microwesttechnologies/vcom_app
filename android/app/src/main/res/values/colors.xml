@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sapphire_deep">#08183A</color>
+    <color name="night_shadow">#030C1E</color>
+    <color name="overlay_blue">#142850</color>
+    <color name="gold_luxury">#C49A48</color>
+    <color name="gold_bright">#F2D888</color>
+    <color name="bronze_gold">#8A6628</color>
+    <color name="cream_white">#F5F5EB</color>
+    <color name="midnight_text">#050F23</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="beige_light">#FAF5EB</color>
+    <color name="success">#4CAF50</color>
+    <color name="error">#F44336</color>
+    <color name="warning">#F2D888</color>
+    <color name="info">#2196F3</color>
+</resources>
