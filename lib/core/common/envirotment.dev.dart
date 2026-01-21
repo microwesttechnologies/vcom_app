@@ -269,6 +269,9 @@ class EnvironmentDev {
   /// Obtener estado de usuario
   static String chatUserStatus(String userId) => '/api/v1/chat/users/$userId/status';
 
+  /// Obtener estado de múltiples usuarios (batch)
+  static const String chatUsersStatus = '/api/v1/chat/users/status';
+
   /// Subir imagen en chat
   static const String chatUploadImage = '/api/v1/chat/upload-image';
 

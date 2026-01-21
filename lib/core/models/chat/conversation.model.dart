@@ -14,6 +14,7 @@ class ConversationModel {
   final MessageModel? lastMessageModel; // Objeto del último mensaje completo
   final DateTime? updatedAt; // Fecha de última actualización
   final DateTime? createdAt; // Fecha de creación
+  final DateTime? lastSeen; // Última vez que el usuario estuvo en línea
 
   ConversationModel({
     this.idConversation, // Opcional para permitir modelos sin conversación
@@ -28,6 +29,7 @@ class ConversationModel {
     this.lastMessageModel,
     this.updatedAt,
     this.createdAt,
+    this.lastSeen,
   });
 
   // ===================== COPY WITH =====================
@@ -44,6 +46,7 @@ class ConversationModel {
     MessageModel? lastMessageModel,
     DateTime? updatedAt,
     DateTime? createdAt,
+    DateTime? lastSeen,
   }) {
     return ConversationModel(
       idConversation: idConversation ?? this.idConversation,
@@ -58,6 +61,7 @@ class ConversationModel {
       lastMessageModel: lastMessageModel ?? this.lastMessageModel,
       updatedAt: updatedAt ?? this.updatedAt,
       createdAt: createdAt ?? this.createdAt,
+      lastSeen: lastSeen ?? this.lastSeen,
     );
   }
 
@@ -135,6 +139,11 @@ class ConversationModel {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
+      lastSeen: json['last_seen'] != null
+          ? DateTime.parse(json['last_seen'] as String)
+          : (otherUserData is Map && otherUserData['last_seen'] != null
+              ? DateTime.parse(otherUserData['last_seen'] as String)
+              : null),
     );
   }
 
@@ -150,6 +159,7 @@ class ConversationModel {
       'unread_count': unreadCount,
       'user_status': userStatus,
       'is_active': isActive,
+      'last_seen': lastSeen?.toIso8601String(),
     };
   }
 }

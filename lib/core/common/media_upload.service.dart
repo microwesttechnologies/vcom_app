@@ -16,8 +16,8 @@ class MediaUploadService {
     try {
       final XFile? image = await _picker.pickImage(
         source: fromCamera ? ImageSource.camera : ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1080,
+        maxWidth: 2000,
+        maxHeight: 2000,
         imageQuality: 85,
       );
 
@@ -26,9 +26,9 @@ class MediaUploadService {
       final file = File(image.path);
       final fileSize = await file.length();
 
-      // Validar tamaño máximo (10MB)
-      if (fileSize > 10 * 1024 * 1024) {
-        throw Exception('La imagen no debe superar los 10MB');
+      // Validar tamaño máximo (30MB)
+      if (fileSize > 30 * 1024 * 1024) {
+        throw Exception('La imagen no debe superar los 30MB');
       }
 
       return file;
@@ -146,13 +146,26 @@ class MediaUploadService {
     }
   }
 
-  /// Selecciona y sube una imagen
+  /// Selecciona y sube una imagen (SIN COMPRESIÓN - el backend lo maneja)
   Future<String?> selectAndUploadImage({bool fromCamera = false}) async {
     try {
+      print('📸 Seleccionando imagen...');
+      
       final file = await pickImage(fromCamera: fromCamera);
-      if (file == null) return null;
-
+      if (file == null) {
+        print('⚠️ Usuario canceló la selección');
+        return null;
+      }
+      
+      final originalSize = await file.length();
+      print('✅ Imagen seleccionada: ${(originalSize / 1024).toStringAsFixed(2)} KB');
+      
+      // Subir imagen DIRECTAMENTE (backend se encarga de comprimir)
+      print('📤 Subiendo imagen al servidor...');
       final url = await uploadFile(file: file, type: 'image');
+      
+      print('✅ Imagen subida exitosamente: $url');
+      
       return url;
     } catch (e) {
       print('❌ Error en selectAndUploadImage: $e');

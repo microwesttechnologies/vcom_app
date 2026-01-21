@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/media_upload.service.dart';
+import 'package:vcom_app/core/realtime/presence.service.dart';
 import 'package:vcom_app/pages/chat/chat.component.dart';
 import 'package:vcom_app/pages/chat/widgets/message_content.widget.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
@@ -13,8 +14,9 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   late ChatComponent _chatComponent;
+  final PresenceService _presence = PresenceService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String? _role;
@@ -23,9 +25,38 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _chatComponent = ChatComponent();
     _chatComponent.addListener(_onChatChanged);
     _initChat();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Manejar cambios en el ciclo de vida de la app
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // La app volvió al primer plano
+        print('📱 App resumed - Activando presencia');
+        _presence.activate().catchError((e) {
+          print('⚠️ Error activando presencia en resume: $e');
+        });
+        break;
+      case AppLifecycleState.paused:
+        // La app pasó a segundo plano
+        print('📱 App paused - Desactivando presencia');
+        _presence.deactivate().catchError((e) {
+          print('⚠️ Error desactivando presencia en pause: $e');
+        });
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        // Estados donde la app no está activa
+        break;
+    }
   }
 
   Future<void> _initChat() async {
@@ -40,11 +71,16 @@ class _ChatPageState extends State<ChatPage> {
   void _onChatChanged() {
     if (mounted) {
       setState(() {});
+      // Hacer scroll automático cuando llegan nuevos mensajes
+      if (_chatComponent.messages.isNotEmpty) {
+        _scrollToBottom(animated: false);
+      }
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _chatComponent.removeListener(_onChatChanged);
     _messageController.dispose();
     _scrollController.dispose();
@@ -52,14 +88,24 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        // Esperar un frame adicional para asegurar que todo esté renderizado
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_scrollController.hasClients) {
+            if (animated) {
+              _scrollController.animateTo(
+                _scrollController.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            } else {
+              // Scroll instantáneo para carga inicial
+              _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+            }
+          }
+        });
       }
     });
   }
@@ -170,7 +216,8 @@ class _ChatPageState extends State<ChatPage> {
         ),
         itemBuilder: (context, index) {
           final conversation = chat.conversations[index];
-          final isOnline = conversation.userStatus == 'online';
+          final isOnline = _presence.isUserOnline(conversation.idOtherUser);
+          final statusText = _presence.getUserStatusText(conversation.idOtherUser);
           
           return Container(
             decoration: BoxDecoration(
@@ -217,13 +264,19 @@ class _ChatPageState extends State<ChatPage> {
                   color: VcomColors.blancoCrema,
                 ),
               ),
-              subtitle: Text(
-                conversation.lastMessage ?? 'Sin mensajes',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: VcomColors.blancoCrema.withOpacity(0.6),
-                ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildLastMessagePreview(conversation),
+                  if (!isOnline)
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: VcomColors.blancoCrema.withOpacity(0.4),
+                      ),
+                    ),
+                ],
               ),
               trailing: conversation.unreadCount > 0
                   ? CircleAvatar(
@@ -241,7 +294,16 @@ class _ChatPageState extends State<ChatPage> {
                   : null,
               onTap: () async {
                 await chat.selectConversation(conversation);
-                _scrollToBottom();
+                
+                // Marcar mensajes como leídos
+                if (conversation.unreadCount > 0 && conversation.idConversation != null) {
+                  await chat.markMessagesAsRead(conversation.idConversation!);
+                }
+                
+                // Hacer scroll con delay para asegurar que los mensajes se cargaron
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  _scrollToBottom(animated: false);
+                });
               },
             ),
           );
@@ -251,12 +313,6 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildChatView(ChatComponent chat) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients && chat.messages.isNotEmpty) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-    });
-
     return Column(
       children: [
         // Header
@@ -297,7 +353,7 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   ),
-                  if (chat.selectedConversation!.userStatus == 'online')
+                  if (_presence.isUserOnline(chat.selectedConversation!.idOtherUser))
                     Positioned(
                       right: 0,
                       bottom: 0,
@@ -330,12 +386,10 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                     Text(
-                      chat.selectedConversation!.userStatus == 'online'
-                          ? 'En línea'
-                          : 'Desconectado',
+                      _presence.getUserStatusText(chat.selectedConversation!.idOtherUser),
                       style: TextStyle(
                         fontSize: 12,
-                        color: chat.selectedConversation!.userStatus == 'online'
+                        color: _presence.isUserOnline(chat.selectedConversation!.idOtherUser)
                             ? VcomColors.success
                             : VcomColors.blancoCrema.withOpacity(0.5),
                       ),
@@ -528,7 +582,7 @@ class _ChatPageState extends State<ChatPage> {
                     Icons.image,
                     color: VcomColors.oroLujoso,
                   ),
-                  onPressed: () => _sendMedia(chat, isVideo: false),
+                  onPressed: () => _showImageSourceDialog(chat),
                 ),
                 // Botón para adjuntar video
                 IconButton(
@@ -536,7 +590,7 @@ class _ChatPageState extends State<ChatPage> {
                     Icons.videocam,
                     color: VcomColors.oroLujoso,
                   ),
-                  onPressed: () => _sendMedia(chat, isVideo: true),
+                  onPressed: () => _showVideoSourceDialog(chat),
                 ),
                 Expanded(
                 child: TextField(
@@ -637,8 +691,96 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  /// Muestra diálogo para elegir entre galería o cámara (IMAGEN)
+  Future<void> _showImageSourceDialog(ChatComponent chat) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: VcomColors.azulZafiroProfundo,
+        title: Text(
+          'Seleccionar imagen',
+          style: TextStyle(color: VcomColors.blancoCrema),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Opción Galería
+            ListTile(
+              leading: Icon(Icons.photo_library, color: VcomColors.oroLujoso),
+              title: Text(
+                'Galería',
+                style: TextStyle(color: VcomColors.blancoCrema),
+              ),
+              onTap: () => Navigator.of(context).pop(false),
+            ),
+            const SizedBox(height: 8),
+            // Opción Cámara
+            ListTile(
+              leading: Icon(Icons.camera_alt, color: VcomColors.oroLujoso),
+              title: Text(
+                'Cámara',
+                style: TextStyle(color: VcomColors.blancoCrema),
+              ),
+              onTap: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null) {
+      await _sendMedia(chat, isVideo: false, fromCamera: result);
+    }
+  }
+
+  /// Muestra diálogo para elegir entre galería o cámara (VIDEO)
+  Future<void> _showVideoSourceDialog(ChatComponent chat) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: VcomColors.azulZafiroProfundo,
+        title: Text(
+          'Seleccionar video',
+          style: TextStyle(color: VcomColors.blancoCrema),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Opción Galería
+            ListTile(
+              leading: Icon(Icons.video_library, color: VcomColors.oroLujoso),
+              title: Text(
+                'Galería',
+                style: TextStyle(color: VcomColors.blancoCrema),
+              ),
+              onTap: () => Navigator.of(context).pop(false),
+            ),
+            const SizedBox(height: 8),
+            // Opción Grabar
+            ListTile(
+              leading: Icon(Icons.videocam, color: VcomColors.oroLujoso),
+              title: Text(
+                'Grabar video',
+                style: TextStyle(color: VcomColors.blancoCrema),
+              ),
+              onTap: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null) {
+      await _sendMedia(chat, isVideo: true, fromCamera: result);
+    }
+  }
+
   /// Envía un archivo multimedia (imagen o video)
-  Future<void> _sendMedia(ChatComponent chat, {required bool isVideo}) async {
+  Future<void> _sendMedia(
+    ChatComponent chat, {
+    required bool isVideo,
+    bool fromCamera = false,
+  }) async {
     final mediaService = MediaUploadService();
 
     try {
@@ -669,9 +811,9 @@ class _ChatPageState extends State<ChatPage> {
       // Seleccionar y subir el archivo
       String? fileUrl;
       if (isVideo) {
-        fileUrl = await mediaService.selectAndUploadVideo();
+        fileUrl = await mediaService.selectAndUploadVideo(fromCamera: fromCamera);
       } else {
-        fileUrl = await mediaService.selectAndUploadImage();
+        fileUrl = await mediaService.selectAndUploadImage(fromCamera: fromCamera);
       }
 
       // Cerrar diálogo de carga
@@ -719,6 +861,90 @@ class _ChatPageState extends State<ChatPage> {
         ),
       );
     }
+  }
+
+  /// Construye el preview del último mensaje con iconos para multimedia
+  Widget _buildLastMessagePreview(dynamic conversation) {
+    if (conversation.lastMessage == null || conversation.lastMessage.isEmpty) {
+      return Text(
+        'Sin mensajes',
+        style: TextStyle(
+          color: VcomColors.blancoCrema.withOpacity(0.5),
+          fontStyle: FontStyle.italic,
+          fontSize: 13,
+        ),
+      );
+    }
+
+    // Detectar si es una URL de imagen o video
+    final message = conversation.lastMessage as String;
+    final isImage = message.contains('/images/') || 
+                    message.endsWith('.jpg') || 
+                    message.endsWith('.jpeg') || 
+                    message.endsWith('.png') ||
+                    message.endsWith('.gif') ||
+                    message.endsWith('.webp');
+    
+    final isVideo = message.contains('/videos/') || 
+                    message.endsWith('.mp4') || 
+                    message.endsWith('.mov') ||
+                    message.endsWith('.avi');
+
+    if (isImage) {
+      return Row(
+        children: [
+          Icon(
+            Icons.image,
+            size: 16,
+            color: VcomColors.oroLujoso.withOpacity(0.7),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Imagen',
+            style: TextStyle(
+              color: VcomColors.blancoCrema.withOpacity(0.6),
+              fontSize: 13,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (isVideo) {
+      return Row(
+        children: [
+          Icon(
+            Icons.videocam,
+            size: 16,
+            color: VcomColors.oroLujoso.withOpacity(0.7),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Video',
+            style: TextStyle(
+              color: VcomColors.blancoCrema.withOpacity(0.6),
+              fontSize: 13,
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Mensaje de texto normal
+    return Text(
+      message,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: conversation.unreadCount > 0
+            ? VcomColors.blancoCrema.withOpacity(0.9)  // Más visible si no leído
+            : VcomColors.blancoCrema.withOpacity(0.6),
+        fontSize: 13,
+        fontWeight: conversation.unreadCount > 0 
+            ? FontWeight.w500  // Más peso si no leído
+            : FontWeight.normal,
+      ),
+    );
   }
 
   String _formatTime(DateTime? dateTime) {

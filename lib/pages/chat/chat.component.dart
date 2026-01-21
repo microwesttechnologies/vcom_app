@@ -7,12 +7,14 @@ import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/models/chat/conversation.model.dart';
 import 'package:vcom_app/core/models/chat/message.model.dart';
 import 'package:vcom_app/core/realtime/pusher_direct.service.dart';
+import 'package:vcom_app/core/realtime/presence.service.dart';
 
 /// ChatComponent usando Pusher directo
 /// Basado en la app de prueba que funciona
 class ChatComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
   final PusherDirectService _pusher = PusherDirectService();
+  final PresenceService _presence = PresenceService();
 
   // Estado
   List<ConversationModel> _conversations = [];
@@ -60,15 +62,18 @@ class ChatComponent extends ChangeNotifier {
       print('🚀 Rol: $role');
       print('🚀 ========================================');
 
-      // 1. Cargar conversaciones desde el backend
+      // 1. Inicializar Pusher con callback unificado
+      await _pusher.init(onMessage: _handleUnifiedPusherMessage);
+
+      // 2. Inicializar y activar el servicio de presencia (usa el mismo Pusher)
+      await _presence.initialize();
+      await _presence.activate();
+      
+      // 3. Escuchar cambios de estado de presencia
+      _presence.addListener(_onPresenceChanged);
+
+      // 4. Cargar conversaciones desde el backend
       await fetchConversations();
-
-      // 2. Inicializar Pusher
-      await _pusher.init(onMessage: _onPusherMessage);
-
-      // 3. Marcar como online y suscribirse al canal de presencia
-      await _setOnlineStatus();
-      await _subscribeToPresenceChannel();
 
       print('✅ Chat inicializado correctamente');
     } catch (e) {
@@ -80,80 +85,74 @@ class ChatComponent extends ChangeNotifier {
     }
   }
 
-  /// Marcar usuario como online (backend + Pusher)
-  Future<void> _setOnlineStatus() async {
-    try {
-      // 1. Actualizar en el backend para persistencia
-      final url = Uri.parse('${EnvironmentDev.baseUrl}/api/v1/chat/status/online');
-      await http.post(url, headers: _headers()).timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {
-          print('⚠️ Timeout al marcar online en backend');
-          return http.Response('Timeout', 408);
-        },
-      );
-      print('✅ Estado online actualizado en backend');
-
-      // 2. Emitir a Pusher para tiempo real (fire-and-forget)
-      _pusher.sendMessage(
-        channelName: 'users.status',
-        eventName: 'user.status.changed',
-        data: {
-          'type': 'user.status.changed',
-          'user_id': _currentUserId,
-          'user_name': _userName,
-          'is_online': true,
-        },
-      ).catchError((e) {
-        print('⚠️ Error al enviar estado online a Pusher: $e');
-      });
-      print('✅ Estado online enviado a Pusher');
-    } catch (e) {
-      print('⚠️ Error marcando como online: $e');
+  /// Callback unificado para todos los mensajes de Pusher
+  /// Distribuye eventos a PresenceService y al handler local
+  void _handleUnifiedPusherMessage(Map<String, dynamic> data) {
+    print('📨 ========================================');
+    print('📨 [UNIFIED] MENSAJE RECIBIDO DE PUSHER');
+    print('📨 Tipo: ${data['type']}');
+    print('📨 User ID: ${data['user_id']}');
+    print('📨 User Name: ${data['user_name']}');
+    print('📨 Is Online: ${data['is_online']}');
+    print('📨 ========================================');
+    
+    final type = data['type'] as String?;
+    
+    // Los eventos de estado los maneja PresenceService
+    if (type == 'user.status.changed') {
+      print('👤 [UNIFIED] ➡️ Delegando al PresenceService');
+      _presence.handlePresenceEvent(data);
+      return;
     }
+    
+    // Otros eventos los maneja ChatComponent
+    print('💬 [UNIFIED] ➡️ Procesando en ChatComponent');
+    _onPusherMessage(data);
   }
 
-  /// Marcar usuario como offline (backend + Pusher)
-  Future<void> _setOfflineStatus() async {
-    try {
-      // 1. Actualizar en el backend para persistencia
-      final url = Uri.parse('${EnvironmentDev.baseUrl}/api/v1/chat/status/offline');
-      await http.post(url, headers: _headers()).timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {
-          print('⚠️ Timeout al marcar offline en backend');
-          return http.Response('Timeout', 408);
-        },
+  /// Maneja cambios de estado de presencia
+  void _onPresenceChanged() {
+    print('🔄 ========================================');
+    print('🔄 _onPresenceChanged() LLAMADO');
+    print('🔄 Actualizando ${_conversations.length} conversaciones');
+    print('🔄 ========================================');
+    
+    // Actualizar el estado de las conversaciones
+    _conversations = _conversations.map((conv) {
+      print('👤 Procesando conversación:');
+      print('   📝 Nombre: ${conv.otherUserName}');
+      print('   🔑 ID: ${conv.idOtherUser}');
+      print('   📊 Estado anterior: ${conv.userStatus}');
+      
+      final isOnline = _presence.isUserOnline(conv.idOtherUser);
+      final newStatus = isOnline ? 'online' : 'offline';
+      
+      print('   ✨ Estado nuevo: $newStatus');
+      print('   ---');
+      
+      return conv.copyWith(
+        userStatus: newStatus,
       );
-      print('✅ Estado offline actualizado en backend');
+    }).toList();
 
-      // 2. Emitir a Pusher para tiempo real (fire-and-forget)
-      _pusher.sendMessage(
-        channelName: 'users.status',
-        eventName: 'user.status.changed',
-        data: {
-          'type': 'user.status.changed',
-          'user_id': _currentUserId,
-          'user_name': _userName,
-          'is_online': false,
-        },
-      ).catchError((e) {
-        print('⚠️ Error al enviar estado offline a Pusher: $e');
-      });
-      print('✅ Estado offline enviado a Pusher');
-    } catch (e) {
-      print('⚠️ Error marcando como offline: $e');
+    // Si hay una conversación seleccionada, actualizarla también
+    if (_selectedConversation != null) {
+      print('💬 Actualizando conversación seleccionada:');
+      print('   📝 Nombre: ${_selectedConversation!.otherUserName}');
+      print('   🔑 ID: ${_selectedConversation!.idOtherUser}');
+      
+      final isOnline = _presence.isUserOnline(_selectedConversation!.idOtherUser);
+      _selectedConversation = _selectedConversation!.copyWith(
+        userStatus: isOnline ? 'online' : 'offline',
+      );
+      
+      print('   ✨ Estado: ${isOnline ? "ONLINE" : "OFFLINE"}');
     }
-  }
 
-  /// Suscribirse al canal de estado de usuarios
-  Future<void> _subscribeToPresenceChannel() async {
-    try {
-      await _pusher.subscribe('users.status');
-      print('✅ Suscrito al canal de estado de usuarios');
-    } catch (e) {
-      print('⚠️ Error suscribiéndose al canal de estado: $e');
-    }
+    print('✅ ========================================');
+    print('✅ Llamando notifyListeners()');
+    print('✅ ========================================');
+    notifyListeners();
   }
 
   /// Obtiene las conversaciones desde el backend
@@ -176,14 +175,34 @@ class ChatComponent extends ChangeNotifier {
         print('📋 Lista de conversaciones raw: ${list.length} items');
         
         _conversations = [];
+        final userIds = <String>[];
+        
         for (var e in list) {
           try {
             final conv = ConversationModel.fromJson(e);
             _conversations.add(conv);
+            
+            // Recolectar IDs de usuarios para sincronizar estado
+            if (conv.idOtherUser.isNotEmpty) {
+              userIds.add(conv.idOtherUser);
+            }
           } catch (e) {
             print('⚠️ Error parseando conversación: $e');
           }
         }
+
+        // Sincronizar estados de usuarios con el servicio de presencia
+        if (userIds.isNotEmpty) {
+          await _presence.syncUserStates(userIds);
+        }
+
+        // Actualizar estados de conversaciones con datos de presencia
+        _conversations = _conversations.map((conv) {
+          final isOnline = _presence.isUserOnline(conv.idOtherUser);
+          return conv.copyWith(
+            userStatus: isOnline ? 'online' : 'offline',
+          );
+        }).toList();
 
         print('✅ Conversaciones obtenidas: ${_conversations.length}');
         _error = null;
@@ -482,39 +501,7 @@ class ChatComponent extends ChangeNotifier {
         return;
       }
 
-      // Manejar cambios de estado de usuario (online/offline)
-      if (type == 'user.status.changed') {
-        final userId = data['user_id'] as String?;
-        final isOnline = data['is_online'] == true;
-        
-        // Ignorar eventos de estado del usuario actual
-        if (userId == _currentUserId) {
-          print('👤 Ignorando cambio de estado propio');
-          return;
-        }
-        
-        print('👤 Cambio de estado: Usuario $userId -> ${isOnline ? "online" : "offline"}');
-        
-        // Actualizar estado en todas las conversaciones
-        _conversations = _conversations.map((c) {
-          if (c.idOtherUser == userId) {
-            return c.copyWith(
-              userStatus: isOnline ? 'online' : 'offline',
-            );
-          }
-          return c;
-        }).toList();
-
-        // Si es la conversación seleccionada, actualizarla también
-        if (_selectedConversation?.idOtherUser == userId) {
-          _selectedConversation = _selectedConversation!.copyWith(
-            userStatus: isOnline ? 'online' : 'offline',
-          );
-        }
-
-        notifyListeners();
-        return;
-      }
+      // Nota: Los eventos de estado ya fueron filtrados en _handleUnifiedPusherMessage
 
       // Parsear el mensaje
       final message = MessageModel.fromJson(
@@ -585,6 +572,44 @@ class ChatComponent extends ChangeNotifier {
     }
   }
 
+  /// Marca los mensajes de una conversación como leídos
+  Future<void> markMessagesAsRead(int conversationId) async {
+    try {
+      print('📖 Marcando mensajes como leídos: conversación $conversationId');
+      
+      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.chatMarkAsRead(conversationId)}');
+      
+      final response = await http.post(
+        url,
+        headers: _headers(),
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        print('✅ Mensajes marcados como leídos');
+        
+        // Actualizar el contador local de no leídos
+        _conversations = _conversations.map((conv) {
+          if (conv.idConversation == conversationId) {
+            return conv.copyWith(unreadCount: 0);
+          }
+          return conv;
+        }).toList();
+        
+        // Si es la conversación seleccionada, actualizarla también
+        if (_selectedConversation?.idConversation == conversationId) {
+          _selectedConversation = _selectedConversation!.copyWith(unreadCount: 0);
+        }
+        
+        notifyListeners();
+      } else {
+        print('⚠️ Error marcando mensajes como leídos: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error marcando mensajes como leídos: $e');
+      // No es crítico, continuar
+    }
+  }
+
   /// Emitir evento de typing start
   void emitTypingStart() {
     if (_selectedConversation?.idConversation == null) return;
@@ -623,19 +648,21 @@ class ChatComponent extends ChangeNotifier {
 
   @override
   void dispose() {
-    // Marcar como offline al salir del chat (fire-and-forget)
-    _setOfflineStatus().catchError((e) {
-      print('⚠️ Error en dispose al marcar offline: $e');
+    // Remover listener de presencia
+    _presence.removeListener(_onPresenceChanged);
+    
+    // Desactivar presencia (marca como offline)
+    _presence.deactivate().catchError((e) {
+      print('⚠️ Error en dispose al desactivar presencia: $e');
     });
-    _pusher.disconnect();
+    
     super.dispose();
   }
   
   /// Método público para desconectar explícitamente
   Future<void> disconnect() async {
-    // Marcar como offline y desconectar
-    await _setOfflineStatus();
-    _pusher.disconnect();
+    // Desactivar presencia y desconectar
+    await _presence.deactivate();
   }
 }
 
