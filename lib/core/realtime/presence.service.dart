@@ -1,11 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
-import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/realtime/pusher_direct.service.dart';
+import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 
 /// Servicio de presencia reutilizable para gestionar el estado online/offline
 /// de los usuarios en tiempo real.
@@ -32,14 +29,12 @@ class PresenceService extends ChangeNotifier {
   bool _isActive = false;
   String? _currentUserId;
   String? _currentUserName;
-  Timer? _heartbeatTimer;
 
   /// Getter público para saber si está activo
   bool get isActive => _isActive;
   
   // Configuración
-  static const _heartbeatInterval = Duration(seconds: 30);
-  static const _offlineThreshold = Duration(minutes: 2);
+  static const _presenceChannel = 'presence-users.status';
 
   /// Obtiene el estado de un usuario específico
   UserPresenceState? getUserState(String userId) {
@@ -53,15 +48,8 @@ class PresenceService extends ChangeNotifier {
       print('⚠️ [PresenceService] isUserOnline($userId): No hay estado en memoria');
       return false;
     }
-    
-    // Verificar si el estado es reciente
-    final now = DateTime.now();
-    final diff = now.difference(state.lastSeen);
-    final isOnline = state.isOnline && diff < _offlineThreshold;
-    
-    print('👤 [PresenceService] isUserOnline($userId): $isOnline (state.isOnline=${state.isOnline}, diff=${diff.inSeconds}s)');
-    
-    return isOnline;
+
+    return state.isOnline;
   }
 
   /// Obtiene el texto del estado de un usuario
@@ -107,11 +95,18 @@ class PresenceService extends ChangeNotifier {
     print('👤 ========================================');
 
     try {
-      // NOTA: No inicializamos Pusher aquí porque ChatComponent ya lo hace
-      // con un callback unificado que delega a este servicio
-      
+      // Inicializar Pusher con un callback vacío si aún no está listo.
+      // El ChatComponent podrá reemplazar el callback luego.
+      await _pusher.init(onMessage: (_) {});
+
       // Suscribirse al canal de presencia
-      await _pusher.subscribe('users.status');
+      await _pusher.subscribe(
+        _presenceChannel,
+        keepExisting: true,
+        onSubscriptionSucceeded: _handleSubscriptionSucceeded,
+        onMemberAdded: _handleMemberAdded,
+        onMemberRemoved: _handleMemberRemoved,
+      );
 
       _isInitialized = true;
       print('✅ PresenceService inicializado correctamente');
@@ -133,20 +128,8 @@ class PresenceService extends ChangeNotifier {
     }
 
     print('🟢 Activando PresenceService...');
-
-    try {
-      // Marcar como online
-      await _setOnline();
-
-      // Iniciar heartbeat
-      _startHeartbeat();
-
-      _isActive = true;
-      print('✅ PresenceService activado');
-    } catch (e) {
-      print('❌ Error activando PresenceService: $e');
-      rethrow;
-    }
+    _isActive = true;
+    print('✅ PresenceService activado');
   }
 
   /// Desactiva el servicio (marca como offline y detiene heartbeat)
@@ -159,11 +142,7 @@ class PresenceService extends ChangeNotifier {
     print('🔴 Desactivando PresenceService...');
 
     try {
-      // Detener heartbeat
-      _stopHeartbeat();
-
-      // Marcar como offline
-      await _setOffline();
+      await _pusher.unsubscribe(_presenceChannel);
 
       _isActive = false;
       print('✅ PresenceService desactivado');
@@ -173,286 +152,94 @@ class PresenceService extends ChangeNotifier {
     }
   }
 
-  /// Marca al usuario actual como online
-  Future<void> _setOnline() async {
-    if (_currentUserId == null) return;
-
+  void _handleSubscriptionSucceeded(dynamic data) {
     try {
-      print('🟢 ========================================');
-      print('🟢 MARCANDO COMO ONLINE');
-      print('🟢 🔑 ID Usuario: $_currentUserId');
-      print('🟢 📝 Nombre Usuario: $_currentUserName');
-      print('🟢 ========================================');
+      final decoded = data is Map ? data : {};
+      final presence = decoded['presence'] as Map?;
+      final hash = presence?['hash'] as Map?;
 
-      // 1. Actualizar en el backend
-      final url = Uri.parse('${EnvironmentDev.baseUrl}/api/v1/chat/status/online');
-      final token = _tokenService.getToken();
-      
-      print('🟢 Enviando a backend: $url');
-      
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      ).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          print('⚠️ Timeout al marcar online en backend');
-          return http.Response('Timeout', 408);
-        },
-      );
+      if (hash == null) return;
 
-      if (response.statusCode == 200) {
-        print('✅ Backend: Usuario marcado como online');
-        print('✅ Response: ${response.body}');
-        
-        // Verificar que el backend devuelva el usuario correcto
-        try {
-          final responseData = jsonDecode(response.body);
-          if (responseData['user_id'] != null && responseData['user_id'] != _currentUserId) {
-            print('🚨 ¡ALERTA! El backend devolvió un ID diferente:');
-            print('🚨 ID esperado: $_currentUserId');
-            print('🚨 ID recibido: ${responseData['user_id']}');
-          }
-          if (responseData['user_name'] != null && responseData['user_name'] != _currentUserName) {
-            print('🚨 ¡ALERTA! El backend devolvió un nombre diferente:');
-            print('🚨 Nombre esperado: $_currentUserName');
-            print('🚨 Nombre recibido: ${responseData['user_name']}');
-          }
-        } catch (e) {
-          // Si no hay datos de verificación en la respuesta, continuar
-        }
-      } else {
-        print('❌ Backend error: ${response.statusCode}');
-        print('❌ Response: ${response.body}');
-      }
+      hash.forEach((userId, userInfo) {
+        _upsertUserState(
+          userId: userId.toString(),
+          userInfo: userInfo,
+          isOnline: true,
+        );
+      });
 
-      // 2. Actualizar estado local
-      _userStates[_currentUserId!] = UserPresenceState(
-        userId: _currentUserId!,
-        userName: _currentUserName!,
-        isOnline: true,
-        lastSeen: DateTime.now(),
-      );
-      
-      print('✅ Estado local actualizado para: $_currentUserId');
-
-      // 3. Emitir a Pusher
-      final pusherData = {
-        'type': 'user.status.changed',
-        'user_id': _currentUserId,
-        'user_name': _currentUserName,
-        'is_online': true,
-        'last_seen': DateTime.now().toIso8601String(),
-      };
-      
-      print('📤 Emitiendo a Pusher:');
-      print('📤 Canal: users.status');
-      print('📤 Data: $pusherData');
-      
-      await _pusher.sendMessage(
-        channelName: 'users.status',
-        eventName: 'user.status.changed',
-        data: pusherData,
-      );
-
-      print('✅ Usuario marcado como online');
       notifyListeners();
     } catch (e) {
-      print('⚠️ Error marcando como online: $e');
+      print('⚠️ Error procesando subscription_succeeded: $e');
     }
   }
 
-  /// Marca al usuario actual como offline
-  Future<void> _setOffline() async {
-    if (_currentUserId == null) return;
-
-    try {
-      print('🔴 Marcando como offline...');
-
-      // 1. Actualizar en el backend
-      final url = Uri.parse('${EnvironmentDev.baseUrl}/api/v1/chat/status/offline');
-      final token = _tokenService.getToken();
-      
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      ).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          print('⚠️ Timeout al marcar offline en backend');
-          return http.Response('Timeout', 408);
-        },
-      );
-
-      if (response.statusCode == 200) {
-        print('✅ Backend: Usuario marcado como offline');
-      }
-
-      // 2. Actualizar estado local
-      _userStates[_currentUserId!] = UserPresenceState(
-        userId: _currentUserId!,
-        userName: _currentUserName!,
-        isOnline: false,
-        lastSeen: DateTime.now(),
-      );
-
-      // 3. Emitir a Pusher
-      await _pusher.sendMessage(
-        channelName: 'users.status',
-        eventName: 'user.status.changed',
-        data: {
-          'type': 'user.status.changed',
-          'user_id': _currentUserId,
-          'user_name': _currentUserName,
-          'is_online': false,
-          'last_seen': DateTime.now().toIso8601String(),
-        },
-      );
-
-      print('✅ Usuario marcado como offline');
-      notifyListeners();
-    } catch (e) {
-      print('⚠️ Error marcando como offline: $e');
-    }
+  void _handleMemberAdded(PusherMember member) {
+    if (member.userId == _currentUserId) return;
+    _upsertUserState(
+      userId: member.userId,
+      userInfo: member.userInfo,
+      isOnline: true,
+    );
+    notifyListeners();
   }
 
-  /// Inicia el heartbeat para mantener el estado online
-  void _startHeartbeat() {
-    _stopHeartbeat(); // Asegurar que no hay timer anterior
-    
-    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (timer) {
-      if (_isActive && _currentUserId != null) {
-        print('💓 Heartbeat...');
-        _setOnline().catchError((e) {
-          print('⚠️ Error en heartbeat: $e');
-        });
-      }
-    });
-
-    print('💓 Heartbeat iniciado (cada $_heartbeatInterval)');
+  void _handleMemberRemoved(PusherMember member) {
+    if (member.userId == _currentUserId) return;
+    _upsertUserState(
+      userId: member.userId,
+      userInfo: member.userInfo,
+      isOnline: false,
+    );
+    notifyListeners();
   }
 
-  /// Detiene el heartbeat
-  void _stopHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = null;
-    print('💓 Heartbeat detenido');
-  }
+  void _upsertUserState({
+    required String userId,
+    required dynamic userInfo,
+    required bool isOnline,
+  }) {
+    final userName = _extractUserName(userInfo);
+    _userStates[userId] = UserPresenceState(
+      userId: userId,
+      userName: userName ?? userId,
+      isOnline: isOnline,
+      lastSeen: DateTime.now(),
+    );
 
-  /// Maneja eventos de presencia de Pusher
-  /// NOTA: Este método es público para permitir delegación desde ChatComponent
-  void handlePresenceEvent(Map<String, dynamic> data) {
-    try {
-      print('👤 [PresenceService] handlePresenceEvent llamado');
-      print('👤 [PresenceService] Data: $data');
-      
-      final type = data['type'] as String?;
-
-      // Solo procesar eventos de cambio de estado
-      if (type != 'user.status.changed') {
-        print('⚠️ [PresenceService] Tipo incorrecto: $type');
-        return;
-      }
-
-      final userId = data['user_id'] as String?;
-      final userName = data['user_name'] as String?;
-      final isOnline = data['is_online'] as bool?;
-      final lastSeenStr = data['last_seen'] as String?;
-
-      if (userId == null || userName == null || isOnline == null) {
-        print('⚠️ [PresenceService] Evento de presencia incompleto');
-        return;
-      }
-
-      // Ignorar eventos del usuario actual
-      if (userId == _currentUserId) {
-        print('👤 [PresenceService] Ignorando evento propio');
-        return;
-      }
-
-      print('👤 [PresenceService] Cambio de estado: $userName ($userId) -> ${isOnline ? "ONLINE" : "OFFLINE"}');
-
-      // Actualizar estado local
-      _userStates[userId] = UserPresenceState(
-        userId: userId,
-        userName: userName,
+    // Si el backend envía el UUID dentro de userInfo, mapearlo también.
+    final altId = _extractUserId(userInfo);
+    if (altId != null && altId != userId) {
+      _userStates[altId] = UserPresenceState(
+        userId: altId,
+        userName: userName ?? altId,
         isOnline: isOnline,
-        lastSeen: lastSeenStr != null 
-            ? DateTime.parse(lastSeenStr)
-            : DateTime.now(),
+        lastSeen: DateTime.now(),
       );
-
-      print('👤 [PresenceService] Estado actualizado en memoria');
-      print('👤 [PresenceService] Total usuarios en memoria: ${_userStates.length}');
-      print('👤 [PresenceService] Llamando notifyListeners()...');
-      
-      notifyListeners();
-      
-      print('✅ [PresenceService] notifyListeners() completado');
-    } catch (e, stackTrace) {
-      print('❌ [PresenceService] Error procesando evento de presencia: $e');
-      print('❌ [PresenceService] Stack: $stackTrace');
     }
   }
 
-  /// Sincroniza los estados de usuarios con el backend
-  Future<void> syncUserStates(List<String> userIds) async {
-    if (userIds.isEmpty) return;
-
-    try {
-      print('🔄 Sincronizando estados de ${userIds.length} usuarios...');
-
-      final url = Uri.parse('${EnvironmentDev.baseUrl}/api/v1/chat/users/status');
-      final token = _tokenService.getToken();
-
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'user_ids': userIds,
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> statuses = data['statuses'] ?? [];
-
-        for (var status in statuses) {
-          final userId = status['user_id']?.toString();
-          final userName = status['user_name'] as String?;
-          final isOnline = status['is_online'] as bool? ?? false;
-          final lastSeenStr = status['last_seen'] as String?;
-
-          if (userId != null && userName != null) {
-            _userStates[userId] = UserPresenceState(
-              userId: userId,
-              userName: userName,
-              isOnline: isOnline,
-              lastSeen: lastSeenStr != null
-                  ? DateTime.parse(lastSeenStr)
-                  : DateTime.now(),
-            );
-          }
-        }
-
-        print('✅ Estados sincronizados');
-        notifyListeners();
+  String? _extractUserName(dynamic userInfo) {
+    if (userInfo is Map) {
+      final name = userInfo['name'] ?? userInfo['user_name'] ?? userInfo['name_user'];
+      if (name is String && name.isNotEmpty) {
+        return name;
       }
-    } catch (e) {
-      print('⚠️ Error sincronizando estados: $e');
     }
+    if (userInfo is String && userInfo.isNotEmpty) {
+      return userInfo;
+    }
+    return null;
+  }
+
+  String? _extractUserId(dynamic userInfo) {
+    if (userInfo is Map) {
+      final id = userInfo['id_user'] ?? userInfo['id'] ?? userInfo['uuid'];
+      if (id != null) {
+        return id.toString();
+      }
+    }
+    return null;
   }
 
   /// Limpia el servicio
@@ -467,7 +254,6 @@ class PresenceService extends ChangeNotifier {
 
   @override
   void dispose() {
-    _stopHeartbeat();
     _userStates.clear();
     super.dispose();
   }

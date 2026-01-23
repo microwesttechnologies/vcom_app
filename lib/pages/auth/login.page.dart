@@ -5,6 +5,7 @@ import '../../components/commons/button.dart';
 import '../../components/commons/check.component.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 import '../dahsboard/dashboard.page.dart';
+import 'package:vcom_app/core/common/user_status.service.dart';
 
 /// Página de login
 class LoginPage extends StatefulWidget {
@@ -88,6 +89,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
     try {
       await _loginComponent.performLogin();
+
+      // Activar presencia global después de login exitoso
+      await UserStatusService().setOnline();
       
       // Cerrar el diálogo de carga
       if (mounted) {

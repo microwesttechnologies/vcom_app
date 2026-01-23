@@ -4,6 +4,7 @@ import 'package:vcom_app/style/vcom_colors.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/pages/auth/login.page.dart';
+import 'package:vcom_app/core/common/user_status.service.dart';
 
 /// Modelo para los items del sidebar
 class SidebarItem {
@@ -169,6 +170,7 @@ class SidebarComponent extends StatelessWidget {
             child: InkWell(
               onTap: () async {
                 final tokenService = TokenService();
+                final userStatusService = UserStatusService();
                 
                 // 1. Llamar al endpoint de logout del backend
                 try {
@@ -187,6 +189,7 @@ class SidebarComponent extends StatelessWidget {
                 }
                 
                 // 2. Limpiar el token y datos del usuario
+                await userStatusService.setOffline();
                 tokenService.clear();
                 
                 // 3. Cerrar el drawer
@@ -242,4 +245,3 @@ class SidebarComponent extends StatelessWidget {
     );
   }
 }
-

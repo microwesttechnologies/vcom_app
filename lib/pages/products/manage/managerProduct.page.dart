@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
@@ -259,8 +259,10 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Header
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
               'Gestión de Productos',
@@ -307,6 +309,8 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                           Expanded(
                             child: Text(
                               product.nameProduct ?? 'Sin nombre',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
@@ -373,9 +377,13 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                       ),
                       const SizedBox(height: 8),
                       // Precio, stock y estado
-                      Row(
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Flexible(
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 160),
                             child: Text(
                               '\$${product.priceCop?.toStringAsFixed(0) ?? '0'} COP',
                               style: TextStyle(
@@ -383,21 +391,17 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                                 fontWeight: FontWeight.w600,
                                 color: VcomColors.oroBrillante,
                               ),
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Flexible(
-                            child: Text(
-                              'Stock: ${product.stock ?? 0}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: VcomColors.blancoCrema.withOpacity(0.7),
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          Text(
+                            'Stock: ${product.stock ?? 0}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: VcomColors.blancoCrema.withOpacity(0.7),
                             ),
                           ),
-                          const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -430,4 +434,5 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
     );
   }
 }
+
 

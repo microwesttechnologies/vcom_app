@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
@@ -598,7 +598,7 @@ class _ShopPageState extends State<ShopPage> {
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.75,
+        childAspectRatio: 0.7,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
@@ -646,7 +646,7 @@ class _ShopPageState extends State<ShopPage> {
           children: [
             // Imagen del producto
             Expanded(
-              flex: isHorizontal ? 3 : 4,
+              flex: isHorizontal ? 3 : 3,
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -684,9 +684,9 @@ class _ShopPageState extends State<ShopPage> {
             
             // Información del producto
             Expanded(
-              flex: isHorizontal ? 2 : 3,
+              flex: isHorizontal ? 2 : 4,
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -698,7 +698,7 @@ class _ShopPageState extends State<ShopPage> {
                         fontWeight: FontWeight.w600,
                         color: VcomColors.blancoCrema,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     
@@ -712,28 +712,38 @@ class _ShopPageState extends State<ShopPage> {
                           fontSize: 12,
                           color: VcomColors.blancoCrema.withOpacity(0.7),
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     
                     const Spacer(),
                     
                     // Precio
-                    Text(
-                      _formatPrice(product.priceCop),
-                      style: TextStyle(
-                        fontSize: isHorizontal ? 16 : 18,
-                        fontWeight: FontWeight.bold,
-                        color: VcomColors.oroLujoso,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _formatPrice(product.priceCop),
+                        style: TextStyle(
+                          fontSize: isHorizontal ? 16 : 18,
+                          fontWeight: FontWeight.bold,
+                          color: VcomColors.oroLujoso,
+                        ),
                       ),
                     ),
                     
                     // Stock
                     if (product.stock <= 5)
-                      Text(
-                        'Solo ${product.stock} disponibles',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: VcomColors.oroBrillante,
-                          fontWeight: FontWeight.w500,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Solo ${product.stock} disponibles',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: VcomColors.oroBrillante,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                   ],
@@ -746,3 +756,5 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 }
+
+

@@ -161,7 +161,7 @@ class CardComponent extends StatelessWidget {
 
     Widget cardContent = Container(
       width: width,
-      height: effectiveHeight,
+      constraints: BoxConstraints(minHeight: effectiveHeight),
       padding: effectivePadding,
       decoration: BoxDecoration(
         color: effectiveBackgroundColor.withOpacity(opacity),
@@ -190,10 +190,12 @@ class CardComponent extends StatelessWidget {
             color: effectiveIconColor.withOpacity(opacity),
           ),
           SizedBox(width: _getIconSpacing()),
-          Expanded(
+          Flexible(
+            fit: FlexFit.loose,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   label,

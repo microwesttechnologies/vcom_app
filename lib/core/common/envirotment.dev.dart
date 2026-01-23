@@ -5,59 +5,47 @@ import 'package:flutter/foundation.dart';
 class EnvironmentDev {
   /// URL base del API para producción
   /// Backend en producción
-  //static const String baseUrl = 'https://vcamb.microwesttechnologies.com';
-  
+  static const String baseUrl = 'https://vcamb.microwesttechnologies.com';
+
   /// IP local para dispositivos físicos Android
   /// Cambia esta IP por la IP de tu máquina en la red WiFi
   /// Para encontrar tu IP: Windows (ipconfig) o Mac/Linux (ifconfig)
   /// Ejemplo: '192.168.1.100' (sin http:// ni puerto)
-  static const String localIpForPhysicalDevice = '192.168.1.2'; // ⚠️ CAMBIA ESTA IP
-  
+  static const String localIpForPhysicalDevice = baseUrl; // ⚠️ CAMBIA ESTA IP
+
   /// URL base del API - Detecta automáticamente la plataforma
-  /// 
+  ///
   /// - Android Emulator: usa 10.0.2.2 (alias especial del emulador para localhost)
   /// - Android Dispositivo Físico: usa localIpForPhysicalDevice (configurar arriba)
   /// - iOS Simulator: usa 127.0.0.1 (funciona directamente)
   /// - Web: usa 127.0.0.1
-  static String get baseUrl {
-    if (kIsWeb) {
-      // Para web, usar localhost directamente
-      return 'http://127.0.0.1:8000';
-    } else if (Platform.isAndroid) {
-      // Detectar automáticamente si es emulador o dispositivo físico
-      return _getAndroidUrl();
-      
-      // Configuración manual (descomenta si la detección automática falla):
-      // Para emulador: return 'http://10.0.2.2:8000';
-      // Para dispositivo físico: return 'http://$localIpForPhysicalDevice:8000';
-    } else if (Platform.isIOS) {
-      // Para iOS Simulator, usar localhost directamente
-      return 'http://127.0.0.1:8000';
-    } else {
-      // Para otras plataformas (Windows, Linux, macOS desktop)
-      return 'http://127.0.0.1:8000';
-    }
-  }
+  // static String get baseUrl {
+  //   return baseUrlProduction;
+  // }
 
   /// Detecta automáticamente si es emulador o dispositivo físico Android
   static String _getAndroidUrl() {
     try {
       // Detectar si es emulador usando características del sistema
       final isEmulator = _isAndroidEmulator();
-      
+
       if (isEmulator) {
         // Para emulador Android - usar la IP especial del emulador
         print('🤖 VCOM: Detectado Android Emulator - usando 10.0.2.2:8000');
         return 'http://10.0.2.2:8000';
       } else {
         // Para dispositivo físico Android - usar la IP local configurada (WiFi)
-        print('📱 VCOM: Detectado dispositivo físico Android - usando $localIpForPhysicalDevice:8000');
-        return 'http://$localIpForPhysicalDevice:8000';
+        print(
+          '📱 VCOM: Detectado dispositivo físico Android - usando $localIpForPhysicalDevice',
+        );
+        return '$localIpForPhysicalDevice';
       }
     } catch (e) {
       // Si hay error en la detección, usar IP local por defecto
-      print('⚠️ VCOM: Error detectando tipo de dispositivo, usando IP local: $e');
-      return 'http://$localIpForPhysicalDevice:8000';
+      print(
+        '⚠️ VCOM: Error detectando tipo de dispositivo, usando IP local: $e',
+      );
+      return '$localIpForPhysicalDevice';
     }
   }
 
@@ -66,32 +54,33 @@ class EnvironmentDev {
     try {
       // En Flutter, podemos usar kDebugMode y otras heurísticas
       // Los emuladores suelen tener características específicas
-      
+
       // Método simple: verificar si estamos en modo debug y usar heurísticas básicas
       if (kDebugMode) {
         // En desarrollo, podemos asumir patrones comunes
         // Los emuladores generalmente tienen menos memoria física
         // y características específicas del sistema
-        
+
         // Por ahora, usar una detección simple basada en el entorno
         // Si necesitas más precisión, puedes usar plugins como device_info_plus
-        
+
         // Heurística: si no podemos determinar con certeza, asumir dispositivo físico
         // para usar la IP local (más común en desarrollo)
         return false; // Asumir dispositivo físico para usar WiFi
       }
-      
+
       return false; // Por defecto, asumir dispositivo físico
     } catch (e) {
       // Si no podemos detectar, asumir que es dispositivo físico
       return false;
     }
   }
-  
+
   /// URL base estática para casos donde necesites una constante
   /// Por defecto usa la URL de producción
-  static const String baseUrlProduction = 'https://vcamb.microwesttechnologies.com';
-  
+  static const String baseUrlProduction =
+      'https://vcamb.microwesttechnologies.com';
+
   /// URL base para desarrollo local (cambiar manualmente si usas dispositivo físico)
   /// Para dispositivo físico Android, usa la IP de tu máquina en la red local
   /// Ejemplo: 'http://192.168.1.100:8000'
@@ -147,7 +136,8 @@ class EnvironmentDev {
   static String productsToggle(int id) => '/api/v1/products/$id/toggle';
 
   /// Subir imagen de producto
-  static String productsUploadImage(int productId) => '/api/v1/products/$productId/uploadImageProduct';
+  static String productsUploadImage(int productId) =>
+      '/api/v1/products/$productId/uploadImageProduct';
 
   // ============================================================================
   // CATEGORÍAS
@@ -181,7 +171,8 @@ class EnvironmentDev {
   static const String brandsCreate = '/api/v1/brands';
 
   /// Obtener marcas por categoría
-  static String brandsByCategory(int categoryId) => '/api/v1/brands/category/$categoryId';
+  static String brandsByCategory(int categoryId) =>
+      '/api/v1/brands/category/$categoryId';
 
   /// Obtener una marca por ID
   static String brandsGet(int id) => '/api/v1/brands/$id';
@@ -237,10 +228,12 @@ class EnvironmentDev {
   static String chatConversation(int id) => '/api/v1/chat/conversations/$id';
 
   /// Buscar conversación con otro usuario
-  static const String chatSearchConversation = '/api/v1/chat/search-conversation';
+  static const String chatSearchConversation =
+      '/api/v1/chat/search-conversation';
 
   /// Crear o obtener conversación con otro usuario
-  static const String chatCreateOrGetConversation = '/api/v1/chat/create-or-get-conversation';
+  static const String chatCreateOrGetConversation =
+      '/api/v1/chat/create-or-get-conversation';
 
   /// Obtener ID de usuario por nombre
   static const String chatGetUserByName = '/api/v1/chat/get-user-by-name';
@@ -252,13 +245,15 @@ class EnvironmentDev {
   static const String chatModels = '/api/v1/chat/models';
 
   /// Obtener mensajes de una conversación
-  static String chatMessages(int conversationId) => '/api/v1/chat/messages/$conversationId';
+  static String chatMessages(int conversationId) =>
+      '/api/v1/chat/messages/$conversationId';
 
   /// Enviar mensaje
   static const String chatSendMessage = '/api/v1/chat/messages';
 
   /// Marcar mensajes como leídos
-  static String chatMarkAsRead(int conversationId) => '/api/v1/chat/conversations/$conversationId/read';
+  static String chatMarkAsRead(int conversationId) =>
+      '/api/v1/chat/conversations/$conversationId/read';
 
   /// Marcar usuario como online
   static const String chatStatusOnline = '/api/v1/chat/status/online';
@@ -267,7 +262,8 @@ class EnvironmentDev {
   static const String chatStatusOffline = '/api/v1/chat/status/offline';
 
   /// Obtener estado de usuario
-  static String chatUserStatus(String userId) => '/api/v1/chat/users/$userId/status';
+  static String chatUserStatus(String userId) =>
+      '/api/v1/chat/users/$userId/status';
 
   /// Obtener estado de múltiples usuarios (batch)
   static const String chatUsersStatus = '/api/v1/chat/users/status';
@@ -280,7 +276,9 @@ class EnvironmentDev {
 
   /// WebSocket URL para chat en tiempo real
   static String get chatWebSocketUrl {
-    final url = baseUrl.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://');
+    final url = baseUrl
+        .replaceFirst('https://', 'wss://')
+        .replaceFirst('http://', 'ws://');
     return '$url/ws/chat';
   }
 }

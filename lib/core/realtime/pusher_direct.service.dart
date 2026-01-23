@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
+import 'package:vcom_app/core/common/envirotment.dev.dart';
+import 'package:vcom_app/core/common/token.service.dart';
 
 /// Servicio de Pusher directo (sin backend de Laravel Broadcasting)
 /// Basado en la app de prueba que funciona correctamente
@@ -10,11 +12,15 @@ class PusherDirectService {
   factory PusherDirectService() => _instance;
   PusherDirectService._internal();
 
+  final TokenService _tokenService = TokenService();
+
   // Credenciales de Pusher
   static const _pusherAppId = '2103188';
   static const _pusherKey = '3c8a9e21ae7de775c159';
   static const _pusherSecret = 'cb6a44d031d292dc8cd9';
   static const _pusherCluster = 'eu';
+  static const _authEndpointPath = '/api/v1/broadcasting/auth';
+  static const _authEndpointFallbackPath = '/broadcasting/auth';
 
   final _pusher = PusherChannelsFlutter.getInstance();
   
@@ -26,12 +32,13 @@ class PusherDirectService {
   Future<void> init({
     required void Function(Map<String, dynamic>) onMessage,
   }) async {
+    // Permitir actualizar el callback aunque ya esté inicializado
+    _onMessageCallback = onMessage;
+
     if (_initialized) {
       print('⚠️ Pusher ya está inicializado');
       return;
     }
-
-    _onMessageCallback = onMessage;
 
     print('📡 ========================================');
     print('📡 INICIALIZANDO PUSHER DIRECTO');
@@ -44,6 +51,7 @@ class PusherDirectService {
       await _pusher.init(
         apiKey: _pusherKey,
         cluster: _pusherCluster,
+        onAuthorizer: _authorize,
         onConnectionStateChange: (currentState, previousState) {
           print('🔌 Pusher: $previousState → $currentState');
           if (currentState == 'CONNECTED') {
@@ -71,8 +79,100 @@ class PusherDirectService {
     }
   }
 
+  Future<dynamic> _authorize(
+    String channelName,
+    String socketId,
+    dynamic options,
+  ) async {
+    try {
+      final token = _tokenService.getToken();
+      final response = await http.post(
+        Uri.parse('${EnvironmentDev.baseUrl}$_authEndpointPath'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: {
+          'socket_id': socketId,
+          'channel_name': channelName,
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return _sanitizeAuthResponse(response.body);
+      }
+
+      if (response.statusCode == 404) {
+        final fallbackResponse = await http.post(
+          Uri.parse('${EnvironmentDev.baseUrl}$_authEndpointFallbackPath'),
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+          body: {
+            'socket_id': socketId,
+            'channel_name': channelName,
+          },
+        ).timeout(const Duration(seconds: 10));
+
+        if (fallbackResponse.statusCode == 200) {
+          return _sanitizeAuthResponse(fallbackResponse.body);
+        }
+
+        print('❌ Error auth Pusher (fallback): ${fallbackResponse.statusCode}');
+        print('❌ Body: ${fallbackResponse.body}');
+        return {};
+      }
+
+      print('❌ Error auth Pusher: ${response.statusCode}');
+      print('❌ Body: ${response.body}');
+    } catch (e) {
+      print('❌ Error en authorizer: $e');
+    }
+
+    return {};
+  }
+
+  Map<String, dynamic> _sanitizeAuthResponse(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) {
+      return {};
+    }
+
+    final channelDataRaw = decoded['channel_data'];
+    if (channelDataRaw is String && channelDataRaw.isNotEmpty) {
+      try {
+        final channelData = jsonDecode(channelDataRaw);
+        if (channelData is Map<String, dynamic>) {
+          final userInfo = channelData['user_info'];
+          if (userInfo == true || userInfo == null) {
+            channelData['user_info'] = {
+              'name': _tokenService.getUserName(),
+              'id_user': _tokenService.getUserId(),
+            };
+            decoded['channel_data'] = jsonEncode(channelData);
+          }
+        }
+      } catch (_) {
+        // Si channel_data no es JSON válido, mantener la respuesta original.
+      }
+    }
+
+    return decoded;
+  }
+
   /// Se suscribe a un canal
-  Future<void> subscribe(String channelName) async {
+  Future<void> subscribe(
+    String channelName, {
+    bool keepExisting = false,
+    Function(dynamic data)? onSubscriptionSucceeded,
+    Function(PusherMember member)? onMemberAdded,
+    Function(PusherMember member)? onMemberRemoved,
+    Function(PusherEvent event)? onEvent,
+    Function(int subscriptionCount)? onSubscriptionCount,
+  }) async {
     if (!_initialized) {
       throw Exception('Pusher no está inicializado. Llama a init() primero.');
     }
@@ -84,7 +184,7 @@ class PusherDirectService {
     }
 
     // Desuscribirse del canal anterior si existe
-    if (_currentChannel != null) {
+    if (!keepExisting && _currentChannel != null) {
       try {
         await _pusher.unsubscribe(channelName: _currentChannel!);
         print('🔄 Desuscrito de: $_currentChannel');
@@ -99,8 +199,17 @@ class PusherDirectService {
     print('📡 ========================================');
 
     try {
-      await _pusher.subscribe(channelName: channelName);
-      _currentChannel = channelName;
+      await _pusher.subscribe(
+        channelName: channelName,
+        onSubscriptionSucceeded: onSubscriptionSucceeded,
+        onMemberAdded: onMemberAdded,
+        onMemberRemoved: onMemberRemoved,
+        onEvent: onEvent,
+        onSubscriptionCount: onSubscriptionCount,
+      );
+      if (!keepExisting) {
+        _currentChannel = channelName;
+      }
       
       print('✅ ========================================');
       print('✅ SUSCRITO EXITOSAMENTE');
@@ -110,7 +219,9 @@ class PusherDirectService {
       // Si ya está suscrito, ignorar el error
       if (e.toString().contains('Already subscribed')) {
         print('⚠️ Ya estaba suscrito, continuando...');
-        _currentChannel = channelName;
+        if (!keepExisting) {
+          _currentChannel = channelName;
+        }
       } else {
         print('❌ Error suscribiéndose: $e');
         rethrow;
@@ -258,6 +369,19 @@ class PusherDirectService {
       print('✅ Desconectado de Pusher');
     } catch (e) {
       print('⚠️ Error al desconectar: $e');
+    }
+  }
+
+  /// Desuscribe un canal específico
+  Future<void> unsubscribe(String channelName) async {
+    try {
+      await _pusher.unsubscribe(channelName: channelName);
+      if (_currentChannel == channelName) {
+        _currentChannel = null;
+      }
+      print('✅ Desuscrito de: $channelName');
+    } catch (e) {
+      print('⚠️ Error al desuscribirse de $channelName: $e');
     }
   }
 }

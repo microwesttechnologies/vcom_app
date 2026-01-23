@@ -86,27 +86,13 @@ class ChatComponent extends ChangeNotifier {
   }
 
   /// Callback unificado para todos los mensajes de Pusher
-  /// Distribuye eventos a PresenceService y al handler local
+  /// Distribuye eventos al handler local
   void _handleUnifiedPusherMessage(Map<String, dynamic> data) {
     print('📨 ========================================');
     print('📨 [UNIFIED] MENSAJE RECIBIDO DE PUSHER');
-    print('📨 Tipo: ${data['type']}');
-    print('📨 User ID: ${data['user_id']}');
-    print('📨 User Name: ${data['user_name']}');
-    print('📨 Is Online: ${data['is_online']}');
+    print('📨 Data: $data');
     print('📨 ========================================');
-    
-    final type = data['type'] as String?;
-    
-    // Los eventos de estado los maneja PresenceService
-    if (type == 'user.status.changed') {
-      print('👤 [UNIFIED] ➡️ Delegando al PresenceService');
-      _presence.handlePresenceEvent(data);
-      return;
-    }
-    
-    // Otros eventos los maneja ChatComponent
-    print('💬 [UNIFIED] ➡️ Procesando en ChatComponent');
+
     _onPusherMessage(data);
   }
 
@@ -175,25 +161,13 @@ class ChatComponent extends ChangeNotifier {
         print('📋 Lista de conversaciones raw: ${list.length} items');
         
         _conversations = [];
-        final userIds = <String>[];
-        
         for (var e in list) {
           try {
             final conv = ConversationModel.fromJson(e);
             _conversations.add(conv);
-            
-            // Recolectar IDs de usuarios para sincronizar estado
-            if (conv.idOtherUser.isNotEmpty) {
-              userIds.add(conv.idOtherUser);
-            }
           } catch (e) {
             print('⚠️ Error parseando conversación: $e');
           }
-        }
-
-        // Sincronizar estados de usuarios con el servicio de presencia
-        if (userIds.isNotEmpty) {
-          await _presence.syncUserStates(userIds);
         }
 
         // Actualizar estados de conversaciones con datos de presencia

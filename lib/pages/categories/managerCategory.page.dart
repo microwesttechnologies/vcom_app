@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
@@ -74,11 +74,11 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
       final category = CategoryModel(
         idCategory: _managerCategoryComponent.selectedCategory?.idCategory ?? 0,
         nameCategory: _nameController.text.trim(),
-        descriptionCategory: _descriptionController.text.trim().isEmpty 
-            ? null 
+        descriptionCategory: _descriptionController.text.trim().isEmpty
+            ? null
             : _descriptionController.text.trim(),
-        icon: _iconController.text.trim().isEmpty 
-            ? null 
+        icon: _iconController.text.trim().isEmpty
+            ? null
             : _iconController.text.trim(),
         stateCategory: _stateCategory,
       );
@@ -138,10 +138,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'Eliminar',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: Text('Eliminar', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -206,7 +203,9 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      category != null ? 'Editar Categoría' : 'Nueva Categoría',
+                      category != null
+                          ? 'Editar Categoría'
+                          : 'Nueva Categoría',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -469,9 +468,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: VcomColors.gradienteNocturno,
-        ),
+        decoration: const BoxDecoration(gradient: VcomColors.gradienteNocturno),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -486,24 +483,20 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
   }
 
   Widget _buildContent() {
-    if (_managerCategoryComponent.isLoading && _managerCategoryComponent.categories.isEmpty) {
+    if (_managerCategoryComponent.isLoading &&
+        _managerCategoryComponent.categories.isEmpty) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: VcomColors.oroLujoso,
-        ),
+        child: CircularProgressIndicator(color: VcomColors.oroLujoso),
       );
     }
 
-    if (_managerCategoryComponent.error != null && _managerCategoryComponent.categories.isEmpty) {
+    if (_managerCategoryComponent.error != null &&
+        _managerCategoryComponent.categories.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: VcomColors.error,
-            ),
+            Icon(Icons.error_outline, size: 64, color: VcomColors.error),
             const SizedBox(height: 16),
             Text(
               'Error al cargar categorías',
@@ -570,8 +563,10 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
               'Gestión de Categorías',
@@ -624,14 +619,23 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.edit, color: VcomColors.oroLujoso, size: 20),
+                            icon: const Icon(
+                              Icons.edit,
+                              color: VcomColors.oroLujoso,
+                              size: 20,
+                            ),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () => _showCategoryForm(category: category),
+                            onPressed: () =>
+                                _showCategoryForm(category: category),
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                            icon: const Icon(
+                              Icons.delete,
+                              color: Colors.red,
+                              size: 20,
+                            ),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () => _handleDelete(category.idCategory),
@@ -657,9 +661,14 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                                 category.icon!,
                                 style: const TextStyle(fontSize: 12),
                               ),
-                              backgroundColor: VcomColors.azulOverlayTransparente60,
-                              labelStyle: TextStyle(color: VcomColors.blancoCrema),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              backgroundColor:
+                                  VcomColors.azulOverlayTransparente60,
+                              labelStyle: TextStyle(
+                                color: VcomColors.blancoCrema,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                             ),
                           const Spacer(),
                           Container(
@@ -677,7 +686,9 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                               category.stateCategory ? 'Activo' : 'Inactivo',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: category.stateCategory ? Colors.green : Colors.red,
+                                color: category.stateCategory
+                                    ? Colors.green
+                                    : Colors.red,
                               ),
                             ),
                           ),

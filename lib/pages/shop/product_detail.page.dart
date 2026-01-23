@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
@@ -216,14 +216,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               color: widget.product.stock > 5 ? Colors.green : Colors.orange,
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              widget.product.stock > 5 
-                                  ? 'Disponible (${widget.product.stock} unidades)'
-                                  : 'Pocas unidades (${widget.product.stock} disponibles)',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: widget.product.stock > 5 ? Colors.green : Colors.orange,
+                            Expanded(
+                              child: Text(
+                                widget.product.stock > 5 
+                                    ? 'Disponible (${widget.product.stock} unidades)'
+                                    : 'Pocas unidades (${widget.product.stock} disponibles)',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: widget.product.stock > 5 ? Colors.green : Colors.orange,
+                                ),
                               ),
                             ),
                           ],
@@ -317,21 +321,23 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               children: [
                                 Icon(Icons.info_outline, color: VcomColors.oroLujoso, size: 20),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'Al consultar por WhatsApp recibirás:',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: VcomColors.blancoCrema,
+                                Expanded(
+                                  child: Text(
+                                    'Al consultar por WhatsApp recibirás:',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: VcomColors.blancoCrema,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 12),
-                            _buildInfoItem('• Información detallada del producto'),
-                            _buildInfoItem('• Disponibilidad actualizada'),
-                            _buildInfoItem('• Opciones de pago y envío'),
-                            _buildInfoItem('• Atención personalizada'),
+                            _buildInfoItem('�?� Información detallada del producto'),
+                            _buildInfoItem('�?� Disponibilidad actualizada'),
+                            _buildInfoItem('�?� Opciones de pago y envío'),
+                            _buildInfoItem('�?� Atención personalizada'),
                           ],
                         ),
                       ),
@@ -480,20 +486,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
+
   Widget _buildInfoItem(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 12,
-              color: VcomColors.blancoCrema.withOpacity(0.8),
-            ),
-          ),
-        ],
+      child: Text(
+        text,
+        softWrap: true,
+        style: TextStyle(
+          fontSize: 12,
+          color: VcomColors.blancoCrema.withOpacity(0.8),
+        ),
       ),
     );
   }
@@ -660,3 +663,4 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
   }
 }
+

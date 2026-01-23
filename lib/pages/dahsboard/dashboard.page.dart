@@ -143,7 +143,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (routeLower.contains('dashboard') || routeLower.contains('inicio')) {
       // Ya estamos en el dashboard
       return;
-    } else if (routeLower.contains('category') ||
+    } else if (routeLower.contains('categories') ||
         routeLower.contains('categoria')) {
       targetPage = const ManagerCategoryPage();
     } else if (routeLower.contains('brand') || routeLower.contains('marca')) {
