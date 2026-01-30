@@ -9,6 +9,7 @@ import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
+import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 /// Página del dashboard
@@ -157,6 +158,8 @@ class _DashboardPageState extends State<DashboardPage> {
       targetPage = const ShopPage();
     } else if (routeLower.contains('chat') || routeLower.contains('mensaje')) {
       targetPage = const ChatPage();
+    } else if (routeLower.contains('training') || routeLower.contains('entrenamiento')) {
+      targetPage = const TrainingPage();
     }
 
     if (targetPage != null) {

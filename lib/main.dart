@@ -4,6 +4,7 @@ import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
+import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 void main() {
@@ -62,6 +63,7 @@ Widget build(BuildContext context) {
       '/categories': (context) => const ManagerCategoryPage(),
       '/brands': (context) => const ManagerBrandPage(),
       '/shop': (context) => const ShopPage(),
+      '/training': (context) => const TrainingPage(),
     },
   );
 }

@@ -1,0 +1,167 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/common/envirotment.dev.dart';
+import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/models/video.model.dart';
+
+/// Componente de Training
+/// Maneja toda la lógica de videos y categorías de entrenamiento
+/// Requiere autenticación mediante token JWT
+class TrainingComponent extends ChangeNotifier {
+  // Estado
+  List<VideoModel> _videos = [];
+  List<VideoModel> _filteredVideos = [];
+  List<CategoryVideoModel> _categories = [];
+  bool _isLoading = false;
+  String? _error;
+  String _selectedFilter = 'Todos'; // 'Todos', 'Personal', 'Vivir bien'
+
+  // Getters
+  List<VideoModel> get videos => _filteredVideos;
+  List<VideoModel> get allVideos => _videos;
+  List<CategoryVideoModel> get categories => _categories;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+  String get selectedFilter => _selectedFilter;
+
+  /// Obtiene los headers con autenticación si el token está disponible
+  Map<String, String> _getHeaders() {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    
+    // Agregar token de autenticación si está disponible
+    final token = TokenService().getToken();
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    
+    return headers;
+  }
+
+  /// Inicializa el componente cargando videos
+  Future<void> initialize() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await fetchVideos();
+      _applyFilters();
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Obtiene todos los videos
+  Future<void> fetchVideos() async {
+    try {
+      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.videosList}');
+      final response = await http.get(url, headers: _getHeaders()).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Tiempo de espera agotado');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final dynamic jsonResponse = jsonDecode(response.body);
+        List<dynamic> jsonList;
+        
+        if (jsonResponse is List) {
+          jsonList = jsonResponse;
+        } else if (jsonResponse is Map<String, dynamic>) {
+          if (jsonResponse.containsKey('data')) {
+            jsonList = jsonResponse['data'] as List<dynamic>;
+          } else {
+            throw Exception('Formato de respuesta no válido');
+          }
+        } else {
+          throw Exception('Formato de respuesta no válido');
+        }
+        
+        _videos = jsonList
+            .map((json) => VideoModel.fromJson(json as Map<String, dynamic>))
+            .where((video) => video.stateVideo)
+            .toList();
+
+        // Extraer categorías únicas de los videos
+        final categoryMap = <int, CategoryVideoModel>{};
+        for (var video in _videos) {
+          if (video.categoryVideo != null) {
+            categoryMap[video.categoryVideo!.idCategoryVideo] = video.categoryVideo!;
+          }
+        }
+        _categories = categoryMap.values.toList();
+      } else {
+        throw Exception('Error al obtener videos: ${response.statusCode}');
+      }
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      rethrow;
+    }
+  }
+
+  /// Filtra videos por categoría
+  void filterByCategory(String filterName) {
+    _selectedFilter = filterName;
+    _applyFilters();
+    notifyListeners();
+  }
+
+  /// Aplica los filtros actuales
+  void _applyFilters() {
+    if (_selectedFilter == 'Todos') {
+      _filteredVideos = List.from(_videos);
+    } else {
+      _filteredVideos = _videos.where((video) {
+        return video.categoryVideo?.nameCategoryVideo == _selectedFilter;
+      }).toList();
+    }
+  }
+
+  /// Obtiene un video por ID
+  Future<VideoModel?> getVideoById(int id) async {
+    try {
+      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.videosGet(id)}');
+      final response = await http.get(url, headers: _getHeaders()).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Tiempo de espera agotado');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final dynamic jsonResponse = jsonDecode(response.body);
+        Map<String, dynamic> videoJson;
+        
+        if (jsonResponse is Map<String, dynamic>) {
+          if (jsonResponse.containsKey('data')) {
+            videoJson = jsonResponse['data'] as Map<String, dynamic>;
+          } else {
+            videoJson = jsonResponse;
+          }
+        } else {
+          throw Exception('Formato de respuesta no válido');
+        }
+        
+        return VideoModel.fromJson(videoJson);
+      } else {
+        throw Exception('Error al obtener video: ${response.statusCode}');
+      }
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      return null;
+    }
+  }
+
+  /// Recarga los videos
+  Future<void> refresh() async {
+    await initialize();
+  }
+}

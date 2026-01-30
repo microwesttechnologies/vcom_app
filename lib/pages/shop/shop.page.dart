@@ -10,6 +10,7 @@ import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
+import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/core/models/product.model.dart';
 import 'package:vcom_app/core/models/module.model.dart';
 import 'package:vcom_app/core/common/icon.helper.dart';
@@ -211,6 +212,8 @@ class _ShopPageState extends State<ShopPage> {
       targetPage = const ShopPage();
     } else if (route.contains('chat') || route.contains('mensaje')) {
       targetPage = const ChatPage();
+    } else if (route.contains('training') || route.contains('entrenamiento')) {
+      targetPage = const TrainingPage();
     }
 
     if (targetPage != null) {

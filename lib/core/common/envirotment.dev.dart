@@ -1,91 +1,10 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
-
 /// Configuración de ambiente de desarrollo
 class EnvironmentDev {
   /// URL base del API para producción
-  /// Backend en producción
-  static const String baseUrl = 'https://vcamb.microwesttechnologies.com';
-
-  /// IP local para dispositivos físicos Android
-  /// Cambia esta IP por la IP de tu máquina en la red WiFi
-  /// Para encontrar tu IP: Windows (ipconfig) o Mac/Linux (ifconfig)
-  /// Ejemplo: '192.168.1.100' (sin http:// ni puerto)
-  static const String localIpForPhysicalDevice = baseUrl; // ⚠️ CAMBIA ESTA IP
-
-  /// URL base del API - Detecta automáticamente la plataforma
-  ///
-  /// - Android Emulator: usa 10.0.2.2 (alias especial del emulador para localhost)
-  /// - Android Dispositivo Físico: usa localIpForPhysicalDevice (configurar arriba)
-  /// - iOS Simulator: usa 127.0.0.1 (funciona directamente)
-  /// - Web: usa 127.0.0.1
-  // static String get baseUrl {
-  //   return baseUrlProduction;
-  // }
-
-  /// Detecta automáticamente si es emulador o dispositivo físico Android
-  static String _getAndroidUrl() {
-    try {
-      // Detectar si es emulador usando características del sistema
-      final isEmulator = _isAndroidEmulator();
-
-      if (isEmulator) {
-        // Para emulador Android - usar la IP especial del emulador
-        print('🤖 VCOM: Detectado Android Emulator - usando 10.0.2.2:8000');
-        return 'http://10.0.2.2:8000';
-      } else {
-        // Para dispositivo físico Android - usar la IP local configurada (WiFi)
-        print(
-          '📱 VCOM: Detectado dispositivo físico Android - usando $localIpForPhysicalDevice',
-        );
-        return '$localIpForPhysicalDevice';
-      }
-    } catch (e) {
-      // Si hay error en la detección, usar IP local por defecto
-      print(
-        '⚠️ VCOM: Error detectando tipo de dispositivo, usando IP local: $e',
-      );
-      return '$localIpForPhysicalDevice';
-    }
-  }
-
-  /// Detecta si el dispositivo Android es un emulador
-  static bool _isAndroidEmulator() {
-    try {
-      // En Flutter, podemos usar kDebugMode y otras heurísticas
-      // Los emuladores suelen tener características específicas
-
-      // Método simple: verificar si estamos en modo debug y usar heurísticas básicas
-      if (kDebugMode) {
-        // En desarrollo, podemos asumir patrones comunes
-        // Los emuladores generalmente tienen menos memoria física
-        // y características específicas del sistema
-
-        // Por ahora, usar una detección simple basada en el entorno
-        // Si necesitas más precisión, puedes usar plugins como device_info_plus
-
-        // Heurística: si no podemos determinar con certeza, asumir dispositivo físico
-        // para usar la IP local (más común en desarrollo)
-        return false; // Asumir dispositivo físico para usar WiFi
-      }
-
-      return false; // Por defecto, asumir dispositivo físico
-    } catch (e) {
-      // Si no podemos detectar, asumir que es dispositivo físico
-      return false;
-    }
-  }
-
-  /// URL base estática para casos donde necesites una constante
-  /// Por defecto usa la URL de producción
-  static const String baseUrlProduction =
-      'https://vcamb.microwesttechnologies.com';
-
-  /// URL base para desarrollo local (cambiar manualmente si usas dispositivo físico)
-  /// Para dispositivo físico Android, usa la IP de tu máquina en la red local
-  /// Ejemplo: 'http://192.168.1.100:8000'
-  static const String baseUrlLocal = 'http://10.0.2.2:8000'; // Emulador Android
-  // static const String baseUrlLocal = 'http://192.168.1.100:8000'; // Dispositivo físico (cambiar IP)
+  static const String baseUrl = 'https://vcamb.microwesttechnologies.com'; // Producción
+  // static const String baseUrl = 'http://192.168.1.2:8000'; // IP local (desarrollo)
+  // static const String baseUrl = 'http://localhost:8000'; // Localhost (para web/desktop)
+  // static const String baseUrl = 'http://10.0.2.2:8000'; // Emulador Android
 
   // ============================================================================
   // AUTENTICACIÓN
@@ -281,4 +200,24 @@ class EnvironmentDev {
         .replaceFirst('http://', 'ws://');
     return '$url/ws/chat';
   }
+
+  // ============================================================================
+  // VIDEOS / TRAINING
+  // Endpoints para gestión de videos de entrenamiento
+  // ============================================================================
+
+  /// Listar todos los videos
+  static const String videosList = '/api/v1/videos';
+
+  /// Obtener un video por ID
+  static String videosGet(int id) => '/api/v1/videos/$id';
+
+  /// Crear un nuevo video
+  static const String videosCreate = '/api/v1/videos';
+
+  /// Actualizar un video
+  static String videosUpdate(int id) => '/api/v1/videos/$id';
+
+  /// Eliminar un video
+  static String videosDelete(int id) => '/api/v1/videos/$id';
 }
