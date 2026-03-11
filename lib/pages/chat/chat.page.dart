@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:vcom_app/components/shared/modelo_menubar.dart';
+import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/media_upload.service.dart';
 import 'package:vcom_app/core/realtime/presence.service.dart';
@@ -113,14 +115,29 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chat'),
-        backgroundColor: VcomColors.azulZafiroProfundo,
-        foregroundColor: VcomColors.oroLujoso,
-        elevation: 0,
+      backgroundColor: Colors.black,
+      appBar: const ModeloNavbar(),
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      bottomNavigationBar: const ModeloMenuBar(activeIndex: 5),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0.0, -0.8),
+            radius: 1.2,
+            colors: [
+              Color(0xFF273C67),
+              Color(0xFF1a2847),
+              Color(0xFF0d1525),
+              Color(0xFF000000),
+            ],
+            stops: [0.0, 0.35, 0.7, 1.0],
+          ),
+        ),
+        child: _buildBody(),
       ),
-      backgroundColor: VcomColors.azulNocheSombra,
-      body: _buildBody(),
     );
   }
 
@@ -319,6 +336,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: [
                 VcomColors.azulZafiroProfundo,
                 VcomColors.azulNocheSombra,

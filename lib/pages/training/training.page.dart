@@ -3,6 +3,8 @@ import 'package:vcom_app/pages/training/training.component.dart';
 import 'package:vcom_app/pages/training/video_player.page.dart';
 import 'package:vcom_app/core/models/video.model.dart';
 import 'package:vcom_app/components/shared/video_thumbnail.widget.dart';
+import 'package:vcom_app/components/shared/modelo_menubar.dart';
+import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 /// Página principal de Training
@@ -39,15 +41,30 @@ class _TrainingPageState extends State<TrainingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: VcomColors.azulZafiroProfundo,
+      backgroundColor: Colors.black,
+      appBar: const ModeloNavbar(),
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      bottomNavigationBar: const ModeloMenuBar(activeIndex: 1),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: VcomColors.gradienteNocturno,
+          gradient: RadialGradient(
+            center: Alignment(0.0, -0.8),
+            radius: 1.2,
+            colors: [
+              Color(0xFF273C67),
+              Color(0xFF1a2847),
+              Color(0xFF0d1525),
+              Color(0xFF000000),
+            ],
+            stops: [0.0, 0.35, 0.7, 1.0],
+          ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              _buildHeader(),
               _buildFilterTabs(),
               Expanded(
                 child: _buildContent(),
@@ -55,32 +72,6 @@ class _TrainingPageState extends State<TrainingPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, color: VcomColors.oroLujoso),
-            onPressed: () => Navigator.pop(context),
-          ),
-          Expanded(
-            child: Text(
-              'Training',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: VcomColors.oroLujoso,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 48), // Balance para el botón de retroceso
-        ],
       ),
     );
   }

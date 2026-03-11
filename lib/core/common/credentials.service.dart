@@ -6,6 +6,8 @@ class CredentialsService {
   static const String _keyRememberCredentials = 'remember_credentials';
   static const String _keySavedEmail = 'saved_email';
   static const String _keySavedPassword = 'saved_password';
+  // Bandera exclusiva: solo true cuando el usuario activa la huella manualmente
+  static const String _keyBiometricEnabled = 'biometric_enabled';
 
   /// Guarda las credenciales si el usuario marcó "Recordar credenciales"
   Future<void> saveCredentials({
@@ -90,6 +92,36 @@ class CredentialsService {
     } catch (e) {
       // Si hay error, simplemente ignorar
     }
+  }
+
+  // ── Huella biométrica ──────────────────────────────────────────────────────
+
+  /// true solo si el usuario activó explícitamente la autenticación por huella
+  Future<bool> isBiometricEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_keyBiometricEnabled) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Activa o desactiva la bandera de huella biométrica
+  Future<void> setBiometricEnabled(bool value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyBiometricEnabled, value);
+    } catch (_) {}
+  }
+
+  /// Desactiva la huella y borra las credenciales guardadas para biometría
+  Future<void> disableBiometric() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyBiometricEnabled, false);
+      await prefs.remove(_keySavedEmail);
+      await prefs.remove(_keySavedPassword);
+    } catch (_) {}
   }
 }
 

@@ -132,6 +132,30 @@ class VcomColors {
     ],
   );
 
+  /// Fondo velvet (como en la imagen de login)
+  /// #1e293b -> #0f172a
+  static const Color velvetDark = Color(0xFF0f172a);
+  static const Color velvetLight = Color(0xFF1e293b);
+  static const RadialGradient gradienteVelvet = RadialGradient(
+    center: Alignment.center,
+    radius: 1.0,
+    colors: [velvetLight, velvetDark],
+  );
+
+  /// Dorado primario (#d4af37) para acentos
+  static const Color oroPrimario = Color(0xFFd4af37);
+
+  /// Primary púrpura (#2C097F) para botones y acentos del dashboard modelo
+  static const Color primaryPurple = Color(0xFF2C097F);
+
+  /// Secondary azul (#273C67) para badges
+  static const Color secondaryBlue = Color(0xFF273C67);
+
+  /// Fondo glassmorphism para tarjeta de login
+  static Color get glassCardBg => const Color(0x66000000);
+  static Color get glassCardBorder => Color.fromRGBO(241, 191, 39, 0.1);
+  static Color get inputFieldBg => const Color(0xFF202020);
+
   // ============================================================================
   // COLORES PARA TEMA FLUTTER (Material Design)
   // ============================================================================

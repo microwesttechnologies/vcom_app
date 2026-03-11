@@ -1,440 +1,887 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:vcom_app/style/vcom_colors.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/common/biometric.service.dart';
+import 'package:vcom_app/core/common/credentials.service.dart';
+import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_status.service.dart';
+import 'package:vcom_app/pages/auth/login.page.dart';
+import 'package:vcom_app/style/vcom_colors.dart';
 
-/// Modelo para los items del navbar
-class NavbarItem {
-  final String label;
-  final IconData? icon;
-  final VoidCallback? onTap;
-  final bool isSelected;
-  final String? badge;
-
-  const NavbarItem({
-    required this.label,
-    this.icon,
-    this.onTap,
-    this.isSelected = false,
-    this.badge,
-  });
-}
-
-/// Modelo para acciones del topbar (iconos con badges opcionales)
-class TopBarAction {
-  final IconData icon;
-  final VoidCallback? onTap;
-  final String? badge;
-  final Color? iconColor;
-  final Color? badgeColor;
-
-  const TopBarAction({
-    required this.icon,
-    this.onTap,
-    this.badge,
-    this.iconColor,
-    this.badgeColor,
-  });
-}
-
-/// Componente de navbar reutilizable estilo Top App Bar moderno
-/// Con esquinas redondeadas superiores, título grande, subtítulo y acciones con badges
+/// Navbar estándar de la app (roles sin diseño especial)
 class NavbarComponent extends StatelessWidget implements PreferredSizeWidget {
-  /// Título principal del navbar (texto grande)
-  final String? title;
+  const NavbarComponent({super.key});
 
-  /// Subtítulo del navbar (texto más pequeño debajo del título)
-  final String? subtitle;
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
-  /// Lista de items del navbar (acciones)
-  final List<NavbarItem>? items;
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: VcomColors.azulZafiroProfundo,
+      elevation: 0,
+    );
+  }
+}
 
-  /// Lista de acciones del topbar (iconos simples con badges opcionales)
-  final List<TopBarAction>? topBarActions;
+/// Navbar glass para el rol MODELO (y cualquier otro rol que lo requiera).
+///
+/// Parámetros:
+/// - [rolLabel]    : etiqueta superior (ej. "MODELO")
+/// - [greeting]    : texto de saludo (ej. "Hola, Sofía")
+/// - [initial]     : letra del avatar cuando no hay imagen (ej. "S")
+/// - [avatarUrl]   : URL de la foto de perfil (opcional)
+/// - [onPersonTap] : callback del icono persona
+/// - [onHomeTap]   : callback del icono casa
+class GlassNavbarComponent extends StatelessWidget
+    implements PreferredSizeWidget {
+  final String rolLabel;
+  final String greeting;
+  final String initial;
+  final String? avatarUrl;
+  final VoidCallback? onPersonTap;
+  final VoidCallback? onHomeTap;
 
-  /// Color de fondo del navbar
-  final Color? backgroundColor;
-
-  /// Color del texto del título
-  final Color? textColor;
-
-  /// Color del texto del subtítulo
-  final Color? subtitleColor;
-
-  /// Color de los iconos
-  final Color? iconColor;
-
-  /// Altura del navbar
-  final double? height;
-
-  /// Widget personalizado para el título
-  final Widget? titleWidget;
-
-  /// Widget personalizado para las acciones (items)
-  final List<Widget>? actions;
-
-  /// Si muestra el botón de retroceso
-  final bool showBackButton;
-
-  /// Callback cuando se presiona el botón de retroceso
-  final VoidCallback? onBackPressed;
-
-  /// Callback cuando se presiona el botón de menú hamburguesa
-  final VoidCallback? onMenuPressed;
-
-  /// Si muestra el botón de menú hamburguesa
-  final bool showMenuButton;
-
-  /// Radio de las esquinas superiores
-  final double? topBorderRadius;
-
-  /// Elevación del navbar
-  final double? elevation;
-
-  /// Constructor del componente
-  const NavbarComponent({
+  const GlassNavbarComponent({
     super.key,
-    this.title,
-    this.subtitle,
-    this.items,
-    this.topBarActions,
-    this.backgroundColor,
-    this.textColor,
-    this.subtitleColor,
-    this.iconColor,
-    this.height,
-    this.titleWidget,
-    this.actions,
-    this.showBackButton = false,
-    this.onBackPressed,
-    this.onMenuPressed,
-    this.showMenuButton = true,
-    this.topBorderRadius,
-    this.elevation,
+    required this.rolLabel,
+    required this.greeting,
+    required this.initial,
+    this.avatarUrl,
+    this.onPersonTap,
+    this.onHomeTap,
   });
 
   @override
-  Size get preferredSize {
-    // Calcular altura dinámica basada en si hay subtítulo
-    double defaultHeight = kToolbarHeight;
-    if (subtitle != null || titleWidget != null) {
-      defaultHeight = kToolbarHeight + 32; // Extra espacio para subtítulo
-    }
-    return Size.fromHeight(height ?? defaultHeight);
-  }
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
-  /// Construye un widget de acción con badge opcional
-  Widget _buildActionWithBadge(TopBarAction action, Color defaultIconColor) {
-    Widget iconWidget = Icon(
-      action.icon,
-      color: action.iconColor ?? defaultIconColor,
-      size: 24,
-    );
-
-    // Agregar badge si existe
-    if (action.badge != null && action.badge!.isNotEmpty) {
-      return Stack(
-        clipBehavior: Clip.none,
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      elevation: 0,
+      automaticallyImplyLeading: false,
+      flexibleSpace: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.15),
+            ),
+          ),
+        ),
+      ),
+      title: Row(
         children: [
-          iconWidget,
-          Positioned(
-            right: -8,
-            top: -8,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: action.badgeColor ?? Colors.red,
-                shape: BoxShape.circle,
+          // Avatar con borde degradado
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [VcomColors.primaryPurple, VcomColors.oroLujoso],
               ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Center(
-                child: Text(
-                  action.badge!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+              shape: BoxShape.circle,
+            ),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: VcomColors.azulNocheSombra,
+              backgroundImage:
+                  avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+              child: avatarUrl == null
+                  ? Text(
+                      initial,
+                      style: const TextStyle(
+                        color: VcomColors.oroLujoso,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Rol + saludo
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  rolLabel.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: VcomColors.blancoCrema.withValues(alpha: 0.5),
+                    letterSpacing: 1.2,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-              ),
+                Text(
+                  greeting,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: VcomColors.blancoCrema,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ],
-      );
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.person_outline, color: Colors.white, size: 26),
+          onPressed: onPersonTap,
+        ),
+        IconButton(
+          icon: const Icon(Icons.home_outlined, color: Colors.white, size: 26),
+          onPressed: onHomeTap,
+        ),
+      ],
+    );
+  }
+}
+
+/// Navbar inteligente: muestra `GlassNavbarComponent` si el rol es MODELO,
+/// o `NavbarComponent` estándar en caso contrario.
+///
+/// Se auto-configura con los datos del usuario desde `TokenService`.
+/// Úsalo en cualquier `Scaffold`:
+/// ```dart
+/// appBar: const ModeloNavbar(),
+/// extendBodyBehindAppBar: true, // necesario para el efecto glass
+/// ```
+class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
+  const ModeloNavbar({super.key});
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    final token = TokenService();
+    final role = token.getRole();
+
+    if (role?.toUpperCase() != 'MODELO') {
+      return const NavbarComponent();
     }
 
-    return iconWidget;
+    final name = token.getUserName() ?? 'Modelo';
+    final firstName = name.trim().isNotEmpty ? name.split(' ').first : 'Modelo';
+    final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'M';
+
+    return GlassNavbarComponent(
+      rolLabel: 'Modelo',
+      greeting: 'Hola, $firstName',
+      initial: initial,
+      onPersonTap: () => _showUserMenu(context),
+      onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
+    );
   }
 
-  /// Obtiene el nombre del usuario desde el servicio global
-  String _getUserName() {
-    final tokenService = TokenService();
-    return tokenService.getUserName() ?? 'Usuario';
+  // ── Menú emergente del icono persona ──────────────────────────────────────────
+
+  void _showUserMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _UserMenuSheet(parentContext: context),
+    );
+  }
+}
+
+// ── Sheet con opciones del usuario ────────────────────────────────────────────
+
+class _UserMenuSheet extends StatefulWidget {
+  final BuildContext parentContext;
+  const _UserMenuSheet({required this.parentContext});
+
+  @override
+  State<_UserMenuSheet> createState() => _UserMenuSheetState();
+}
+
+class _UserMenuSheetState extends State<_UserMenuSheet> {
+  bool _biometricActive = false;
+  bool _loadingBiometric = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometricStatus();
   }
 
-  /// Obtiene el rol del usuario desde el servicio global
-  String _getRole() {
-    final tokenService = TokenService();
-    return tokenService.getRole() ?? 'Sin rol asignado';
+  Future<void> _checkBiometricStatus() async {
+    final active = await CredentialsService().isBiometricEnabled();
+    if (mounted) {
+      setState(() {
+        _biometricActive = active;
+        _loadingBiometric = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Obtener datos del usuario desde el servicio global si no se proporcionaron
-    final effectiveTitle = title ?? 'Hola, ${_getUserName()}';
-    final effectiveSubtitle = subtitle ?? _getRole();
-    
-    final effectiveBackgroundColor =
-        backgroundColor ?? VcomColors.azulZafiroProfundo;
-    final effectiveTextColor =
-        textColor ?? VcomColors.blancoCrema;
-    final effectiveSubtitleColor =
-        subtitleColor ?? VcomColors.blancoCrema.withOpacity(0.7);
-    final effectiveIconColor =
-        iconColor ?? VcomColors.blancoCrema.withOpacity(0.9);
-    final effectiveElevation = elevation ?? 4.0;
-    final effectiveTopBorderRadius = topBorderRadius ?? 16.0;
+    final name = TokenService().getUserName() ?? 'Modelo';
 
-    // Configurar acciones por defecto si no se proporcionan
-    final effectiveTopBarActions = topBarActions ?? [
-      TopBarAction(
-        icon: Icons.notifications_outlined,
-        badge: '1',
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Notificaciones')),
-          );
-        },
-      ),
-      TopBarAction(
-        icon: Icons.settings_outlined,
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Configuración')),
-          );
-        },
-      ),
-    ];
-
-    List<Widget> actionWidgets = [];
-
-    // Construir acciones del topbar (iconos con badges)
-    if (effectiveTopBarActions.isNotEmpty) {
-      for (final action in effectiveTopBarActions) {
-        actionWidgets.add(
-          IconButton(
-            icon: _buildActionWithBadge(action, effectiveIconColor),
-            onPressed: action.onTap,
-            color: effectiveIconColor,
-          ),
-        );
-      }
-    }
-
-    // Agregar items del navbar si existen (compatibilidad con versión anterior)
-    if (items != null && items!.isNotEmpty) {
-      for (int i = 0; i < items!.length; i++) {
-        final item = items![i];
-        actionWidgets.add(
-          InkWell(
-            onTap: item.onTap,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0d1525).withValues(alpha: 0.92),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border(
+              top: BorderSide(
+                color: VcomColors.oroLujoso.withValues(alpha: 0.3),
+                width: 1,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Indicador de arrastre
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Info del usuario
+              Row(
                 children: [
-                  if (item.icon != null) ...[
-                    Icon(
-                      item.icon,
-                      color: item.isSelected
-                          ? effectiveTextColor
-                          : effectiveIconColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                  Text(
-                    item.label,
-                    style: TextStyle(
-                      color: item.isSelected
-                          ? effectiveTextColor
-                          : effectiveIconColor,
-                      fontWeight: item.isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                  if (item.badge != null) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [VcomColors.primaryPurple, VcomColors.oroLujoso],
                       ),
-                      decoration: BoxDecoration(
-                        color: effectiveTextColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundColor: VcomColors.azulNocheSombra,
                       child: Text(
-                        item.badge!,
-                        style: TextStyle(
-                          color: effectiveBackgroundColor,
-                          fontSize: 10,
+                        name.isNotEmpty ? name[0].toUpperCase() : 'M',
+                        style: const TextStyle(
+                          color: VcomColors.oroLujoso,
                           fontWeight: FontWeight.bold,
+                          fontSize: 20,
                         ),
                       ),
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: VcomColors.blancoCrema,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'MODELO',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: VcomColors.oroLujoso.withValues(alpha: 0.8),
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ),
-        );
-        if (i < items!.length - 1) {
-          actionWidgets.add(const SizedBox(width: 8));
-        }
-      }
-    }
 
-    // Agregar acciones personalizadas si existen
-    if (actions != null) {
-      actionWidgets.addAll(actions!);
-    }
+              const SizedBox(height: 20),
+              Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+              const SizedBox(height: 16),
 
-    // Construir el widget del título
-    Widget? titleWidget = this.titleWidget;
-    if (titleWidget == null && (effectiveTitle.isNotEmpty || effectiveSubtitle.isNotEmpty)) {
-      titleWidget = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (effectiveTitle.isNotEmpty)
-            Text(
-              effectiveTitle,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: effectiveTextColor,
-                letterSpacing: 0.15,
+              // Botón biométrico
+              _loadingBiometric
+                  ? const SizedBox(height: 48)
+                  : SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _onBiometricTap(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _biometricActive
+                              ? VcomColors.oroLujoso
+                              : Colors.white70,
+                          side: BorderSide(
+                            color: _biometricActive
+                                ? VcomColors.oroLujoso.withValues(alpha: 0.6)
+                                : Colors.white.withValues(alpha: 0.2),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: Icon(
+                          _biometricActive
+                              ? Icons.fingerprint
+                              : Icons.fingerprint,
+                          size: 20,
+                          color: _biometricActive
+                              ? VcomColors.oroLujoso
+                              : Colors.white38,
+                        ),
+                        label: Text(
+                          _biometricActive
+                              ? 'Huella activa  ·  Desactivar'
+                              : 'Activar autenticación por huella',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: _biometricActive
+                                ? VcomColors.oroLujoso
+                                : Colors.white60,
+                          ),
+                        ),
+                      ),
+                    ),
+
+              const SizedBox(height: 10),
+
+              // Botón cerrar sesión
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _confirmLogout(widget.parentContext);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: BorderSide(
+                        color: Colors.redAccent.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: const Text(
+                    'Cerrar sesión',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
               ),
-            ),
-          if (effectiveSubtitle.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Huella dactilar ────────────────────────────────────────────────────────────
+
+  void _onBiometricTap(BuildContext context) {
+    Navigator.of(context).pop(); // cierra este sheet
+    if (_biometricActive) {
+      _confirmDisableBiometric(widget.parentContext);
+    } else {
+      _showBiometricSetup(widget.parentContext);
+    }
+  }
+
+  void _showBiometricSetup(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _BiometricSetupSheet(
+        onActivated: () {
+          // Reabrir el menú con estado actualizado
+          showModalBottomSheet(
+            context: context,
+            backgroundColor: Colors.transparent,
+            builder: (_) => _UserMenuSheet(parentContext: context),
+          );
+        },
+      ),
+    );
+  }
+
+  void _confirmDisableBiometric(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF0e1a2e),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.fingerprint, color: VcomColors.oroLujoso, size: 22),
+            SizedBox(width: 10),
             Text(
-              effectiveSubtitle,
+              'Desactivar huella',
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: effectiveSubtitleColor,
-                letterSpacing: 0.25,
+                color: VcomColors.blancoCrema,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
-        ],
-      );
-    }
-
-    // Determinar qué mostrar en el leading
-    // Prioridad: Menú hamburguesa > Botón de retroceso
-    Widget? leadingWidget;
-    bool automaticallyImplyLeading = true;
-
-    if (showMenuButton) {
-      // Mostrar botón de hamburguesa
-      automaticallyImplyLeading = false;
-      leadingWidget = Builder(
-        builder: (context) => IconButton(
-          icon: Icon(
-            Icons.menu, 
-            color: effectiveIconColor,
-            size: 28,
+        ),
+        content: Text(
+          '¿Deseas desactivar el acceso por huella dactilar?\nDeberás ingresar usuario y contraseña manualmente.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 14,
           ),
-          tooltip: 'Menú',
-          onPressed: onMenuPressed ?? () {
-            // Intentar abrir el drawer si existe, si no mostrar mensaje
-            try {
-              Scaffold.of(context).openDrawer();
-            } catch (e) {
-              // Si no hay drawer, mostrar snackbar o simplemente no hacer nada
-              // El usuario puede personalizar con onMenuPressed
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Menú'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            }
-          },
         ),
-      );
-    } else {
-      // Si no hay menú, verificar si se debe mostrar botón de retroceso
-      final bool shouldShowBackButton = showBackButton 
-          ? true 
-          : Navigator.canPop(context);
-      
-      if (shouldShowBackButton) {
-        automaticallyImplyLeading = false;
-        leadingWidget = IconButton(
-          icon: Icon(Icons.arrow_back, color: effectiveIconColor),
-          onPressed: onBackPressed ?? () => Navigator.of(context).pop(),
-        );
-      }
-    }
-
-    Widget appBar = AppBar(
-      backgroundColor: Colors.transparent,
-      foregroundColor: effectiveTextColor,
-      elevation: 0,
-      automaticallyImplyLeading: automaticallyImplyLeading,
-      leading: leadingWidget,
-      title: titleWidget,
-      actions: actionWidgets.isNotEmpty ? actionWidgets : null,
-      toolbarHeight: height ?? preferredSize.height,
-    );
-
-    // Aplicar fondo con esquinas redondeadas superiores
-    Widget appBarContainer = Container(
-      decoration: BoxDecoration(
-        color: effectiveBackgroundColor,
-        borderRadius: effectiveTopBorderRadius > 0
-            ? BorderRadius.only(
-                topLeft: Radius.circular(effectiveTopBorderRadius),
-                topRight: Radius.circular(effectiveTopBorderRadius),
-              )
-            : null,
-        boxShadow: effectiveElevation > 0
-            ? [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: effectiveElevation * 2,
-                  offset: Offset(0, effectiveElevation),
-                ),
-              ]
-            : null,
+        actionsPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white70,
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            ),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await CredentialsService().disableBiometric();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Autenticación por huella desactivada'),
+                    backgroundColor: Color(0xFF1a2847),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            ),
+            child: const Text('Desactivar',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
-      child: appBar,
     );
+  }
 
-    // Clippear las esquinas superiores si hay border radius
-    if (effectiveTopBorderRadius > 0) {
-      return ClipRRect(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(effectiveTopBorderRadius),
-          topRight: Radius.circular(effectiveTopBorderRadius),
+  // ── Logout ─────────────────────────────────────────────────────────────────────
+
+  void _confirmLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF0e1a2e),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
-        child: appBarContainer,
+        title: const Row(
+          children: [
+            Icon(Icons.logout, color: Colors.redAccent, size: 22),
+            SizedBox(width: 10),
+            Text(
+              'Cerrar sesión',
+              style: TextStyle(
+                color: VcomColors.blancoCrema,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '¿Estás seguro que deseas cerrar sesión?',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 14,
+          ),
+        ),
+        actionsPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white70,
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            ),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => _doLogout(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            ),
+            child: const Text('Sí, salir',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _doLogout(BuildContext context) async {
+    Navigator.of(context).pop();
+    final tokenService = TokenService();
+    final userStatusService = UserStatusService();
+    try {
+      final url = Uri.parse(
+          '${EnvironmentDev.baseUrl}${EnvironmentDev.authLogout}');
+      await http.post(url, headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ${tokenService.getToken()}',
+      }).timeout(const Duration(seconds: 3));
+    } catch (_) {}
+    await userStatusService.setOffline();
+    tokenService.clear();
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
       );
     }
-
-    return appBarContainer;
   }
 }
 
+// ── Sheet de configuración biométrica ─────────────────────────────────────────
+
+class _BiometricSetupSheet extends StatefulWidget {
+  final VoidCallback onActivated;
+  const _BiometricSetupSheet({required this.onActivated});
+
+  @override
+  State<_BiometricSetupSheet> createState() => _BiometricSetupSheetState();
+}
+
+class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
+  final _idController = TextEditingController();
+  final _passController = TextEditingController();
+  bool _obscure = true;
+  bool _loading = false;
+  String? _errorMsg;
+
+  @override
+  void dispose() {
+    _idController.dispose();
+    _passController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + bottom),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0d1525).withValues(alpha: 0.95),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(
+              top: BorderSide(
+                color: VcomColors.oroLujoso.withValues(alpha: 0.4),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Icono grande
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: VcomColors.oroLujoso.withValues(alpha: 0.1),
+                  border: Border.all(
+                    color: VcomColors.oroLujoso.withValues(alpha: 0.4),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.fingerprint,
+                  color: VcomColors.oroLujoso,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Título
+              const Text(
+                'Activar acceso por huella',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: VcomColors.blancoCrema,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              Text(
+                'Ingresa tus credenciales de acceso.\nLa próxima vez solo necesitarás tu huella.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.55),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Campo ID / Correo
+              _buildField(
+                controller: _idController,
+                  hint: 'example@email.com',
+                icon: Icons.badge_outlined,
+              ),
+              const SizedBox(height: 12),
+
+              // Campo contraseña
+              _buildField(
+                controller: _passController,
+                hint: 'Contraseña',
+                icon: Icons.lock_outline,
+                obscure: _obscure,
+                suffix: IconButton(
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: Colors.white38,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Error
+              if (_errorMsg != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: Colors.redAccent.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    _errorMsg!,
+                    style:
+                        const TextStyle(color: Colors.redAccent, fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Botón activar
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _loading ? null : _activate,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: VcomColors.oroLujoso,
+                    foregroundColor: Colors.black,
+                    disabledBackgroundColor:
+                        VcomColors.oroLujoso.withValues(alpha: 0.4),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: _loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black54,
+                          ),
+                        )
+                      : const Icon(Icons.fingerprint, size: 20),
+                  label: Text(
+                    _loading ? 'Verificando...' : 'Activar con huella',
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool obscure = false,
+    Widget? suffix,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: VcomColors.oroLujoso.withValues(alpha: 0.15),
+          width: 1,
+        ),
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: obscure,
+        style: const TextStyle(color: Colors.white, fontSize: 15),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle:
+              TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 14),
+          prefixIcon: Icon(icon,
+              color: VcomColors.oroLujoso.withValues(alpha: 0.5), size: 20),
+          suffixIcon: suffix,
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _activate() async {
+    final id = _idController.text.trim();
+    final pass = _passController.text;
+
+    if (id.isEmpty || pass.length < 6) {
+      setState(() => _errorMsg =
+          'Completa el ID de usuario y una contraseña válida (mín. 6 caracteres)');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _errorMsg = null;
+    });
+
+    try {
+      // 1. Verificar huella primero (confirmar identidad física)
+      bool authenticated = false;
+      try {
+        authenticated = await BiometricService().authenticate();
+      } on PlatformException catch (e) {
+        throw Exception(BiometricService.errorMessage(e));
+      }
+
+      if (!authenticated) {
+        setState(() => _loading = false);
+        return; // canceló sin error
+      }
+
+      // 2. Guardar credenciales y marcar huella como activa
+      await CredentialsService().saveCredentials(
+        remember: true,
+        email: id,
+        password: pass,
+      );
+      await CredentialsService().setBiometricEnabled(true);
+
+      if (mounted) {
+        Navigator.of(context).pop(); // cierra el setup sheet
+        widget.onActivated();
+
+        // Mostrar éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_outline, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '¡Huella activada! La próxima vez usa tu huella para ingresar.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF1B3A2D),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _errorMsg = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+}

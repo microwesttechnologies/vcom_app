@@ -220,4 +220,52 @@ class EnvironmentDev {
 
   /// Eliminar un video
   static String videosDelete(int id) => '/api/v1/videos/$id';
+
+  // ============================================================================
+  // MODELO (Rol Modelo)
+  // Endpoints para dashboard de modelos
+  // ============================================================================
+
+  /// Obtener saldo disponible del modelo
+  static const String modelsBalance = '/api/v1/models/balance';
+
+  /// Obtener próximo entrenamiento del modelo
+  static const String modelsNextTraining = '/api/v1/models/next-training';
+
+  // ============================================================================
+  // PRODUCCIONES
+  // Endpoints para registros de producción por modelo
+  // ============================================================================
+
+  /// Listar registros de producción de un modelo en un rango de fechas
+  /// Parámetros query: start_date (YYYY-MM-DD), end_date (YYYY-MM-DD)
+  static String productionsByModel(String modelId) =>
+      '/api/v1/productions/model/$modelId';
+
+  /// Calcular liquidación de pago para un período
+  /// Body: { id_model, start_date, end_date }
+  static const String productionsCalculatePayment =
+      '/api/v1/productions/calculate-payment';
+
+  /// Listar liquidaciones (desprendibles) generados
+  /// Parámetros query: id_model, per_page, page, start_date, end_date
+  static const String productionsLiquidations =
+      '/api/v1/productions/liquidations';
+
+  // ============================================================================
+  // DEDUCCIONES
+  // Endpoints para deducciones aplicadas a modelos
+  // ============================================================================
+
+  /// Listar deducciones de un modelo en un rango de fechas
+  /// Parámetros query: start_date (YYYY-MM-DD), end_date (YYYY-MM-DD)
+  static String deductionsByModel(String modelId) =>
+      '/api/v1/deductions/model/$modelId';
+
+  // ============================================================================
+  // TRM (Tasa de cambio)
+  // ============================================================================
+
+  /// Obtener la TRM (tasa de cambio USD→COP) más reciente
+  static const String trmLatest = '/api/v1/trm/latest';
 }

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
@@ -91,11 +91,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
     return Scaffold(
       appBar: NavbarComponent(
-        title: widget.product.nameProduct,
-        showBackButton: true,
-        showMenuButton: false,
-        backgroundColor: VcomColors.azulZafiroProfundo,
-        topBarActions: [],
+        // title: widget.product.nameProduct,
+        // showBackButton: true,
+        // showMenuButton: false,
+        // backgroundColor: VcomColors.azulZafiroProfundo,
+        // topBarActions: [],
       ),
       drawer: Drawer(
         child: _buildSidebar(),
@@ -277,9 +277,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: VcomColors.azulZafiroProfundo,
+                            color: Colors.black.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: VcomColors.oroLujoso.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              width: 0.5,
+                            ),
                           ),
                           child: Text(
                             widget.product.descriptionProduct!,

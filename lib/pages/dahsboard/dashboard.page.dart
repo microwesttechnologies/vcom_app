@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/card.component.dart';
 import 'package:vcom_app/core/common/icon.helper.dart';
+import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.component.dart';
+import 'package:vcom_app/pages/dahsboard/dashboard_modelo.component.dart';
+import 'package:vcom_app/pages/dahsboard/dashboard_modelo.view.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
@@ -23,18 +27,33 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
   late DashboardComponent _dashboardComponent;
+  late DashboardModeloComponent _dashboardModeloComponent;
+  final TokenService _tokenService = TokenService();
+
+  bool get _isModeloRole {
+    final role = _tokenService.getRole()?.toUpperCase() ?? '';
+    return role == 'MODELO' || role == 'MODAL';
+  }
 
   @override
   void initState() {
     super.initState();
     _dashboardComponent = DashboardComponent();
     _dashboardComponent.addListener(_onComponentChanged);
-    _dashboardComponent.fetchModules();
+    _dashboardModeloComponent = DashboardModeloComponent();
+    _dashboardModeloComponent.addListener(_onComponentChanged);
+
+    if (_isModeloRole) {
+      _dashboardModeloComponent.fetchDashboardData();
+    } else {
+      _dashboardComponent.fetchModules();
+    }
   }
 
   @override
   void dispose() {
     _dashboardComponent.removeListener(_onComponentChanged);
+    _dashboardModeloComponent.removeListener(_onComponentChanged);
     super.dispose();
   }
 
@@ -42,10 +61,14 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() {});
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const NavbarComponent(),
+      backgroundColor: _isModeloRole ? const Color(0xFF000000) : null,
+      extendBodyBehindAppBar: _isModeloRole,
+      extendBody: _isModeloRole,
+      appBar: const ModeloNavbar(),
       drawer: Drawer(
         child: SidebarComponent(
           items: [
@@ -86,15 +109,15 @@ class _DashboardPageState extends State<DashboardPage> {
                 Navigator.pop(context);
               },
             ),
-            SidebarItem(
-              label: 'Tienda',
-              icon: Icons.store,
-              isSelected: _selectedIndex == 4,
-              onTap: () {
-                Navigator.pop(context);
-                _navigateToModule('/shop');
-              },
-            ),
+            // SidebarItem(
+            //   label: 'Tienda',
+            //   icon: Icons.store,
+            //   isSelected: _selectedIndex == 4,
+            //   onTap: () {
+            //     Navigator.pop(context);
+            //     _navigateToModule('/shop');
+            //   },
+            // ),
             SidebarItem(
               label: 'Ayuda',
               icon: Icons.help,
@@ -117,21 +140,34 @@ class _DashboardPageState extends State<DashboardPage> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(gradient: VcomColors.gradienteNocturno),
+        decoration: _isModeloRole
+            ? const BoxDecoration(
+                color: Color(0xFF000000),
+                gradient: RadialGradient(
+                  center: Alignment(0.0, -0.8),
+                  radius: 1.2,
+                  colors: [
+                    Color(0xFF273C67),
+                    Color(0xFF1a2847),
+                    Color(0xFF0d1525),
+                    Color(0xFF000000),
+                  ],
+                  stops: [0.0, 0.35, 0.7, 1.0],
+                ),
+              )
+            : const BoxDecoration(gradient: VcomColors.gradienteNocturno),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: _buildContent(),
-          ),
+          bottom: false,
+          child: _isModeloRole
+              ? _buildContent()
+              : Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: _buildContent(),
+                ),
         ),
       ),
-      // // 🧪 BOTÓN DE PRUEBA (TEMPORAL)
-      // floatingActionButton: FloatingActionButton.extended(
-      //   backgroundColor: Colors.green,
-      //   icon: const Icon(Icons.send),
-      //   label: const Text('Enviar test'),
-      //   onPressed: _sendTestMessage,
-      // ),
+      bottomNavigationBar: const ModeloMenuBar(),
+
     );
   }
 
@@ -168,7 +204,6 @@ class _DashboardPageState extends State<DashboardPage> {
         MaterialPageRoute(builder: (context) => targetPage!),
       );
     } else {
-      // Si no se encuentra la ruta, mostrar mensaje de módulo en desarrollo
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -210,6 +245,22 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildContent() {
+    if (_isModeloRole) {
+      return _buildModeloContent();
+    }
+    return _buildDefaultContent();
+  }
+
+  Widget _buildModeloContent() {
+    if (_dashboardModeloComponent.isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: VcomColors.oroLujoso),
+      );
+    }
+    return DashboardModeloView(component: _dashboardModeloComponent);
+  }
+
+  Widget _buildDefaultContent() {
     if (_dashboardComponent.isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: VcomColors.oroLujoso),

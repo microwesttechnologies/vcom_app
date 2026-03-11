@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:vcom_app/core/auth/login/login.services.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/credentials.service.dart';
+import 'package:vcom_app/core/common/biometric.service.dart';
 
 /// Controlador de lógica para el login
 /// Maneja toda la lógica, cálculos y estado relacionado con el login
@@ -11,8 +13,11 @@ class LoginComponent extends ChangeNotifier {
   final LoginService _loginService = LoginService();
   final TokenService _tokenService = TokenService();
   final CredentialsService _credentialsService = CredentialsService();
+  final BiometricService _biometricService = BiometricService();
   bool _obscurePassword = true;
   bool _rememberCredentials = false;
+  bool _biometricAvailable = false;
+  bool _hasSavedCredentials = false;
 
   /// Constructor
   LoginComponent()
@@ -34,7 +39,46 @@ class LoginComponent extends ChangeNotifier {
   /// Inicializa el componente cargando las credenciales guardadas
   Future<void> initialize() async {
     await _loadSavedCredentials();
-    notifyListeners(); // Notificar después de cargar
+    // El botón de huella se muestra activo si el usuario lo activó
+    // explícitamente desde el menú, independiente del sensor.
+    _hasSavedCredentials = await _credentialsService.isBiometricEnabled();
+    // Marcar disponible si tiene credenciales guardadas (el sensor se
+    // verificará cuando el usuario realmente intente autenticar).
+    _biometricAvailable = _hasSavedCredentials;
+    notifyListeners();
+  }
+
+  /// Autenticación biométrica → carga credenciales y hace login.
+  /// Retorna true si el login se completó, false si el usuario canceló.
+  /// Lanza excepción con mensaje claro si hay un error real.
+  Future<bool> loginWithBiometric() async {
+    if (!_hasSavedCredentials) {
+      throw Exception(
+          'Primero inicia sesión con usuario y contraseña\ny activa "Recordar credenciales"');
+    }
+
+    bool authenticated = false;
+    try {
+      authenticated = await _biometricService.authenticate();
+    } on PlatformException catch (e) {
+      throw Exception(BiometricService.errorMessage(e));
+    }
+
+    if (!authenticated) return false; // El usuario canceló
+
+    // Cargar credenciales guardadas y ejecutar login
+    final creds = await _credentialsService.loadCredentials();
+    final email = creds['email'] ?? '';
+    final password = creds['password'] ?? '';
+
+    if (email.isEmpty || password.isEmpty) {
+      throw Exception('No se encontraron credenciales guardadas');
+    }
+
+    emailController.text = email;
+    passwordController.text = password;
+    await performLogin();
+    return true;
   }
 
   /// Obtiene si la contraseña está oculta
@@ -42,6 +86,9 @@ class LoginComponent extends ChangeNotifier {
 
   /// Obtiene si se deben recordar las credenciales
   bool get rememberCredentials => _rememberCredentials;
+
+  /// True si el dispositivo soporta biometría Y hay credenciales guardadas
+  bool get biometricEnabled => _biometricAvailable && _hasSavedCredentials;
 
   /// Alterna la visibilidad de la contraseña
   void togglePasswordVisibility() {
@@ -80,10 +127,12 @@ class LoginComponent extends ChangeNotifier {
     return passwordController.text;
   }
 
-  /// Valida si el email es válido
+  /// Valida si el email o ID de usuario es válido
+  /// Acepta formato email (usuario@dominio.com) o ID (ej: MOD-8829)
   bool isValidEmail(String email) {
     if (email.isEmpty) return false;
-    return email.contains('@') && email.contains('.');
+    if (email.contains('@') && email.contains('.')) return true;
+    return email.trim().length >= 4; // ID tipo MOD-8829
   }
 
   /// Valida si la contraseña es válida

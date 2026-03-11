@@ -1,146 +1,117 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
-/// Modelo para los items del menubar
-class MenubarItem {
-  final String label;
+/// Ítem individual del menú inferior.
+class MenuBarItem {
   final IconData icon;
-  final IconData? selectedIcon;
-  final VoidCallback? onTap;
+  final String label;
+  final VoidCallback onTap;
 
-  const MenubarItem({
-    required this.label,
+  const MenuBarItem({
     required this.icon,
-    this.selectedIcon,
-    this.onTap,
+    required this.label,
+    required this.onTap,
   });
 }
 
-/// Componente de menubar (barra de menú inferior) reutilizable
-class MenubarComponent extends StatelessWidget {
-  /// Lista de items del menubar
-  final List<MenubarItem> items;
+/// Menú inferior glass reutilizable en toda la app.
+///
+/// Uso básico:
+/// ```dart
+/// bottomNavigationBar: MenuBarComponent(
+///   items: [...],
+///   activeIndex: 2, // ítem activo (dorado)
+/// )
+/// ```
+class MenuBarComponent extends StatelessWidget {
+  final List<MenuBarItem> items;
+  final int activeIndex;
 
-  /// Índice del item seleccionado (tab actual)
-  final int selectedIndex;
-
-  /// Color de fondo del menubar
-  final Color? backgroundColor;
-
-  /// Color del item seleccionado
-  final Color? selectedColor;
-
-  /// Color del texto del item seleccionado
-  final Color? selectedTextColor;
-
-  /// Color de los items no seleccionados
-  final Color? unselectedColor;
-
-  /// Color del texto de los items no seleccionados
-  final Color? unselectedTextColor;
-
-  /// Altura del menubar
-  final double? height;
-
-  /// Callback cuando se selecciona un item (cambia el tab)
-  final ValueChanged<int>? onItemSelected;
-
-  /// Tipo de menubar (fixed o shifting)
-  final BottomNavigationBarType type;
-
-  /// Constructor del componente
-  const MenubarComponent({
+  const MenuBarComponent({
     super.key,
     required this.items,
-    this.selectedIndex = 0,
-    this.backgroundColor,
-    this.selectedColor,
-    this.selectedTextColor,
-    this.unselectedColor,
-    this.unselectedTextColor,
-    this.height,
-    this.onItemSelected,
-    this.type = BottomNavigationBarType.fixed,
+    this.activeIndex = -1,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBackgroundColor =
-        backgroundColor ?? VcomColors.azulZafiroProfundo;
-    final effectiveSelectedColor =
-        selectedColor ?? VcomColors.oroLujoso;
-    final effectiveSelectedTextColor =
-        selectedTextColor ?? VcomColors.azulMedianocheTexto;
-    final effectiveUnselectedColor =
-        unselectedColor ?? VcomColors.blancoCrema.withOpacity(0.6);
-    final effectiveUnselectedTextColor =
-        unselectedTextColor ?? VcomColors.blancoCrema.withOpacity(0.6);
-
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      height: height ?? 60,
-      decoration: BoxDecoration(
-        color: effectiveBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(
-          items.length,
-          (index) {
-            final item = items[index];
-            final isSelected = selectedIndex == index;
-
-            return Expanded(
-              child: InkWell(
-                onTap: () {
-                  item.onTap?.call();
-                  onItemSelected?.call(index);
-                },
-                child: Container(
-                  height: height ?? 60,
-                  color: Colors.transparent,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isSelected
-                            ? (item.selectedIcon ?? item.icon)
-                            : item.icon,
-                        color: isSelected
-                            ? effectiveSelectedColor
-                            : effectiveUnselectedColor,
-                        size: isSelected ? 28 : 24,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontSize: isSelected ? 12 : 11,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                          color: isSelected
-                              ? effectiveSelectedTextColor
-                              : effectiveUnselectedTextColor,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+      color: Colors.transparent,
+      padding: EdgeInsets.fromLTRB(2, 2, 2, 2 + bottomInset),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(20),
+              // border: Border.all(color: const Color.fromARGB(255, 255, 255, 255).withValues(alpha: 0.12)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                children: List.generate(
+                  items.length,
+                  (i) => _MenuBarItemWidget(
+                    item: items[i],
+                    isActive: i == activeIndex,
                   ),
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
+class _MenuBarItemWidget extends StatelessWidget {
+  final MenuBarItem item;
+  final bool isActive;
+
+  const _MenuBarItemWidget({required this.item, this.isActive = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? VcomColors.oroLujoso : Colors.white.withValues(alpha: 1);
+
+    return Expanded(
+      child: InkWell(
+        onTap: item.onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(item.icon, color: color, size: 22),
+              const SizedBox(height: 3),
+              Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                  color: color,
+                  letterSpacing: 0.3,
+                ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

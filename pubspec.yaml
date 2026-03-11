@@ -44,6 +44,9 @@ dependencies:
   crypto: ^3.0.3
   path_provider: ^2.1.2
   flutter_image_compress: ^2.1.0
+  local_auth: ^2.3.0
+  pdf: ^3.11.3
+  printing: ^5.14.2
 
 dev_dependencies:
   flutter_test:

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:vcom_app/pages/auth/login.page.dart';
+import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
+import 'package:vcom_app/pages/wallet/wallet.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 void main() {
@@ -35,37 +37,31 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     // NOTA: El estado online/offline se maneja en el módulo de chat
     // No hacemos nada aquí para evitar conflictos
   }
 
-
-
-
   @override
-Widget build(BuildContext context) {
-  return MaterialApp(
-    title: 'VCOM App',
-    debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      colorScheme: VcomColors.colorScheme,
-      useMaterial3: true,
-      scaffoldBackgroundColor: VcomColors.azulZafiroProfundo,
-    ),
-    home: Scaffold(
-      body: const LoginPage(),
-
-
-    ),
-    routes: {
-      '/products': (context) => const ManagerProductPage(),
-      '/categories': (context) => const ManagerCategoryPage(),
-      '/brands': (context) => const ManagerBrandPage(),
-      '/shop': (context) => const ShopPage(),
-      '/training': (context) => const TrainingPage(),
-    },
-  );
-}
-
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'VCOM App',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: VcomColors.colorScheme,
+        useMaterial3: true,
+        scaffoldBackgroundColor: VcomColors.azulZafiroProfundo,
+      ),
+      home: const LoginPage(),
+      routes: {
+        '/dashboard': (context) => const DashboardPage(),
+        '/products': (context) => const ManagerProductPage(),
+        '/categories': (context) => const ManagerCategoryPage(),
+        '/brands': (context) => const ManagerBrandPage(),
+        '/shop': (context) => const ShopPage(),
+        '/training': (context) => const TrainingPage(),
+        '/wallet': (context) => const WalletPage(),
+      },
+    );
+  }
 }

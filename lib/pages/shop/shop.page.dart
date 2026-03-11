@@ -1,5 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
+import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
 import 'package:vcom_app/pages/shop/shop.component.dart';
@@ -266,19 +267,29 @@ class _ShopPageState extends State<ShopPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: NavbarComponent(
-        title: 'VCOM Store',
-        subtitle: 'Tu tienda de confianza',
-        backgroundColor: VcomColors.azulZafiroProfundo,
-      ),
+      backgroundColor: Colors.black,
+      appBar: const ModeloNavbar(),
+      extendBodyBehindAppBar: true,
+      extendBody: true,
       drawer: Drawer(
         child: _buildSidebar(),
       ),
+      bottomNavigationBar: const ModeloMenuBar(activeIndex: 0),
       body: Container(
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: VcomColors.gradienteNocturno,
+          gradient: RadialGradient(
+            center: Alignment(0.0, -0.8),
+            radius: 1.2,
+            colors: [
+              Color(0xFF273C67),
+              Color(0xFF1a2847),
+              Color(0xFF0d1525),
+              Color(0xFF000000),
+            ],
+            stops: [0.0, 0.35, 0.7, 1.0],
+          ),
         ),
         child: SafeArea(
           child: _buildContent(),
@@ -348,7 +359,11 @@ class _ShopPageState extends State<ShopPage> {
       );
     }
 
-    return CustomScrollView(
+    return RefreshIndicator(
+      onRefresh: () => _shopComponent.refresh(),
+      color: VcomColors.oroLujoso,
+      backgroundColor: const Color(0xFF1a2847),
+      child: CustomScrollView(
       controller: _scrollController,
       slivers: [
         // Barra de búsqueda
@@ -367,55 +382,36 @@ class _ShopPageState extends State<ShopPage> {
           ),
         ),
         
-        // Productos más vistos
-        if (_shopComponent.selectedCategoryId == null && _shopComponent.searchQuery.isEmpty)
-          SliverToBoxAdapter(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: _buildMostViewedSection(),
-            ),
-          ),
-        
-        // Lista de productos
-        SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildProductsSection(),
-          ),
-        ),
-        
         // Grid de productos
         SliverPadding(
           padding: const EdgeInsets.all(16),
           sliver: _buildProductsGrid(),
         ),
       ],
+    ),
     );
   }
 
   Widget _buildSearchBar() {
     return Container(
       decoration: BoxDecoration(
-        color: VcomColors.blancoCrema,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: const Color.fromARGB(255, 0, 0, 0).withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: TextField(
         controller: _searchController,
-        style: TextStyle(color: VcomColors.azulMedianocheTexto),
+        style: const TextStyle(color: Colors.white, fontSize: 15),
         decoration: InputDecoration(
-          hintText: 'Buscar productos...',
-          hintStyle: TextStyle(color: VcomColors.azulMedianocheTexto.withOpacity(0.6)),
-          prefixIcon: Icon(Icons.search, color: VcomColors.azulMedianocheTexto.withOpacity(0.6)),
+          hintText: 'Buscar artículos...',
+          hintStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.38), fontSize: 15),
+          prefixIcon: Icon(Icons.search,
+              color: Colors.white.withValues(alpha: 0.5), size: 22),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear, color: VcomColors.azulMedianocheTexto.withOpacity(0.6)),
+                  icon: Icon(Icons.clear,
+                      color: Colors.white.withValues(alpha: 0.5), size: 20),
                   onPressed: () {
                     _searchController.clear();
                     _shopComponent.searchProducts('');
@@ -423,7 +419,8 @@ class _ShopPageState extends State<ShopPage> {
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
         onChanged: (value) => _shopComponent.searchProducts(value),
       ),
@@ -431,124 +428,53 @@ class _ShopPageState extends State<ShopPage> {
   }
 
   Widget _buildCategoryFilters() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Categorías',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: VcomColors.blancoCrema,
+    return SizedBox(
+      height: 32,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _buildCategoryChip(null, 'Todos los Artículos'),
+          ..._shopComponent.categories.map(
+            (c) => _buildCategoryChip(c.idCategory, c.nameCategory),
           ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 50,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              _buildCategoryChip(null, 'Todos'),
-              ..._shopComponent.categories.map((category) => 
-                _buildCategoryChip(category.idCategory, category.nameCategory)
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildCategoryChip(int? categoryId, String label) {
     final isSelected = _shopComponent.selectedCategoryId == categoryId;
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (_) => _shopComponent.filterByCategory(categoryId),
-        backgroundColor: VcomColors.azulOverlayTransparente60,
-        selectedColor: VcomColors.oroLujoso,
-        labelStyle: TextStyle(
-          color: isSelected ? VcomColors.azulMedianocheTexto : VcomColors.blancoCrema,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-        ),
-        shape: RoundedRectangleBorder(
+    return GestureDetector(
+      onTap: () => _shopComponent.filterByCategory(categoryId),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: isSelected ? VcomColors.oroLujoso : VcomColors.oroLujoso.withOpacity(0.3),
+          border: Border.all(
+            color: isSelected
+                ? VcomColors.oroLujoso
+                : const Color(0xFFD4D4D8),
+            width: 0.6,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isSelected
+                ? VcomColors.oroLujoso
+                : const Color(0xFFD4D4D8),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildMostViewedSection() {
-    final mostViewed = _shopComponent.getMostViewedProducts();
-    if (mostViewed.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.trending_up, color: VcomColors.oroLujoso, size: 24),
-            const SizedBox(width: 8),
-            Text(
-              'Productos más vistos',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: VcomColors.blancoCrema,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 280,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: mostViewed.length,
-            itemBuilder: (context, index) {
-              return Container(
-                width: 200,
-                margin: const EdgeInsets.only(right: 16),
-                child: _buildProductCard(mostViewed[index], isHorizontal: true),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProductsSection() {
-    final productCount = _shopComponent.products.length;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          _shopComponent.selectedCategoryId != null || _shopComponent.searchQuery.isNotEmpty
-              ? 'Resultados ($productCount)'
-              : 'Todos los productos ($productCount)',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: VcomColors.blancoCrema,
-          ),
-        ),
-        if (_shopComponent.selectedCategoryId != null || _shopComponent.searchQuery.isNotEmpty)
-          TextButton(
-            onPressed: () => _shopComponent.clearFilters(),
-            child: Text(
-              'Limpiar filtros',
-              style: TextStyle(color: VcomColors.oroLujoso),
-            ),
-          ),
-      ],
-    );
-  }
 
   Widget _buildProductsGrid() {
     // Mostrar loader mientras carga
@@ -601,9 +527,9 @@ class _ShopPageState extends State<ShopPage> {
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.7,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
       ),
       delegate: SliverChildBuilderDelegate(
         (context, index) {
@@ -614,147 +540,185 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
-  Widget _buildProductCard(ProductModel product, {bool isHorizontal = false}) {
-    final primaryImage = product.images.isNotEmpty 
-        ? product.images.firstWhere((img) => img.isPrimary, orElse: () => product.images.first)
+  Widget _buildProductCard(ProductModel product) {
+    final primaryImage = product.images.isNotEmpty
+        ? product.images.firstWhere((img) => img.isPrimary,
+            orElse: () => product.images.first)
         : null;
 
+    final categoryName = product.category?.nameCategory ?? product.brand?.nameBrand ?? '';
+
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailPage(product: product),
-          ),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
+      ),
       child: Container(
         decoration: BoxDecoration(
-          color: VcomColors.azulZafiroProfundo,
-          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xFF0e1a2e),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: VcomColors.oroLujoso.withOpacity(0.3),
-            width: 1,
+            color: Colors.white.withValues(alpha: 0.07),
+            width: 0.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Imagen del producto
+            // ── Imagen con botón de carrito superpuesto ──────────────────────
             Expanded(
-              flex: isHorizontal ? 3 : 3,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  color: VcomColors.azulOverlayTransparente60,
-                ),
-                child: primaryImage != null
-                    ? ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                        child: Image.network(
-                          primaryImage.imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: VcomColors.azulOverlayTransparente60,
-                              child: Icon(
-                                Icons.image_not_supported,
-                                size: 48,
-                                color: VcomColors.blancoCrema.withOpacity(0.5),
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    : Container(
-                        color: VcomColors.azulOverlayTransparente60,
-                        child: Icon(
-                          Icons.image,
-                          size: 48,
-                          color: VcomColors.blancoCrema.withOpacity(0.5),
+              flex: 7,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(16)),
+                    child: primaryImage != null
+                        ? Image.network(
+                            primaryImage.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _imagePlaceholder(),
+                          )
+                        : _imagePlaceholder(),
+                  ),
+                  // Degradado inferior suave
+                  Positioned(
+                    left: 0, right: 0, bottom: 0,
+                    height: 60,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(4)),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.45),
+                          ],
                         ),
                       ),
+                    ),
+                  ),
+                  // Botón carrito
+                  Positioned(
+                    right: 10,
+                    bottom: 10,
+                    child: Material(
+                      color: VcomColors.oroLujoso,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => ProductDetailPage(product: product)),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(
+                            Icons.shopping_cart_outlined,
+                            color: Color(0xFF0d1525),
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Badge stock bajo
+                  if (product.stock <= 5)
+                    Positioned(
+                      left: 10,
+                      top: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: VcomColors.oroLujoso,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Últimas ${product.stock}',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0d1525),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            
-            // Información del producto
+
+            // ── Info del producto ─────────────────────────────────────────────
             Expanded(
-              flex: isHorizontal ? 2 : 4,
+              flex: 3,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Nombre del producto
-                    Text(
-                      product.nameProduct,
-                      style: TextStyle(
-                        fontSize: isHorizontal ? 14 : 16,
-                        fontWeight: FontWeight.w600,
-                        color: VcomColors.blancoCrema,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    
-                    const SizedBox(height: 4),
-                    
-                    // Marca
-                    if (product.brand != null)
+                    // Categoría
+                    if (categoryName.isNotEmpty)
                       Text(
-                        product.brand!.nameBrand,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: VcomColors.blancoCrema.withOpacity(0.7),
+                        categoryName.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: VcomColors.oroLujoso,
+                          letterSpacing: 1.2,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    
-                    const Spacer(),
-                    
+                    // Nombre
+                    Text(
+                      product.nameProduct,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: VcomColors.blancoCrema,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     // Precio
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _formatPrice(product.priceCop),
-                        style: TextStyle(
-                          fontSize: isHorizontal ? 16 : 18,
-                          fontWeight: FontWeight.bold,
-                          color: VcomColors.oroLujoso,
-                        ),
+                    Text(
+                      _formatPrice(product.priceCop),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.55),
                       ),
                     ),
-                    
-                    // Stock
-                    if (product.stock <= 5)
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Solo ${product.stock} disponibles',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: VcomColors.oroBrillante,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _imagePlaceholder() {
+    return Container(
+      color: const Color(0xFF1a2847),
+      child: Icon(
+        Icons.image_outlined,
+        size: 40,
+        color: Colors.white.withValues(alpha: 0.2),
       ),
     );
   }
