@@ -43,6 +43,7 @@ class GlassNavbarComponent extends StatelessWidget
   final String? avatarUrl;
   final VoidCallback? onPersonTap;
   final VoidCallback? onHomeTap;
+  final bool showBackButton;
 
   const GlassNavbarComponent({
     super.key,
@@ -52,6 +53,7 @@ class GlassNavbarComponent extends StatelessWidget
     this.avatarUrl,
     this.onPersonTap,
     this.onHomeTap,
+    this.showBackButton = false,
   });
 
   @override
@@ -65,6 +67,13 @@ class GlassNavbarComponent extends StatelessWidget
       shadowColor: Colors.transparent,
       elevation: 0,
       automaticallyImplyLeading: false,
+      leading: showBackButton
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new,
+                  color: Colors.white, size: 20),
+              onPressed: onHomeTap,
+            )
+          : null,
       flexibleSpace: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
@@ -158,7 +167,16 @@ class GlassNavbarComponent extends StatelessWidget
 /// extendBodyBehindAppBar: true, // necesario para el efecto glass
 /// ```
 class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
-  const ModeloNavbar({super.key});
+  final bool showBackButton;
+  /// Callback personalizado para el botón atrás.
+  /// Si es null y showBackButton es true, usa Navigator.pop().
+  final VoidCallback? onBackTap;
+
+  const ModeloNavbar({
+    super.key,
+    this.showBackButton = false,
+    this.onBackTap,
+  });
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -180,8 +198,11 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
       rolLabel: 'Modelo',
       greeting: 'Hola, $firstName',
       initial: initial,
+      showBackButton: showBackButton,
       onPersonTap: () => _showUserMenu(context),
-      onHomeTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
+      onHomeTap: showBackButton
+          ? (onBackTap ?? () => Navigator.of(context).pop())
+          : () => Navigator.of(context).popUntil((route) => route.isFirst),
     );
   }
 

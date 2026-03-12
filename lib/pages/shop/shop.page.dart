@@ -28,6 +28,7 @@ class ShopPage extends StatefulWidget {
 
 class _ShopPageState extends State<ShopPage> {
   int _selectedIndex = 0;
+  ProductModel? _currentProduct;
   late ShopComponent _shopComponent;
   late DashboardComponent _dashboardComponent;
   final _searchController = TextEditingController();
@@ -264,35 +265,63 @@ class _ShopPageState extends State<ShopPage> {
     }
   }
 
+  void _openProduct(ProductModel product) {
+    setState(() => _currentProduct = product);
+  }
+
+  void _closeProduct() {
+    setState(() => _currentProduct = null);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: const ModeloNavbar(),
-      extendBodyBehindAppBar: true,
-      extendBody: true,
-      drawer: Drawer(
-        child: _buildSidebar(),
-      ),
-      bottomNavigationBar: const ModeloMenuBar(activeIndex: 0),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0.0, -0.8),
-            radius: 1.2,
-            colors: [
-              Color(0xFF273C67),
-              Color(0xFF1a2847),
-              Color(0xFF0d1525),
-              Color(0xFF000000),
-            ],
-            stops: [0.0, 0.35, 0.7, 1.0],
-          ),
+    final inDetail = _currentProduct != null;
+
+    return PopScope(
+      canPop: !inDetail,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && inDetail) _closeProduct();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: ModeloNavbar(
+          showBackButton: inDetail,
+          onBackTap: inDetail ? _closeProduct : null,
         ),
-        child: SafeArea(
-          child: _buildContent(),
+        extendBodyBehindAppBar: true,
+        extendBody: true,
+        drawer: inDetail ? null : Drawer(child: _buildSidebar()),
+        bottomNavigationBar: const ModeloMenuBar(activeIndex: 0),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+          child: inDetail
+              ? ProductDetailBody(
+                  key: ValueKey(_currentProduct!.idProduct),
+                  product: _currentProduct!,
+                )
+              : Container(
+                  key: const ValueKey('shop-list'),
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment(0.0, -0.8),
+                      radius: 1.2,
+                      colors: [
+                        Color(0xFF273C67),
+                        Color(0xFF1a2847),
+                        Color(0xFF0d1525),
+                        Color(0xFF000000),
+                      ],
+                      stops: [0.0, 0.35, 0.7, 1.0],
+                    ),
+                  ),
+                  child: SafeArea(child: _buildContent()),
+                ),
         ),
       ),
     );
@@ -527,7 +556,7 @@ class _ShopPageState extends State<ShopPage> {
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.65,
+        childAspectRatio: 0.58,
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,
       ),
@@ -549,16 +578,13 @@ class _ShopPageState extends State<ShopPage> {
     final categoryName = product.category?.nameCategory ?? product.brand?.nameBrand ?? '';
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => ProductDetailPage(product: product)),
-      ),
+      onTap: () => _openProduct(product),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF0e1a2e),
+          color: Colors.black,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.07),
+            color: VcomColors.oroLujoso.withValues(alpha: 0.35),
             width: 0.5,
           ),
           boxShadow: [
@@ -574,7 +600,7 @@ class _ShopPageState extends State<ShopPage> {
           children: [
             // ── Imagen con botón de carrito superpuesto ──────────────────────
             Expanded(
-              flex: 7,
+              flex: 9,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -613,48 +639,30 @@ class _ShopPageState extends State<ShopPage> {
                     right: 10,
                     bottom: 10,
                     child: Material(
-                      color: VcomColors.oroLujoso,
-                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => ProductDetailPage(product: product)),
-                        ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Icon(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => _openProduct(product),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: VcomColors.oroLujoso.withValues(alpha: 0.4),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: const Icon(
                             Icons.shopping_cart_outlined,
-                            color: Color(0xFF0d1525),
-                            size: 18,
+                            color: Colors.white,
+                            size: 20,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  // Badge stock bajo
-                  if (product.stock <= 5)
-                    Positioned(
-                      left: 10,
-                      top: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: VcomColors.oroLujoso,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Últimas ${product.stock}',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0d1525),
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -662,7 +670,11 @@ class _ShopPageState extends State<ShopPage> {
             // ── Info del producto ─────────────────────────────────────────────
             Expanded(
               flex: 3,
-              child: Padding(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+                ),
                 padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -673,7 +685,7 @@ class _ShopPageState extends State<ShopPage> {
                       Text(
                         categoryName.toUpperCase(),
                         style: const TextStyle(
-                          fontSize: 9,
+                          fontSize: 7.5,
                           fontWeight: FontWeight.w700,
                           color: VcomColors.oroLujoso,
                           letterSpacing: 1.2,

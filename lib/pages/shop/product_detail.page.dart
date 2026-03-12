@@ -1,71 +1,78 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
-import 'package:vcom_app/components/shared/sidebar.component.dart';
-import 'package:vcom_app/components/commons/button.dart';
 import 'package:vcom_app/pages/shop/shop.component.dart';
-import 'package:vcom_app/pages/shop/shop.page.dart';
-import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
-import 'package:vcom_app/pages/dahsboard/dashboard.component.dart';
-import 'package:vcom_app/pages/categories/managerCategory.page.dart';
-import 'package:vcom_app/pages/brands/managerBrand.page.dart';
-import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
-import 'package:vcom_app/pages/chat/chat.page.dart';
 import 'package:vcom_app/core/models/product.model.dart';
-import 'package:vcom_app/core/models/module.model.dart';
-import 'package:vcom_app/core/common/icon.helper.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 import 'package:intl/intl.dart';
 
-/// Página de detalle del producto
-class ProductDetailPage extends StatefulWidget {
+// ── Página completa ─────────────────────────────────────────
+
+class ProductDetailPage extends StatelessWidget {
   final ProductModel product;
+  final VoidCallback? onBack;
 
   const ProductDetailPage({
     super.key,
     required this.product,
+    this.onBack,
   });
 
   @override
-  State<ProductDetailPage> createState() => _ProductDetailPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      appBar: ModeloNavbar(
+        showBackButton: true,
+        onBackTap: onBack ?? () => Navigator.of(context).pop(),
+      ),
+      bottomNavigationBar: const ModeloMenuBar(activeIndex: 0),
+      body: ProductDetailBody(product: product),
+    );
+  }
 }
 
-class _ProductDetailPageState extends State<ProductDetailPage> {
+// ── Body reutilizable ───────────────────────────────────────
+
+class ProductDetailBody extends StatefulWidget {
+  final ProductModel product;
+
+  const ProductDetailBody({super.key, required this.product});
+
+  @override
+  State<ProductDetailBody> createState() => _ProductDetailBodyState();
+}
+
+class _ProductDetailBodyState extends State<ProductDetailBody> {
   late ShopComponent _shopComponent;
-  late DashboardComponent _dashboardComponent;
   int _currentImageIndex = 0;
   final PageController _pageController = PageController();
-  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _shopComponent = ShopComponent();
-    _shopComponent.addListener(_onComponentChanged);
-    
-    _dashboardComponent = DashboardComponent();
-    _dashboardComponent.addListener(_onComponentChanged);
-    _dashboardComponent.fetchModules();
+    _shopComponent.addListener(_onChanged);
   }
 
   @override
   void dispose() {
-    _shopComponent.removeListener(_onComponentChanged);
-    _dashboardComponent.removeListener(_onComponentChanged);
+    _shopComponent.removeListener(_onChanged);
     _pageController.dispose();
     super.dispose();
   }
 
-  void _onComponentChanged() {
-    setState(() {});
-  }
+  void _onChanged() => setState(() {});
 
   String _formatPrice(double price) {
-    final formatter = NumberFormat.currency(
+    return NumberFormat.currency(
       locale: 'es_CO',
       symbol: '\$',
       decimalDigits: 0,
-    );
-    return formatter.format(price);
+    ).format(price);
   }
 
   Future<void> _contactWhatsApp() async {
@@ -75,7 +82,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al abrir WhatsApp: ${e.toString()}'),
+            content: Text('Error al abrir WhatsApp: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -85,585 +92,213 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final List<ProductImageModel> images = widget.product.images.isNotEmpty 
-        ? widget.product.images 
-        : <ProductImageModel>[]; // Lista vacía si no hay imágenes
+    final images = widget.product.images.isNotEmpty
+        ? widget.product.images
+        : <ProductImageModel>[];
 
-    return Scaffold(
-      appBar: NavbarComponent(
-        // title: widget.product.nameProduct,
-        // showBackButton: true,
-        // showMenuButton: false,
-        // backgroundColor: VcomColors.azulZafiroProfundo,
-        // topBarActions: [],
-      ),
-      drawer: Drawer(
-        child: _buildSidebar(),
-      ),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: VcomColors.gradienteNocturno,
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Galería de imágenes
-                _buildImageGallery(images),
-                
-                // Información del producto
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Nombre del producto
-                      Text(
-                        widget.product.nameProduct,
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: VcomColors.blancoCrema,
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 8),
-                      
-                      // Marca
-                      if (widget.product.brand != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: VcomColors.oroLujoso.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: VcomColors.oroLujoso.withOpacity(0.5)),
-                          ),
-                          child: Text(
-                            widget.product.brand!.nameBrand,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: VcomColors.oroBrillante,
-                            ),
-                          ),
-                        ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Precio
-                      Container(
-                        padding: const EdgeInsets.all(20),
+    final categoryName = widget.product.category?.nameCategory ??
+        widget.product.brand?.nameBrand ??
+        '';
+
+    final hasDesc = widget.product.descriptionProduct?.isNotEmpty == true;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final imageH = constraints.maxHeight * 0.52;
+        final cardTop = imageH * 0.85;
+
+        return Stack(
+          children: [
+            // ── Imagen ───────────────────────────────
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: imageH,
+              child: _buildImageGallery(images),
+            ),
+
+            // ── Fondo negro ──────────────────────────
+            Positioned(
+              top: imageH * 0.95,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(color: Colors.black),
+            ),
+
+            // ── Card con efecto vidrio ───────────────
+            Positioned(
+              top: cardTop,
+              left: 14,
+              right: 14,
+              bottom: 14,
+              child: SingleChildScrollView(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: Container(
                         decoration: BoxDecoration(
-                          color: VcomColors.azulZafiroProfundo,
+                          color: Colors.black.withValues(alpha: 0.35),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: VcomColors.oroLujoso.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.attach_money,
-                              color: VcomColors.oroLujoso,
-                              size: 32,
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Precio',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: VcomColors.blancoCrema.withOpacity(0.7),
-                                  ),
-                                ),
-                                Text(
-                                  _formatPrice(widget.product.priceCop),
-                                  style: TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: VcomColors.oroLujoso,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Stock
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: widget.product.stock > 5 
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: widget.product.stock > 5 
-                                ? Colors.green.withOpacity(0.3)
-                                : Colors.orange.withOpacity(0.3),
+                            color: Colors.white.withValues(alpha: 0.10),
+                            width: 0.8,
                           ),
                         ),
-                        child: Row(
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              widget.product.stock > 5 ? Icons.check_circle : Icons.warning,
-                              color: widget.product.stock > 5 ? Colors.green : Colors.orange,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                widget.product.stock > 5 
-                                    ? 'Disponible (${widget.product.stock} unidades)'
-                                    : 'Pocas unidades (${widget.product.stock} disponibles)',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: widget.product.stock > 5 ? Colors.green : Colors.orange,
+                            if (categoryName.isNotEmpty)
+                              Text(
+                                categoryName.toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: VcomColors.oroLujoso,
+                                  letterSpacing: 1.5,
                                 ),
                               ),
+
+                            const SizedBox(height: 8),
+
+                            // Nombre
+                            Text(
+                              widget.product.nameProduct,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: VcomColors.oroLujoso,
+                                height: 1.2,
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // SKU
-                      if (widget.product.sku != null && widget.product.sku!.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: VcomColors.azulOverlayTransparente60,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.qr_code, color: VcomColors.blancoCrema.withOpacity(0.7)),
-                              const SizedBox(width: 12),
-                              Text(
-                                'SKU: ${widget.product.sku}',
+
+                            const SizedBox(height: 6),
+
+                            // Precio
+                            Text(
+                              _formatPrice(widget.product.priceCop),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+
+                            if (hasDesc) ...[
+                              const SizedBox(height: 16),
+
+                              const Text(
+                                'DESCRIPCIÓN',
                                 style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: VcomColors.oroLujoso,
+                                  letterSpacing: 1.4,
+                                ),
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              Text(
+                                widget.product.descriptionProduct!,
+                                style: const TextStyle(
                                   fontSize: 14,
-                                  color: VcomColors.blancoCrema.withOpacity(0.7),
+                                  height: 1.6,
+                                  color: Color(0xFFB0B0B0),
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      
-                      const SizedBox(height: 32),
-                      
-                      // Descripción
-                      if (widget.product.descriptionProduct != null && 
-                          widget.product.descriptionProduct!.isNotEmpty) ...[
-                        Text(
-                          'Descripción',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: VcomColors.blancoCrema,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Text(
-                            widget.product.descriptionProduct!,
-                            style: TextStyle(
-                              fontSize: 16,
-                              height: 1.6,
-                              color: VcomColors.blancoCrema,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                      ],
-                      
-                      // Botón de WhatsApp
-                      SizedBox(
-                        width: double.infinity,
-                        child: ButtonComponent(
-                          label: 'Consultar por WhatsApp',
-                          size: ButtonSize.large,
-                          color: const Color(0xFF25D366), // Color de WhatsApp
-                          textColor: Colors.white,
-                          icon: Icons.chat,
-                          onPressed: _contactWhatsApp,
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Información adicional
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: VcomColors.azulOverlayTransparente60,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.info_outline, color: VcomColors.oroLujoso, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Al consultar por WhatsApp recibirás:',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: VcomColors.blancoCrema,
+
+                            const SizedBox(height: 24),
+
+                            // Botón contactar
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: ClipRect(
+                                child: BackdropFilter(
+                                  filter:
+                                      ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color.fromRGBO(
+                                          241, 191, 39, 0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: const Color.fromRGBO(
+                                            241, 191, 39, 0.3),
+                                        width: 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                              alpha: 0.3),
+                                          blurRadius: 30,
+                                          offset: const Offset(0, 10),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: _contactWhatsApp,
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 16),
+                                          alignment: Alignment.center,
+                                          child: const Text(
+                                            'CONTACTAR AL VENDEDOR',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFFf1bf27),
+                                              letterSpacing: 1,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 12),
-                            _buildInfoItem('�?� Información detallada del producto'),
-                            _buildInfoItem('�?� Disponibilidad actualizada'),
-                            _buildInfoItem('�?� Opciones de pago y envío'),
-                            _buildInfoItem('�?� Atención personalizada'),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildImageGallery(List<ProductImageModel> images) {
     if (images.isEmpty) {
       return Container(
-        height: 300,
-        width: double.infinity,
-        color: Colors.grey[200],
-        child: Icon(
-          Icons.image_not_supported,
-          size: 64,
-          color: Colors.grey[400],
-        ),
+        color: const Color(0xFF1a2847),
+        child: const Icon(Icons.image_not_supported,
+            size: 64, color: Colors.white24),
       );
     }
 
-    return Column(
-      children: [
-        // Imagen principal
-        Container(
-          height: 400,
-          width: double.infinity,
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentImageIndex = index;
-              });
-            },
-            itemCount: images.length,
-            itemBuilder: (context, index) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                ),
-                child: Image.network(
-                  images[index].imageUrl,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey[200],
-                      child: Icon(
-                        Icons.image_not_supported,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-        ),
-        
-        // Indicadores de imagen
-        if (images.length > 1) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                images.length,
-                (index) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentImageIndex == index
-                        ? VcomColors.oroLujoso
-                        : VcomColors.blancoCrema.withOpacity(0.3),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-        
-        // Miniaturas
-        if (images.length > 1) ...[
-          const SizedBox(height: 16),
-          Container(
-            height: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: images.length,
-              itemBuilder: (context, index) {
-                final isSelected = _currentImageIndex == index;
-                return GestureDetector(
-                  onTap: () {
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
-                  },
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    margin: const EdgeInsets.only(right: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isSelected ? VcomColors.oroLujoso : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        images[index].imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[200],
-                            child: Icon(
-                              Icons.image,
-                              size: 24,
-                              color: Colors.grey[400],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-
-  Widget _buildInfoItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        text,
-        softWrap: true,
-        style: TextStyle(
-          fontSize: 12,
-          color: VcomColors.blancoCrema.withOpacity(0.8),
-        ),
+    return PageView.builder(
+      controller: _pageController,
+      onPageChanged: (i) => setState(() => _currentImageIndex = i),
+      itemCount: images.length,
+      itemBuilder: (_, i) => Image.network(
+        images[i].imageUrl,
+        fit: BoxFit.cover,
       ),
     );
-  }
-
-  /// Construye el sidebar dinámicamente basado en los módulos del usuario
-  Widget _buildSidebar() {
-    if (_dashboardComponent.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: VcomColors.oroLujoso),
-      );
-    }
-
-    if (_dashboardComponent.error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: VcomColors.error),
-            const SizedBox(height: 16),
-            Text(
-              'Error al cargar módulos',
-              style: TextStyle(
-                fontSize: 16,
-                color: VcomColors.blancoCrema,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => _dashboardComponent.fetchModules(),
-              child: const Text('Reintentar'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Convertir todos los módulos a SidebarItem
-    final moduleItems = _dashboardComponent.modules
-        .where((module) => module.state) // Solo módulos activos
-        .map((module) {
-      final index = _dashboardComponent.modules.indexOf(module) + 1; // +1 porque Dashboard será el índice 0
-      return SidebarItem(
-        label: module.nameModule,
-        icon: IconHelper.getIconFromString(module.icon),
-        isSelected: _selectedIndex == index,
-        onTap: () {
-          Navigator.pop(context);
-          _navigateToModule(module);
-        },
-      );
-    }).toList();
-
-    // Agregar botón de Dashboard al principio
-    final sidebarItems = [
-      SidebarItem(
-        label: 'Dashboard',
-        icon: Icons.dashboard,
-        isSelected: _selectedIndex == 0,
-        onTap: () {
-          Navigator.pop(context);
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const DashboardPage()),
-          );
-        },
-      ),
-      ...moduleItems,
-    ];
-
-    // Si no hay módulos, mostrar mensaje
-    if (sidebarItems.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.folder_outlined, size: 64, color: VcomColors.oroLujoso),
-            const SizedBox(height: 16),
-            Text(
-              'No hay módulos disponibles',
-              style: TextStyle(
-                fontSize: 16,
-                color: VcomColors.blancoCrema,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return SidebarComponent(
-      items: sidebarItems,
-      selectedIndex: _selectedIndex,
-      onItemSelected: (index) {
-        setState(() => _selectedIndex = index);
-      },
-    );
-  }
-
-  /// Navega a la página correspondiente según la ruta del módulo
-  void _navigateToModule(ModuleModel module) {
-    final route = module.route.toLowerCase();
-    
-    Widget? targetPage;
-
-    // Mapear rutas a páginas
-    if (route.contains('dashboard') || route.contains('inicio')) {
-      targetPage = const DashboardPage();
-    } else if (route.contains('category') || route.contains('categoria')) {
-      targetPage = const ManagerCategoryPage();
-    } else if (route.contains('brand') || route.contains('marca')) {
-      targetPage = const ManagerBrandPage();
-    } else if (route.contains('product') || route.contains('producto')) {
-      targetPage = const ManagerProductPage();
-    } else if (route.contains('shop') || route.contains('tienda') || route.contains('store')) {
-      targetPage = const ShopPage();
-    } else if (route.contains('chat') || route.contains('mensaje')) {
-      targetPage = const ChatPage();
-    }
-
-    if (targetPage != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => targetPage!),
-      );
-    } else {
-      // Si no se encuentra la ruta, mostrar mensaje de módulo en desarrollo
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  Icons.construction,
-                  color: VcomColors.blancoCrema,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '${module.nameModule} está en desarrollo',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: VcomColors.oroLujoso,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            margin: const EdgeInsets.all(16),
-            duration: const Duration(seconds: 3),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: VcomColors.azulMedianocheTexto,
-              onPressed: () {},
-            ),
-          ),
-        );
-      }
-    }
   }
 }
-

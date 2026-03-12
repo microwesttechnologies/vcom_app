@@ -165,16 +165,18 @@ class ShopComponent extends ChangeNotifier {
   /// Aplica todos los filtros activos
   void _applyFilters() {
     _filteredProducts = _products.where((product) {
-      // Filtro por categoría
-      bool matchesCategory = _selectedCategoryId == null || 
+      // Filtro por categoría: revisa product.category primero, luego brand.idCategory como fallback
+      bool matchesCategory = _selectedCategoryId == null ||
+          product.category?.idCategory == _selectedCategoryId ||
           product.brand?.idCategory == _selectedCategoryId;
-      
+
       // Filtro por búsqueda de texto
       bool matchesSearch = _searchQuery.isEmpty ||
           product.nameProduct.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           (product.descriptionProduct?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-          (product.brand?.nameBrand.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
-      
+          (product.brand?.nameBrand.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+          (product.category?.nameCategory.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+
       return matchesCategory && matchesSearch;
     }).toList();
   }
