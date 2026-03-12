@@ -15,7 +15,8 @@ class TrainingComponent extends ChangeNotifier {
   List<CategoryVideoModel> _categories = [];
   bool _isLoading = false;
   String? _error;
-  String _selectedFilter = 'Todos'; // 'Todos', 'Personal', 'Vivir bien'
+  String _selectedFilter = 'Todos los Artículos';
+  String _searchQuery = '';
 
   // Getters
   List<VideoModel> get videos => _filteredVideos;
@@ -24,6 +25,7 @@ class TrainingComponent extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   String get selectedFilter => _selectedFilter;
+  String get searchQuery => _searchQuery;
 
   /// Obtiene los headers con autenticación si el token está disponible
   Map<String, String> _getHeaders() {
@@ -114,15 +116,33 @@ class TrainingComponent extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Aplica los filtros actuales
+  /// Actualiza la búsqueda y reaplica filtros
+  void setSearchQuery(String query) {
+    _searchQuery = query.trim();
+    _applyFilters();
+    notifyListeners();
+  }
+
+  /// Aplica los filtros actuales (categoría + búsqueda)
   void _applyFilters() {
-    if (_selectedFilter == 'Todos') {
-      _filteredVideos = List.from(_videos);
-    } else {
-      _filteredVideos = _videos.where((video) {
-        return video.categoryVideo?.nameCategoryVideo == _selectedFilter;
+    var result = _videos;
+
+    if (_selectedFilter != 'Todos los Artículos') {
+      result = result.where((v) =>
+          v.categoryVideo?.nameCategoryVideo == _selectedFilter).toList();
+    }
+
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      result = result.where((v) {
+        final title = v.titleVideo.toLowerCase();
+        final desc = (v.description ?? v.subtitleVideo ?? '').toLowerCase();
+        final cat = v.categoryVideo?.nameCategoryVideo.toLowerCase() ?? '';
+        return title.contains(q) || desc.contains(q) || cat.contains(q);
       }).toList();
     }
+
+    _filteredVideos = result;
   }
 
   /// Obtiene un video por ID

@@ -1,28 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
+import 'package:vcom_app/components/shared/modelo_menubar.dart';
+import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/core/models/video.model.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
-/// Página de reproductor de video
-class VideoPlayerPage extends StatefulWidget {
+/// Página completa (uso con Navigator.push, ej. desde dashboard)
+class VideoPlayerPage extends StatelessWidget {
   final VideoModel video;
 
-  const VideoPlayerPage({
-    super.key,
-    required this.video,
-  });
+  const VideoPlayerPage({super.key, required this.video});
 
   @override
-  State<VideoPlayerPage> createState() => _VideoPlayerPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      extendBody: true,
+      appBar: const ModeloNavbar(showBackButton: true),
+      bottomNavigationBar: const ModeloMenuBar(activeIndex: 1),
+      body: VideoPlayerBody(video: video),
+    );
+  }
 }
 
-class _VideoPlayerPageState extends State<VideoPlayerPage> {
+/// Contenido del reproductor (video + info) reutilizable
+class VideoPlayerBody extends StatefulWidget {
+  final VideoModel video;
+
+  const VideoPlayerBody({super.key, required this.video});
+
+  @override
+  State<VideoPlayerBody> createState() => _VideoPlayerBodyState();
+}
+
+class _VideoPlayerBodyState extends State<VideoPlayerBody> {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isPlaying = false;
-  bool _isFullscreen = false;
   bool _showControls = true;
+  bool _disposed = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
   
@@ -55,37 +73,46 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
 
   Future<void> _initializeVideo() async {
     try {
-      String videoUrl = widget.video.urlSource;
+      final videoUrl = widget.video.urlSource;
+      if (videoUrl.isEmpty) {
+        if (mounted) setState(() => _isInitialized = false);
+        return;
+      }
 
-      _controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl))
-        ..initialize().then((_) {
-          if (mounted) {
-            setState(() {
-              _isInitialized = true;
-              _duration = _controller!.value.duration;
-            });
-            _controller!.addListener(_videoListener);
-            _controller!.play();
-            _isPlaying = true;
-          }
-        }).catchError((error) {
-          print('Error inicializando video: $error');
-          if (mounted) {
-            setState(() {
-              _isInitialized = false;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Error al cargar el video. Verifica que la URL sea válida.',
-                  style: TextStyle(color: VcomColors.blancoCrema),
-                ),
-                backgroundColor: VcomColors.error,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          }
+      final ctrl = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      _controller = ctrl;
+
+      ctrl.initialize().then((_) {
+        if (_disposed || !mounted || _controller != ctrl) {
+          ctrl.dispose();
+          return;
+        }
+        if (!ctrl.value.isInitialized) return;
+        setState(() {
+          _isInitialized = true;
+          _duration = ctrl.value.duration;
         });
+        ctrl.addListener(_videoListener);
+        ctrl.play();
+        _isPlaying = true;
+      }).catchError((error) {
+        if (_disposed || !mounted) return;
+        ctrl.dispose();
+        if (_controller == ctrl) _controller = null;
+        if (mounted) {
+          setState(() => _isInitialized = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Error al cargar el video. Verifica que la URL sea válida.',
+                style: TextStyle(color: VcomColors.blancoCrema),
+              ),
+              backgroundColor: VcomColors.error,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      });
     } catch (e) {
       print('Error: $e');
       if (mounted) {
@@ -107,12 +134,19 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   }
 
   void _videoListener() {
-    if (mounted && _controller != null) {
-      setState(() {
-        _position = _controller!.value.position;
-        _isPlaying = _controller!.value.isPlaying;
-      });
-    }
+    if (_disposed || !mounted || _controller == null) return;
+    try {
+      final c = _controller!;
+      if (!c.value.isInitialized) return;
+      final pos = c.value.position;
+      final playing = c.value.isPlaying;
+      if (mounted && !_disposed) {
+        setState(() {
+          _position = pos;
+          _isPlaying = playing;
+        });
+      }
+    } catch (_) {}
   }
 
 
@@ -123,11 +157,40 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     return '$minutes:$seconds';
   }
 
+  void _safePausePlay(bool pause) {
+    if (_disposed || _controller == null) return;
+    final c = _controller!;
+    if (!c.value.isInitialized) return;
+    try {
+      if (pause) {
+        c.pause();
+      } else {
+        c.play();
+      }
+      if (mounted && !_disposed) {
+        setState(() => _isPlaying = !pause);
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
-    _controller?.removeListener(_videoListener);
-    _controller?.dispose();
-    // Restaurar orientación al salir
+    _disposed = true;
+    final c = _controller;
+    _controller = null;
+    if (c != null) {
+      c.removeListener(_videoListener);
+      try {
+        if (c.value.isInitialized && c.value.isPlaying) {
+          c.pause();
+        }
+      } catch (_) {}
+      Future.microtask(() {
+        try {
+          c.dispose();
+        } catch (_) {}
+      });
+    }
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -136,160 +199,74 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_isFullscreen) {
-      // Modo pantalla completa: solo el video
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            _buildVideoPlayer(),
-            // Header flotante en pantalla completa
-            if (_showControls)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.8),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.arrow_back, color: VcomColors.oroLujoso),
-                          onPressed: () {
-                            setState(() {
-                              _isFullscreen = false;
-                            });
-                            SystemChrome.setPreferredOrientations([
-                              DeviceOrientation.portraitUp,
-                              DeviceOrientation.portraitDown,
-                            ]);
-                            SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                          },
-                        ),
-                        Expanded(
-                          child: Text(
-                            widget.video.titleVideo,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: VcomColors.oroLujoso,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.fullscreen_exit,
-                            color: VcomColors.oroLujoso,
-                            size: 28,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _isFullscreen = false;
-                            });
-                            SystemChrome.setPreferredOrientations([
-                              DeviceOrientation.portraitUp,
-                              DeviceOrientation.portraitDown,
-                            ]);
-                            SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-    
-    // Modo normal: con header e información
-    return Scaffold(
-      backgroundColor: VcomColors.azulZafiroProfundo,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: VcomColors.gradienteNocturno,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: _buildVideoPlayer(),
-              ),
-              _buildVideoInfo(),
-            ],
-          ),
+  void _enterFullscreen() {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _FullscreenVideoOverlay(
+          controller: _controller!,
+          video: widget.video,
+          onPop: () {
+            SystemChrome.setPreferredOrientations([
+              DeviceOrientation.portraitUp,
+              DeviceOrientation.portraitDown,
+            ]);
+            SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+          },
         ),
       ),
-    );
+    ).then((_) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    });
   }
 
-  Widget _buildHeader() {
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, color: VcomColors.oroLujoso),
-            onPressed: () => Navigator.pop(context),
-          ),
-          Expanded(
-            child: Text(
-              'Reproductor',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: VcomColors.oroLujoso,
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(0.0, -0.8),
+          radius: 1.2,
+          colors: [
+            Color(0xFF273C67),
+            Color(0xFF1a2847),
+            Color(0xFF0d1525),
+            Color(0xFF000000),
+          ],
+          stops: [0.0, 0.35, 0.7, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 96, bottom: 96),
+                      child: _buildVideoPlayer(),
+                    ),
+                    _buildVideoInfo(),
+                  ],
+                ),
               ),
-              textAlign: TextAlign.center,
             ),
-          ),
-          IconButton(
-            icon: Icon(
-              _isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-              color: VcomColors.oroLujoso,
-              size: 28,
-            ),
-            onPressed: () {
-              setState(() {
-                _isFullscreen = !_isFullscreen;
-                _showControls = true; // Mostrar controles al cambiar modo
-              });
-              if (_isFullscreen) {
-                SystemChrome.setPreferredOrientations([
-                  DeviceOrientation.landscapeLeft,
-                  DeviceOrientation.landscapeRight,
-                ]);
-                SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-                _hideControlsAfterDelay();
-              } else {
-                SystemChrome.setPreferredOrientations([
-                  DeviceOrientation.portraitUp,
-                  DeviceOrientation.portraitDown,
-                ]);
-                SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                _hideControlsAfterDelay();
-              }
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -314,20 +291,16 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
       );
     }
 
-    // En pantalla completa, el video ocupa toda la pantalla
-    Widget videoWidget = _isFullscreen
-        ? SizedBox.expand(
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: _controller!.value.aspectRatio,
-                child: VideoPlayer(_controller!),
-              ),
-            ),
-          )
-        : AspectRatio(
-            aspectRatio: _controller!.value.aspectRatio,
-            child: VideoPlayer(_controller!),
-          );
+    final c = _controller!;
+    final aspectRatio = c.value.aspectRatio;
+    final safeAspectRatio = aspectRatio > 0 && aspectRatio.isFinite
+        ? aspectRatio
+        : 16 / 9;
+
+    final videoWidget = AspectRatio(
+      aspectRatio: safeAspectRatio,
+      child: VideoPlayer(c),
+    );
 
     return GestureDetector(
       onTap: _toggleControls,
@@ -335,182 +308,157 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
         alignment: Alignment.center,
         children: [
           videoWidget,
-          // Botón de play/pausa central (siempre visible cuando se toca)
+
+          // Botones arriba derecha: pantalla completa + más opciones
           if (_showControls)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    if (_isPlaying) {
-                      _controller!.pause();
-                    } else {
-                      _controller!.play();
-                    }
-                    _isPlaying = !_isPlaying;
-                  });
-                  _hideControlsAfterDelay();
-                },
-                child: Container(
-                  color: Colors.transparent,
-                  child: Center(
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        shape: BoxShape.circle,
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_isInitialized)
+                    Material(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(8),
+                      child: InkWell(
+                        onTap: _enterFullscreen,
+                        borderRadius: BorderRadius.circular(8),
+                        child: const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: Icon(
+                            Icons.fullscreen,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
                       ),
-                      child: Icon(
-                        _isPlaying ? Icons.pause : Icons.play_arrow,
-                        size: 50,
-                        color: VcomColors.oroLujoso,
+                    ),
+                  if (_isInitialized) const SizedBox(width: 8),
+                  Material(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      onTap: _hideControlsAfterDelay,
+                      borderRadius: BorderRadius.circular(8),
+                      child: const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Icon(
+                          Icons.more_vert,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
-          // Controles inferiores (barra de progreso y botones)
+
+          // Controles inferiores (estilo imagen: play + timestamp + barra)
           if (_showControls)
             Positioned(
-              bottom: 0,
               left: 0,
               right: 0,
+              bottom: 0,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                     colors: [
-                      Colors.black.withOpacity(0.9),
-                      Colors.black.withOpacity(0.7),
+                      Colors.black.withValues(alpha: 0.85),
+                      Colors.black.withValues(alpha: 0.5),
                       Colors.transparent,
                     ],
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Barra de progreso y tiempo
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        children: [
-                          // Tiempo actual
-                          Text(
-                            _formatDuration(_position),
-                            style: TextStyle(
-                              color: VcomColors.blancoCrema,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
+                    // Botón play/pausa (negro redondeado, icono blanco)
+                    Material(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        onTap: () {
+                          _safePausePlay(_isPlaying);
+                          _hideControlsAfterDelay();
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Icon(
+                            _isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 28,
                           ),
-                          const SizedBox(width: 8),
-                          // Barra de progreso
-                          Expanded(
-                            child: SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                activeTrackColor: VcomColors.oroLujoso,
-                                inactiveTrackColor: VcomColors.blancoCrema.withOpacity(0.3),
-                                thumbColor: VcomColors.oroLujoso,
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-                                trackHeight: 4,
-                              ),
-                              child: Slider(
-                                value: _position.inSeconds.toDouble(),
-                                min: 0,
-                                max: _duration.inSeconds.toDouble(),
-                                onChanged: (value) {
-                                  _controller!.seekTo(Duration(seconds: value.toInt()));
-                                },
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Tiempo total
-                          Text(
-                            _formatDuration(_duration),
-                            style: TextStyle(
-                              color: VcomColors.blancoCrema,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    // Botones de control
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Botón retroceder 10s
-                        IconButton(
-                          icon: Icon(
-                            Icons.replay_10,
-                            color: VcomColors.blancoCrema,
-                            size: 32,
-                          ),
-                          onPressed: () {
-                            final newPosition = _position - const Duration(seconds: 10);
-                            _controller!.seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
-                            _hideControlsAfterDelay();
+                    const SizedBox(width: 12),
+                    // Timestamp (burbuja blanca)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _formatDuration(_position),
+                        style: const TextStyle(
+                          color: Colors.black87,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Barra de progreso
+                    Expanded(
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          activeTrackColor: const Color(0xFFB0B0B0),
+                          inactiveTrackColor: const Color(0xFF505050),
+                          thumbColor: Colors.white,
+                          thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6),
+                          overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 14),
+                          trackHeight: 4,
+                        ),
+                        child: Slider(
+                          value: _duration.inSeconds > 0
+                              ? _position.inSeconds
+                                  .clamp(0, _duration.inSeconds)
+                                  .toDouble()
+                              : 0,
+                          min: 0,
+                          max: _duration.inSeconds > 0
+                              ? _duration.inSeconds.toDouble()
+                              : 1,
+                          onChanged: (value) {
+                            if (_disposed || _controller == null) return;
+                            final c = _controller!;
+                            if (!c.value.isInitialized) return;
+                            try {
+                              c.seekTo(Duration(seconds: value.toInt()));
+                            } catch (_) {}
                           },
-                          tooltip: 'Retroceder 10s',
                         ),
-                        const SizedBox(width: 16),
-                        // Botón play/pausa
-                        Container(
-                          decoration: BoxDecoration(
-                            color: VcomColors.oroLujoso,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: IconButton(
-                            icon: Icon(
-                              _isPlaying ? Icons.pause : Icons.play_arrow,
-                              color: VcomColors.azulMedianocheTexto,
-                              size: 36,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                if (_isPlaying) {
-                                  _controller!.pause();
-                                } else {
-                                  _controller!.play();
-                                }
-                                _isPlaying = !_isPlaying;
-                              });
-                              _hideControlsAfterDelay();
-                            },
-                            iconSize: 40,
-                            tooltip: _isPlaying ? 'Pausar' : 'Reproducir',
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Botón avanzar 10s
-                        IconButton(
-                          icon: Icon(
-                            Icons.forward_10,
-                            color: VcomColors.blancoCrema,
-                            size: 32,
-                          ),
-                          onPressed: () {
-                            final newPosition = _position + const Duration(seconds: 10);
-                            _controller!.seekTo(newPosition > _duration ? _duration : newPosition);
-                            _hideControlsAfterDelay();
-                          },
-                          tooltip: 'Avanzar 10s',
-                        ),
-                      ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Tiempo total
+                    Text(
+                      _formatDuration(_duration),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -522,57 +470,146 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   }
 
   Widget _buildVideoInfo() {
+    final category = widget.video.categoryVideo?.nameCategoryVideo ?? '';
+    final author = widget.video.subtitleVideo;
+    final description = widget.video.description ?? '';
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Título
+          // Categoría (arriba, dorado, mayúsculas)
+          if (category.isNotEmpty)
+            Text(
+              category.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFFFC107),
+                letterSpacing: 1.2,
+              ),
+            ),
+          if (category.isNotEmpty) const SizedBox(height: 12),
+
+          // Título (grande, bold, blanco)
           Text(
             widget.video.titleVideo,
-            style: TextStyle(
-              fontSize: 22,
+            style: const TextStyle(
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: VcomColors.blancoCrema,
+              color: Colors.white,
+              height: 1.3,
             ),
           ),
-          
-          const SizedBox(height: 12),
-          
-          // Botón de categoría
-          if (widget.video.categoryVideo != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: VcomColors.azulOverlayTransparente60,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: VcomColors.oroLujoso,
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                widget.video.categoryVideo!.nameCategoryVideo,
-                style: TextStyle(
-                  color: VcomColors.oroLujoso,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          
-          const SizedBox(height: 12),
-          
-          // Descripción
-          if (widget.video.description != null)
+
+          // Autor (si hay subtitle)
+          if (author != null && author.isNotEmpty) ...[
+            const SizedBox(height: 8),
             Text(
-              widget.video.description!,
+              'Por $author',
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.8),
+                fontWeight: FontWeight.w400,
+                color: Colors.white.withValues(alpha: 0.9),
               ),
             ),
+          ],
+
+          // Descripción (gris claro, párrafos)
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.6,
+                color: Colors.white.withValues(alpha: 0.75),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// Overlay de pantalla completa para el video (landscape)
+class _FullscreenVideoOverlay extends StatelessWidget {
+  final VideoPlayerController controller;
+  final VideoModel video;
+  final VoidCallback onPop;
+
+  const _FullscreenVideoOverlay({
+    required this.controller,
+    required this.video,
+    required this.onPop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) onPop();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Center(
+              child: controller.value.isInitialized
+                  ? AspectRatio(
+                      aspectRatio: controller.value.aspectRatio > 0 &&
+                              controller.value.aspectRatio.isFinite
+                          ? controller.value.aspectRatio
+                          : 16 / 9,
+                      child: VideoPlayer(controller),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.fullscreen_exit, color: VcomColors.oroLujoso),
+                      onPressed: () {
+                        onPop();
+                        Navigator.pop(context);
+                      },
+                    ),
+                    Expanded(
+                      child: Text(
+                        video.titleVideo,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: VcomColors.oroLujoso,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

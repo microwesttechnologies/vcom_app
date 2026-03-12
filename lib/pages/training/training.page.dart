@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:vcom_app/pages/training/training.component.dart';
-import 'package:vcom_app/pages/training/video_player.page.dart';
+import 'package:vcom_app/pages/training/video_player.page.dart' show VideoPlayerBody;
 import 'package:vcom_app/core/models/video.model.dart';
 import 'package:vcom_app/components/shared/video_thumbnail.widget.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
-/// Página principal de Training
 class TrainingPage extends StatefulWidget {
   const TrainingPage({super.key});
 
@@ -17,6 +16,8 @@ class TrainingPage extends StatefulWidget {
 
 class _TrainingPageState extends State<TrainingPage> {
   late TrainingComponent _trainingComponent;
+  final _searchController = TextEditingController();
+  VideoModel? _currentVideo;
 
   @override
   void initState() {
@@ -24,104 +25,180 @@ class _TrainingPageState extends State<TrainingPage> {
     _trainingComponent = TrainingComponent();
     _trainingComponent.addListener(_onComponentChanged);
     _trainingComponent.initialize();
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
     _trainingComponent.removeListener(_onComponentChanged);
     super.dispose();
   }
 
   void _onComponentChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
+  }
+
+  void _onSearchChanged() {
+    _trainingComponent.setSearchQuery(_searchController.text);
+  }
+
+  void _openVideo(VideoModel video) {
+    setState(() => _currentVideo = video);
+  }
+
+  void _closeVideo() {
+    setState(() => _currentVideo = null);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: const ModeloNavbar(),
-      extendBodyBehindAppBar: true,
-      extendBody: true,
-      bottomNavigationBar: const ModeloMenuBar(activeIndex: 1),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0.0, -0.8),
-            radius: 1.2,
-            colors: [
-              Color(0xFF273C67),
-              Color(0xFF1a2847),
-              Color(0xFF0d1525),
-              Color(0xFF000000),
-            ],
-            stops: [0.0, 0.35, 0.7, 1.0],
-          ),
+    final inDetail = _currentVideo != null;
+
+    return PopScope(
+      canPop: !inDetail,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && inDetail) _closeVideo();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: ModeloNavbar(
+          showBackButton: inDetail,
+          onBackTap: inDetail ? _closeVideo : null,
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildFilterTabs(),
-              Expanded(
-                child: _buildContent(),
-              ),
-            ],
+        extendBodyBehindAppBar: true,
+        extendBody: true,
+        bottomNavigationBar: const ModeloMenuBar(activeIndex: 1),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: child,
           ),
+          child: inDetail
+              ? VideoPlayerBody(
+                  key: ValueKey(_currentVideo!.idVideo),
+                  video: _currentVideo!,
+                )
+              : Container(
+                  key: const ValueKey('training-list'),
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment(0.0, -0.8),
+                      radius: 1.2,
+                      colors: [
+                        Color(0xFF273C67),
+                        Color(0xFF1a2847),
+                        Color(0xFF0d1525),
+                        Color(0xFF000000),
+                      ],
+                      stops: [0.0, 0.35, 0.7, 1.0],
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSearchBar(),
+                        _buildCategoryFilters(),
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 20, 16, 12),
+                          child: Text(
+                            'Entrenamientos siguientes',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: _buildContent()),
+                      ],
+                    ),
+                  ),
+                ),
         ),
       ),
     );
   }
 
-  Widget _buildFilterTabs() {
-    // Mapear categorías del backend a nombres de filtro
-    final filters = ['Todos'];
-    
-    // Agregar categorías disponibles
-    for (var category in _trainingComponent.categories) {
-      if (!filters.contains(category.nameCategoryVideo)) {
-        filters.add(category.nameCategoryVideo);
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: const TextStyle(color: Colors.white, fontSize: 15),
+        decoration: InputDecoration(
+          hintText: 'Buscar artículos de lujo...',
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.5),
+            fontSize: 14,
+          ),
+          prefixIcon: Icon(
+            Icons.search,
+            color: Colors.white.withValues(alpha: 0.6),
+            size: 22,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilters() {
+    final filters = ['Todos los Artículos'];
+    for (var cat in _trainingComponent.categories) {
+      if (!filters.contains(cat.nameCategoryVideo)) {
+        filters.add(cat.nameCategoryVideo);
       }
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: SingleChildScrollView(
+      margin: const EdgeInsets.only(top: 16),
+      height: 32,
+      child: ListView(
         scrollDirection: Axis.horizontal,
-        child: Row(
-          children: filters.map((filter) {
-            final isSelected = _trainingComponent.selectedFilter == filter;
-            return Container(
-              margin: const EdgeInsets.only(right: 12),
-              child: FilterChip(
-                label: Text(filter),
-                selected: isSelected,
-                onSelected: (_) => _trainingComponent.filterByCategory(filter),
-                backgroundColor: VcomColors.azulOverlayTransparente60,
-                selectedColor: VcomColors.oroLujoso,
-                labelStyle: TextStyle(
-                  color: isSelected 
-                      ? VcomColors.azulMedianocheTexto 
-                      : VcomColors.blancoCrema,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  fontSize: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: isSelected 
-                        ? VcomColors.oroLujoso 
-                        : VcomColors.oroLujoso.withOpacity(0.3),
-                    width: 1,
-                  ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: filters.map((filter) {
+          final isSelected = _trainingComponent.selectedFilter == filter;
+          return GestureDetector(
+            onTap: () => _trainingComponent.filterByCategory(filter),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected
+                      ? VcomColors.oroLujoso
+                      : const Color(0xFFD4D4D8),
+                  width: 0.6,
                 ),
               ),
-            );
-          }).toList(),
-        ),
+              child: Text(
+                filter,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected
+                      ? VcomColors.oroLujoso
+                      : const Color(0xFFD4D4D8),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -150,7 +227,8 @@ class _TrainingPageState extends State<TrainingPage> {
       );
     }
 
-    if (_trainingComponent.error != null && _trainingComponent.allVideos.isEmpty) {
+    if (_trainingComponent.error != null &&
+        _trainingComponent.allVideos.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -170,7 +248,7 @@ class _TrainingPageState extends State<TrainingPage> {
               _trainingComponent.error!,
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -196,14 +274,14 @@ class _TrainingPageState extends State<TrainingPage> {
             Icon(
               Icons.video_library_outlined,
               size: 64,
-              color: VcomColors.oroLujoso.withOpacity(0.5),
+              color: VcomColors.oroLujoso.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
               'No hay videos disponibles',
               style: TextStyle(
                 fontSize: 16,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -211,190 +289,134 @@ class _TrainingPageState extends State<TrainingPage> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _trainingComponent.videos.length,
-      itemBuilder: (context, index) {
-        return _buildVideoCard(_trainingComponent.videos[index]);
-      },
+    return RefreshIndicator(
+      onRefresh: () => _trainingComponent.refresh(),
+      color: VcomColors.oroLujoso,
+      backgroundColor: const Color(0xFF1a2847),
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        itemCount: _trainingComponent.videos.length,
+        itemBuilder: (context, index) {
+          return _buildVideoCard(_trainingComponent.videos[index]);
+        },
+      ),
     );
   }
 
   Widget _buildVideoCard(VideoModel video) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: VcomColors.azulZafiroProfundo,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: VcomColors.oroLujoso.withOpacity(0.3),
-          width: 1,
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 0.8,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Thumbnail con botón de play
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => VideoPlayerPage(video: video),
-                ),
-              );
-            },
-            child: Stack(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _openVideo(video),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Thumbnail cuadrado
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: VideoThumbnail(
-                    videoUrl: video.urlSource,
-                    width: double.infinity,
-                    height: 200,
-                    fit: BoxFit.cover,
-                    placeholder: Container(
-                      width: double.infinity,
-                      height: 200,
-                      color: VcomColors.azulOverlayTransparente60,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: VcomColors.oroLujoso,
-                          strokeWidth: 2,
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 80,
+                    height: 80,
+                    child: VideoThumbnail(
+                      videoUrl: video.urlSource,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                      placeholder: Container(
+                        color: const Color(0xFF1a2847),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: VcomColors.oroLujoso,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                      errorWidget: Container(
+                        color: const Color(0xFF1a2847),
+                        child: Icon(
+                          Icons.video_library,
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.5),
+                          size: 36,
                         ),
                       ),
                     ),
-                    errorWidget: Container(
-                      width: double.infinity,
-                      height: 200,
-                      color: VcomColors.azulOverlayTransparente60,
-                      child: Icon(
-                        Icons.video_library,
-                        color: VcomColors.oroLujoso.withOpacity(0.5),
-                        size: 50,
-                      ),
-                    ),
                   ),
                 ),
-                // Botón de play centrado
-                Positioned.fill(
-                  child: Center(
-                    child: Container(
-                      width: 70,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: VcomColors.oroLujoso,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                const SizedBox(width: 14),
+                // Título, descripción, categoría
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        video.titleVideo,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      child: Icon(
-                        Icons.play_arrow,
-                        color: VcomColors.azulMedianocheTexto,
-                        size: 40,
+                      const SizedBox(height: 6),
+                      Text(
+                        video.subtitleVideo ??
+                            video.description ??
+                            'Lorem ipsum dolor sit amet consectetur adipisicing elit.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.65),
+                          height: 1.35,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
+                      const SizedBox(height: 10),
+                      if (video.categoryVideo != null)
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.play_circle_outline,
+                              size: 14,
+                              color: VcomColors.oroLujoso,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              video.categoryVideo!.nameCategoryVideo,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: VcomColors.oroLujoso,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
-                // Duración en la esquina inferior derecha (placeholder por ahora)
-                Positioned(
-                  bottom: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: VcomColors.oroLujoso,
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      'Video', // Placeholder - la duración real requeriría metadata adicional
-                      style: TextStyle(
-                        color: VcomColors.oroLujoso,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right,
+                  color: Colors.white.withValues(alpha: 0.5),
+                  size: 20,
                 ),
               ],
             ),
           ),
-          
-          // Información del video
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Título
-                Text(
-                  video.titleVideo,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: VcomColors.blancoCrema,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                
-                const SizedBox(height: 8),
-                
-                // Subtítulo/Descripción
-                if (video.subtitleVideo != null || video.description != null)
-                  Text(
-                    video.subtitleVideo ?? video.description ?? '',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: VcomColors.blancoCrema.withOpacity(0.8),
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                
-                const SizedBox(height: 12),
-                
-                // Botón de categoría
-                if (video.categoryVideo != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: VcomColors.azulOverlayTransparente60,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: VcomColors.oroLujoso,
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      video.categoryVideo!.nameCategoryVideo,
-                      style: TextStyle(
-                        color: VcomColors.oroLujoso,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

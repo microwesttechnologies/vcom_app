@@ -1,8 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/media_upload.service.dart';
+import 'package:vcom_app/core/models/chat/conversation.model.dart';
 import 'package:vcom_app/core/realtime/presence.service.dart';
 import 'package:vcom_app/pages/chat/chat.component.dart';
 import 'package:vcom_app/pages/chat/widgets/message_content.widget.dart';
@@ -114,9 +116,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final inChat = _chatComponent.selectedConversation != null;
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: const ModeloNavbar(),
+      appBar: inChat
+          ? _ChatNavbar(
+              conversation: _chatComponent.selectedConversation!,
+              presence: _presence,
+              onBack: () => _chatComponent.clearSelectedConversation(),
+            )
+          : const ModeloNavbar(),
       extendBodyBehindAppBar: true,
       extendBody: true,
       bottomNavigationBar: const ModeloMenuBar(activeIndex: 5),
@@ -136,7 +145,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             stops: [0.0, 0.35, 0.7, 1.0],
           ),
         ),
-        child: _buildBody(),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: _buildBody(),
+          ),
+        ),
       ),
     );
   }
@@ -220,12 +234,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       );
     }
 
-    return RefreshIndicator(
-      color: VcomColors.oroLujoso,
-      backgroundColor: VcomColors.azulZafiroProfundo,
-      onRefresh: () => chat.refresh(),
-      child: ListView.separated(
-        padding: const EdgeInsets.all(8),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: Text(
+            'Conversaciones',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            color: VcomColors.oroLujoso,
+            backgroundColor: VcomColors.azulZafiroProfundo,
+            onRefresh: () => chat.refresh(),
+            child: ListView.separated(
+              padding: EdgeInsets.fromLTRB(8, 4, 8, 8 + 70),
         itemCount: chat.conversations.length,
         separatorBuilder: (context, index) => Divider(
           height: 1,
@@ -238,7 +267,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           
           return Container(
             decoration: BoxDecoration(
-              color: VcomColors.azulZafiroProfundo,
+              color: VcomColors.azulNocheSombra,
               borderRadius: BorderRadius.circular(8),
             ),
             margin: const EdgeInsets.symmetric(vertical: 4),
@@ -326,100 +355,15 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           );
         },
       ),
+    ),
+  ),
+      ],
     );
   }
 
   Widget _buildChatView(ChatComponent chat) {
     return Column(
       children: [
-        // Header
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                VcomColors.azulZafiroProfundo,
-                VcomColors.azulNocheSombra,
-              ],
-            ),
-            border: Border(
-              bottom: BorderSide(
-                color: VcomColors.oroLujoso.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: VcomColors.oroLujoso),
-                onPressed: () {
-                  // Solo limpiar la selección, NO desconectar completamente
-                  chat.clearSelectedConversation();
-                },
-              ),
-              Stack(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: VcomColors.oroLujoso,
-                    child: Text(
-                      chat.selectedConversation!.otherUserName[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: VcomColors.azulMedianocheTexto,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  if (_presence.isUserOnline(chat.selectedConversation!.idOtherUser))
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: VcomColors.success,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: VcomColors.azulNocheSombra,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      chat.selectedConversation!.otherUserName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: VcomColors.blancoCrema,
-                      ),
-                    ),
-                    Text(
-                      _presence.getUserStatusText(chat.selectedConversation!.idOtherUser),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _presence.isUserOnline(chat.selectedConversation!.idOtherUser)
-                            ? VcomColors.success
-                            : VcomColors.blancoCrema.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
         // Messages
         Expanded(
           child: chat.isLoadingMessages
@@ -582,9 +526,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
         // Input
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(4, 8, 12, 10),
           decoration: BoxDecoration(
-            color: VcomColors.azulZafiroProfundo,
+            color: const Color.fromARGB(255, 1, 7, 21),
             border: Border(
               top: BorderSide(
                 color: VcomColors.oroLujoso.withOpacity(0.3),
@@ -595,85 +539,87 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           child: SafeArea(
             child: Row(
               children: [
-                // Botón para adjuntar imagen
+                // Botones imagen y cámara pegados a la izquierda
                 IconButton(
-                  icon: Icon(
-                    Icons.image,
-                    color: VcomColors.oroLujoso,
-                  ),
+                  icon: Icon(Icons.image, color: VcomColors.oroLujoso, size: 20),
                   onPressed: () => _showImageSourceDialog(chat),
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
-                // Botón para adjuntar video
                 IconButton(
-                  icon: Icon(
-                    Icons.videocam,
-                    color: VcomColors.oroLujoso,
-                  ),
+                  icon: Icon(Icons.videocam, color: VcomColors.oroLujoso, size: 20),
                   onPressed: () => _showVideoSourceDialog(chat),
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
+                const SizedBox(width: 4),
                 Expanded(
-                child: TextField(
-                  controller: _messageController,
-                  style: const TextStyle(color: VcomColors.blancoCrema),
-                  onChanged: (text) {
-                    if (text.isNotEmpty && !_isTyping) {
-                      _isTyping = true;
-                      _chatComponent.emitTypingStart();
-                    } else if (text.isEmpty && _isTyping) {
-                      _isTyping = false;
-                      _chatComponent.emitTypingStop();
-                    }
-                  },
-                  decoration: InputDecoration(
+                  child: TextField(
+                    controller: _messageController,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: const Color(0xFF8BA3C7),
+                    ),
+                    onChanged: (text) {
+                      if (text.isNotEmpty && !_isTyping) {
+                        _isTyping = true;
+                        _chatComponent.emitTypingStart();
+                      } else if (text.isEmpty && _isTyping) {
+                        _isTyping = false;
+                        _chatComponent.emitTypingStop();
+                      }
+                    },
+                    decoration: InputDecoration(
                       hintText: 'Escribe un mensaje...',
                       hintStyle: TextStyle(
-                        color: VcomColors.blancoCrema.withOpacity(0.4),
+                        fontSize: 13,
+                        color: const Color(0xFF6B7B9A),
                       ),
                       filled: true,
                       fillColor: VcomColors.azulNocheSombra,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide(
                           color: VcomColors.oroLujoso.withOpacity(0.3),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide(
                           color: VcomColors.oroLujoso.withOpacity(0.2),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(20),
                         borderSide: const BorderSide(
                           color: VcomColors.oroLujoso,
                           width: 1.5,
                         ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                        horizontal: 14,
+                        vertical: 6,
                       ),
                     ),
                     maxLines: null,
                     textCapitalization: TextCapitalization.sentences,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        VcomColors.oroBrillante,
-                        VcomColors.oroLujoso,
-                      ],
+                const SizedBox(width: 6),
+                Material(
+                  color: VcomColors.oroLujoso,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    onTap: () => _sendMessage(chat),
+                    customBorder: const CircleBorder(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.send,
+                        size: 18,
+                        color: VcomColors.azulMedianocheTexto,
+                      ),
                     ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, size: 20),
-                    color: VcomColors.azulMedianocheTexto,
-                    onPressed: () => _sendMessage(chat),
                   ),
                 ),
               ],
@@ -984,5 +930,110 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     } else {
       return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     }
+  }
+}
+
+/// Navbar del chat con el mismo estilo glass que el navbar compartido
+class _ChatNavbar extends StatelessWidget implements PreferredSizeWidget {
+  final ConversationModel conversation;
+  final PresenceService presence;
+  final VoidCallback onBack;
+
+  const _ChatNavbar({
+    required this.conversation,
+    required this.presence,
+    required this.onBack,
+  });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    final isOnline = presence.isUserOnline(conversation.idOtherUser);
+    final statusText = presence.getUserStatusText(conversation.idOtherUser);
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      elevation: 0,
+      automaticallyImplyLeading: false,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+        onPressed: onBack,
+      ),
+      flexibleSpace: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.15),
+            ),
+          ),
+        ),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [VcomColors.primaryPurple, VcomColors.oroLujoso],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: VcomColors.azulNocheSombra,
+              backgroundImage: conversation.otherUserAvatar != null
+                  ? NetworkImage(conversation.otherUserAvatar!)
+                  : null,
+              child: conversation.otherUserAvatar == null
+                  ? Text(
+                      conversation.otherUserName.isNotEmpty
+                          ? conversation.otherUserName[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        color: VcomColors.oroLujoso,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  statusText.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isOnline
+                        ? VcomColors.success
+                        : VcomColors.blancoCrema.withValues(alpha: 0.5),
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                Text(
+                  conversation.otherUserName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: VcomColors.blancoCrema,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
