@@ -11,6 +11,7 @@ import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
+import 'package:vcom_app/pages/events/events.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/core/models/product.model.dart';
 import 'package:vcom_app/core/models/module.model.dart';
@@ -214,6 +215,11 @@ class _ShopPageState extends State<ShopPage> {
       targetPage = const ShopPage();
     } else if (route.contains('chat') || route.contains('mensaje')) {
       targetPage = const ChatPage();
+    } else if (route.contains('event') ||
+        route.contains('evento') ||
+        route.contains('calendar') ||
+        route.contains('calendario')) {
+      targetPage = const EventsPage();
     } else if (route.contains('training') || route.contains('entrenamiento')) {
       targetPage = const TrainingPage();
     }
@@ -291,7 +297,7 @@ class _ShopPageState extends State<ShopPage> {
         extendBodyBehindAppBar: true,
         extendBody: true,
         drawer: inDetail ? null : Drawer(child: _buildSidebar()),
-        bottomNavigationBar: const ModeloMenuBar(activeIndex: 0),
+        bottomNavigationBar: const ModeloMenuBar(activeRoute: 'shop'),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 280),
           transitionBuilder: (child, animation) => FadeTransition(
@@ -735,5 +741,3 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 }
-
-

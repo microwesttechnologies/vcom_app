@@ -1,7 +1,8 @@
 /// Configuración de ambiente de desarrollo
 class EnvironmentDev {
-  /// URL base del API para producción
-  static const String baseUrl = 'https://vcamb.microwesttechnologies.com'; // Producción
+  /// URL base del API local
+  static const String baseUrl = 'http://10.0.2.2:8000';
+  // static const String baseUrl = 'https://vcamb.microwesttechnologies.com'; // Producción
   // static const String baseUrl = 'http://192.168.1.2:8000'; // IP local (desarrollo)
   // static const String baseUrl = 'http://localhost:8000'; // Localhost (para web/desktop)
   // static const String baseUrl = 'http://10.0.2.2:8000'; // Emulador Android
@@ -220,6 +221,26 @@ class EnvironmentDev {
 
   /// Eliminar un video
   static String videosDelete(int id) => '/api/v1/videos/$id';
+
+  // ============================================================================
+  // EVENTOS
+  // Endpoints para gestión de eventos y sus itinerarios
+  // ============================================================================
+
+  /// Listar todos los eventos
+  static const String eventsList = '/api/v1/events';
+
+  /// Crear un evento
+  static const String eventsCreate = '/api/v1/events';
+
+  /// Obtener un evento por ID
+  static String eventsGet(int id) => '/api/v1/events/$id';
+
+  /// Actualizar un evento por ID
+  static String eventsUpdate(int id) => '/api/v1/events/$id';
+
+  /// Eliminar un evento por ID
+  static String eventsDelete(int id) => '/api/v1/events/$id';
 
   // ============================================================================
   // MODELO (Rol Modelo)

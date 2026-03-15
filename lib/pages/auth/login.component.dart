@@ -172,8 +172,8 @@ class LoginComponent extends ChangeNotifier {
       // 2. Obtener permisos y datos del usuario usando el token
       final permissionsResponse = await _loginService.getPermissions(loginResponse.token);
       
-      // Guardar datos del usuario
-      _tokenService.setRole(permissionsResponse.user.role ?? '');
+      // Guardar permisos del backend y datos de usuario fallback.
+      _tokenService.setPermissions(permissionsResponse);
       _tokenService.setUserName(permissionsResponse.user.name);
       _tokenService.setUserId(permissionsResponse.user.id);
       
@@ -200,4 +200,3 @@ class LoginComponent extends ChangeNotifier {
     super.dispose();
   }
 }
-

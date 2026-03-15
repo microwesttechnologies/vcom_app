@@ -29,7 +29,7 @@ class ProductDetailPage extends StatelessWidget {
         showBackButton: true,
         onBackTap: onBack ?? () => Navigator.of(context).pop(),
       ),
-      bottomNavigationBar: const ModeloMenuBar(activeIndex: 0),
+      bottomNavigationBar: const ModeloMenuBar(activeRoute: 'shop'),
       body: ProductDetailBody(product: product),
     );
   }

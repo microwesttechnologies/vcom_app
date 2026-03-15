@@ -20,16 +20,22 @@ class ModuleModel {
 
   factory ModuleModel.fromJson(Map<String, dynamic> json) {
     return ModuleModel(
-      idModule: json['id_module'] as int,
-      nameModule: json['name_module'] as String,
-      descriptionModule: json['description_module'] as String,
-      route: json['route'] as String,
+      idModule: _parseInt(json['id_module']),
+      nameModule: json['name_module'] as String? ?? '',
+      descriptionModule: json['description_module'] as String? ?? '',
+      route: json['route'] as String? ?? '',
       state: json['state'] as bool,
-      icon: json['icon'] as String,
+      icon: json['icon'] as String? ?? '',
       permissions: ModulePermissions.fromJson(
-        json['permissions'] as Map<String, dynamic>,
+        (json['permissions'] as Map<String, dynamic>?) ?? const {},
       ),
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 }
 

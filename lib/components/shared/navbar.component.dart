@@ -157,8 +157,8 @@ class GlassNavbarComponent extends StatelessWidget
   }
 }
 
-/// Navbar inteligente: muestra `GlassNavbarComponent` si el rol es MODELO,
-/// o `NavbarComponent` estándar en caso contrario.
+/// Navbar inteligente: muestra `GlassNavbarComponent` para los roles con
+/// experiencia visual tipo modelo, o `NavbarComponent` estándar en caso contrario.
 ///
 /// Se auto-configura con los datos del usuario desde `TokenService`.
 /// Úsalo en cualquier `Scaffold`:
@@ -185,17 +185,22 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final token = TokenService();
     final role = token.getRole();
+    final normalizedRole = role?.toUpperCase() ?? '';
+    final usesModeloNavbar = normalizedRole == 'MODELO' ||
+        normalizedRole == 'MODAL' ||
+        normalizedRole == 'MONITOR';
 
-    if (role?.toUpperCase() != 'MODELO') {
+    if (!usesModeloNavbar) {
       return const NavbarComponent();
     }
 
-    final name = token.getUserName() ?? 'Modelo';
-    final firstName = name.trim().isNotEmpty ? name.split(' ').first : 'Modelo';
+    final roleLabel = normalizedRole == 'MONITOR' ? 'Monitor' : 'Modelo';
+    final name = token.getUserName() ?? roleLabel;
+    final firstName = name.trim().isNotEmpty ? name.split(' ').first : roleLabel;
     final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'M';
 
     return GlassNavbarComponent(
-      rolLabel: 'Modelo',
+      rolLabel: roleLabel,
       greeting: 'Hola, $firstName',
       initial: initial,
       showBackButton: showBackButton,
@@ -249,7 +254,11 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final name = TokenService().getUserName() ?? 'Modelo';
+    final token = TokenService();
+    final normalizedRole = token.getRole()?.toUpperCase() ?? '';
+    final roleLabel = normalizedRole == 'MONITOR' ? 'MONITOR' : 'MODELO';
+    final fallbackName = normalizedRole == 'MONITOR' ? 'Monitor' : 'Modelo';
+    final name = token.getUserName() ?? fallbackName;
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -320,7 +329,7 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          'MODELO',
+                          roleLabel,
                           style: TextStyle(
                             fontSize: 11,
                             color: VcomColors.oroLujoso.withValues(alpha: 0.8),

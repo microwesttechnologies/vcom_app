@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
@@ -44,7 +45,21 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
     setState(() {});
   }
 
+  void _showPermissionDenied(String action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('No tienes permiso para $action productos'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
   Future<void> _navigateToCreate() async {
+    if (!_managerProductComponent.canCreateProducts) {
+      _showPermissionDenied('crear');
+      return;
+    }
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -59,6 +74,10 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
 
   Future<void> _navigateToEdit(ProductModel product) async {
     if (product.idProduct == null) return;
+    if (!_managerProductComponent.canUpdateProducts) {
+      _showPermissionDenied('editar');
+      return;
+    }
     
     final result = await Navigator.push(
       context,
@@ -74,6 +93,10 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
 
   Future<void> _navigateToDelete(ProductModel product) async {
     if (product.idProduct == null) return;
+    if (!_managerProductComponent.canDeleteProducts) {
+      _showPermissionDenied('eliminar');
+      return;
+    }
     
     final result = await Navigator.push(
       context,
@@ -93,7 +116,7 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const NavbarComponent(),
+      appBar: const ModeloNavbar(),
       drawer: Drawer(
         child: SidebarComponent(
           items: [
@@ -167,9 +190,12 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
           ),
         ),
       ),
-      floatingActionButton: AddButtonComponent(
-        onPressed: _navigateToCreate,
-      ),
+      floatingActionButton: _managerProductComponent.canCreateProducts
+          ? AddButtonComponent(
+              onPressed: _navigateToCreate,
+            )
+          : null,
+      bottomNavigationBar: const ModeloMenuBar(activeRoute: 'product'),
     );
   }
 
@@ -318,19 +344,23 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                               ),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: VcomColors.oroLujoso, size: 20),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _navigateToEdit(product),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _navigateToDelete(product),
-                          ),
+                          if (_managerProductComponent.canUpdateProducts)
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: VcomColors.oroLujoso, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _navigateToEdit(product),
+                            ),
+                          if (_managerProductComponent.canUpdateProducts &&
+                              _managerProductComponent.canDeleteProducts)
+                            const SizedBox(width: 8),
+                          if (_managerProductComponent.canDeleteProducts)
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _navigateToDelete(product),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 8),

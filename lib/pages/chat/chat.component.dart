@@ -375,41 +375,49 @@ class ChatComponent extends ChangeNotifier {
   }
 
   /// Envía un mensaje directamente a Pusher
+  /// Usa actualización optimista: muestra el mensaje de inmediato antes de la red
   Future<void> sendMessage(String content, {String messageType = 'text'}) async {
     if (_selectedConversation == null) {
       throw Exception('No hay conversación seleccionada');
     }
 
+    final now = DateTime.now();
+    final tempId = now.millisecondsSinceEpoch;
+
+    // Crear el mensaje para actualización optimista
+    final messageData = {
+      'id_message': tempId,
+      'id_conversation': _selectedConversation!.idConversation,
+      'id_sender': _currentUserId,
+      'sender_name': _userName ?? 'Usuario',
+      'sender_avatar': null,
+      'content': content,
+      'message_type': messageType,
+      'created_at': now.toIso8601String(),
+      'is_read': false,
+    };
+
+    // Actualización optimista: mostrar mensaje de inmediato
+    final optimisticMessage = MessageModel.fromJson(
+      messageData,
+      currentUserId: _currentUserId,
+    );
+    _messages.add(optimisticMessage);
+    notifyListeners();
+
     try {
-      print('📤 Enviando mensaje: "$content" (tipo: $messageType)');
-
-      // Crear el mensaje
-      final messageData = {
-        'id_message': DateTime.now().millisecondsSinceEpoch,
-        'id_conversation': _selectedConversation!.idConversation,
-        'id_sender': _currentUserId,
-        'sender_name': _userName ?? 'Usuario',
-        'sender_avatar': null,
-        'content': content,
-        'message_type': messageType, // 'text', 'image', o 'video'
-        'created_at': DateTime.now().toIso8601String(),
-        'is_read': false,
-      };
-
-      // Enviar directamente a Pusher
+      // Enviar a Pusher y backend en segundo plano
       final channelName = 'chat-${_selectedConversation!.idConversation}';
       await _pusher.sendMessage(
         channelName: channelName,
         eventName: 'message.sent',
         data: messageData,
       );
-
-      // OPCIONAL: Guardar en el backend para persistencia
       await _saveMessageToBackend(content, messageType: messageType);
-
-      print('✅ Mensaje enviado exitosamente');
     } catch (e) {
-      print('❌ Error enviando mensaje: $e');
+      // Revertir en caso de error
+      _messages.removeWhere((m) => m.idMessage == tempId);
+      notifyListeners();
       rethrow;
     }
   }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/common/permission.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/models/category.model.dart';
@@ -9,6 +10,7 @@ import 'package:vcom_app/core/models/category.model.dart';
 /// Maneja toda la lógica, cálculos y estado relacionado con la gestión de categorías
 class ManagerCategoryComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
+  final PermissionService _permissionService = PermissionService();
   
   // Estado
   List<CategoryModel> _categories = [];
@@ -21,6 +23,14 @@ class ManagerCategoryComponent extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   CategoryModel? get selectedCategory => _selectedCategory;
+  bool get canReadCategories =>
+      _permissionService.canReadModule(routeHints: const ['category', 'categoria']);
+  bool get canCreateCategories =>
+      _permissionService.canCreateModule(routeHints: const ['category', 'categoria']);
+  bool get canUpdateCategories =>
+      _permissionService.canUpdateModule(routeHints: const ['category', 'categoria']);
+  bool get canDeleteCategories =>
+      _permissionService.canDeleteModule(routeHints: const ['category', 'categoria']);
 
   /// Obtiene el token de autenticación
   String? _getToken() {
@@ -44,6 +54,9 @@ class ManagerCategoryComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canReadCategories) {
+        throw Exception('No tienes permiso para ver categorías');
+      }
       await fetchCategories();
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
@@ -60,6 +73,10 @@ class ManagerCategoryComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canReadCategories) {
+        throw Exception('No tienes permiso para ver categorías');
+      }
+
       final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesList}');
       final response = await http.get(url, headers: _getHeaders());
 
@@ -136,6 +153,10 @@ class ManagerCategoryComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canCreateCategories) {
+        throw Exception('No tienes permiso para crear categorías');
+      }
+
       final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesCreate}');
       final response = await http.post(
         url,
@@ -170,6 +191,10 @@ class ManagerCategoryComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canUpdateCategories) {
+        throw Exception('No tienes permiso para actualizar categorías');
+      }
+
       final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesUpdate(category.idCategory)}');
       final response = await http.put(
         url,
@@ -206,6 +231,10 @@ class ManagerCategoryComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canDeleteCategories) {
+        throw Exception('No tienes permiso para eliminar categorías');
+      }
+
       final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesDelete(id)}');
       final response = await http.delete(url, headers: _getHeaders());
 

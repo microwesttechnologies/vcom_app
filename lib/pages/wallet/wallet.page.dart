@@ -175,7 +175,7 @@ class _WalletPageState extends State<WalletPage>
       extendBodyBehindAppBar: true,
       extendBody: true,
       appBar: const ModeloNavbar(),
-      bottomNavigationBar: const ModeloMenuBar(activeIndex: 3),
+      bottomNavigationBar: const ModeloMenuBar(activeRoute: 'wallet'),
       body: Container(
         decoration: const BoxDecoration(
           gradient: RadialGradient(

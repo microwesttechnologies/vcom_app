@@ -1,3 +1,5 @@
+import 'package:vcom_app/core/models/module.model.dart';
+
 /// Modelos de dominio para el login
 /// Contiene las entidades y DTOs relacionados con la autenticación
 
@@ -57,7 +59,7 @@ class UserModel {
 class PermissionsResponse {
   final UserModel user;
   final Map<String, dynamic>? role;
-  final List<Map<String, dynamic>> modules;
+  final List<ModuleModel> modules;
 
   PermissionsResponse({
     required this.user,
@@ -70,7 +72,7 @@ class PermissionsResponse {
       user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
       role: json['role'] as Map<String, dynamic>?,
       modules: (json['modules'] as List<dynamic>?)
-          ?.map((e) => e as Map<String, dynamic>)
+          ?.map((e) => ModuleModel.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
     );
   }

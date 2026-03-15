@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
@@ -49,6 +50,15 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
     setState(() {});
   }
 
+  void _showPermissionDenied(String action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('No tienes permiso para $action categorías'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
   void _loadCategoryData(CategoryModel category) {
     _nameController.text = category.nameCategory;
     _descriptionController.text = category.descriptionCategory ?? '';
@@ -67,6 +77,16 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
 
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final isEditing = _managerCategoryComponent.selectedCategory != null;
+    if (isEditing && !_managerCategoryComponent.canUpdateCategories) {
+      _showPermissionDenied('actualizar');
+      return;
+    }
+    if (!isEditing && !_managerCategoryComponent.canCreateCategories) {
+      _showPermissionDenied('crear');
       return;
     }
 
@@ -116,6 +136,11 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
   }
 
   Future<void> _handleDelete(int categoryId) async {
+    if (!_managerCategoryComponent.canDeleteCategories) {
+      _showPermissionDenied('eliminar');
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -169,6 +194,15 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
   }
 
   void _showCategoryForm({CategoryModel? category}) {
+    if (category != null && !_managerCategoryComponent.canUpdateCategories) {
+      _showPermissionDenied('editar');
+      return;
+    }
+    if (category == null && !_managerCategoryComponent.canCreateCategories) {
+      _showPermissionDenied('crear');
+      return;
+    }
+
     if (category != null) {
       _managerCategoryComponent.setSelectedCategory(category);
       _loadCategoryData(category);
@@ -404,7 +438,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const NavbarComponent(),
+      appBar: const ModeloNavbar(),
       drawer: Drawer(
         child: SidebarComponent(
           items: [
@@ -476,9 +510,12 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
           ),
         ),
       ),
-      floatingActionButton: AddButtonComponent(
-        onPressed: () => _showCategoryForm(),
-      ),
+      floatingActionButton: _managerCategoryComponent.canCreateCategories
+          ? AddButtonComponent(
+              onPressed: () => _showCategoryForm(),
+            )
+          : null,
+      bottomNavigationBar: const ModeloMenuBar(activeRoute: 'category'),
     );
   }
 
@@ -618,28 +655,32 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                               ),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit,
-                              color: VcomColors.oroLujoso,
-                              size: 20,
+                          if (_managerCategoryComponent.canUpdateCategories)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit,
+                                color: VcomColors.oroLujoso,
+                                size: 20,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () =>
+                                  _showCategoryForm(category: category),
                             ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () =>
-                                _showCategoryForm(category: category),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete,
-                              color: Colors.red,
-                              size: 20,
+                          if (_managerCategoryComponent.canUpdateCategories &&
+                              _managerCategoryComponent.canDeleteCategories)
+                            const SizedBox(width: 8),
+                          if (_managerCategoryComponent.canDeleteCategories)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _handleDelete(category.idCategory),
                             ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _handleDelete(category.idCategory),
-                          ),
                         ],
                       ),
                       if (category.descriptionCategory != null) ...[

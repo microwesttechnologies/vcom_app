@@ -69,7 +69,7 @@ class _TrainingPageState extends State<TrainingPage> {
         ),
         extendBodyBehindAppBar: true,
         extendBody: true,
-        bottomNavigationBar: const ModeloMenuBar(activeIndex: 1),
+        bottomNavigationBar: const ModeloMenuBar(activeRoute: 'training'),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 280),
           transitionBuilder: (child, animation) => FadeTransition(

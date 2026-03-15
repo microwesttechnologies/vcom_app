@@ -13,6 +13,7 @@ import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
+import 'package:vcom_app/pages/events/events.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
@@ -30,9 +31,9 @@ class _DashboardPageState extends State<DashboardPage> {
   late DashboardModeloComponent _dashboardModeloComponent;
   final TokenService _tokenService = TokenService();
 
-  bool get _isModeloRole {
+  bool get _usesModeloDashboard {
     final role = _tokenService.getRole()?.toUpperCase() ?? '';
-    return role == 'MODELO' || role == 'MODAL';
+    return role == 'MODELO' || role == 'MODAL' || role == 'MONITOR';
   }
 
   @override
@@ -43,7 +44,7 @@ class _DashboardPageState extends State<DashboardPage> {
     _dashboardModeloComponent = DashboardModeloComponent();
     _dashboardModeloComponent.addListener(_onComponentChanged);
 
-    if (_isModeloRole) {
+    if (_usesModeloDashboard) {
       _dashboardModeloComponent.fetchDashboardData();
     } else {
       _dashboardComponent.fetchModules();
@@ -65,9 +66,9 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _isModeloRole ? const Color(0xFF000000) : null,
-      extendBodyBehindAppBar: _isModeloRole,
-      extendBody: _isModeloRole,
+      backgroundColor: _usesModeloDashboard ? const Color(0xFF000000) : null,
+      extendBodyBehindAppBar: _usesModeloDashboard,
+      extendBody: _usesModeloDashboard,
       appBar: const ModeloNavbar(),
       drawer: Drawer(
         child: SidebarComponent(
@@ -140,7 +141,7 @@ class _DashboardPageState extends State<DashboardPage> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: _isModeloRole
+        decoration: _usesModeloDashboard
             ? const BoxDecoration(
                 color: Color(0xFF000000),
                 gradient: RadialGradient(
@@ -158,7 +159,7 @@ class _DashboardPageState extends State<DashboardPage> {
             : const BoxDecoration(gradient: VcomColors.gradienteNocturno),
         child: SafeArea(
           bottom: false,
-          child: _isModeloRole
+          child: _usesModeloDashboard
               ? _buildContent()
               : Padding(
                   padding: const EdgeInsets.all(24),
@@ -166,7 +167,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
         ),
       ),
-      bottomNavigationBar: const ModeloMenuBar(),
+      bottomNavigationBar: const ModeloMenuBar(activeRoute: 'dashboard'),
 
     );
   }
@@ -194,6 +195,11 @@ class _DashboardPageState extends State<DashboardPage> {
       targetPage = const ShopPage();
     } else if (routeLower.contains('chat') || routeLower.contains('mensaje')) {
       targetPage = const ChatPage();
+    } else if (routeLower.contains('event') ||
+        routeLower.contains('evento') ||
+        routeLower.contains('calendar') ||
+        routeLower.contains('calendario')) {
+      targetPage = const EventsPage();
     } else if (routeLower.contains('training') || routeLower.contains('entrenamiento')) {
       targetPage = const TrainingPage();
     }
@@ -245,7 +251,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildContent() {
-    if (_isModeloRole) {
+    if (_usesModeloDashboard) {
       return _buildModeloContent();
     }
     return _buildDefaultContent();

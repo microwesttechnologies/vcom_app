@@ -128,7 +128,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           : const ModeloNavbar(),
       extendBodyBehindAppBar: true,
       extendBody: true,
-      bottomNavigationBar: const ModeloMenuBar(activeIndex: 5),
+      bottomNavigationBar: const ModeloMenuBar(activeRoute: 'chat'),
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -634,18 +634,19 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
+    if (_isTyping) {
+      _isTyping = false;
+      chat.emitTypingStop();
+    }
+
+    // Limpiar y hacer scroll de inmediato para respuesta fluida
+    _messageController.clear();
+    _scrollToBottom();
+
     try {
-      if (_isTyping) {
-        _isTyping = false;
-        chat.emitTypingStop();
-      }
-      
       await chat.sendMessage(text);
-      _messageController.clear();
-      _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
-      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al enviar mensaje: $e'),

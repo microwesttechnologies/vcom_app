@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
@@ -54,6 +55,15 @@ class _ManagerBrandPageState extends State<ManagerBrandPage> {
     setState(() {});
   }
 
+  void _showPermissionDenied(String action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('No tienes permiso para $action marcas'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
   /// Valida si una cadena es una URL válida
   bool _isValidUrl(String url) {
     try {
@@ -86,6 +96,16 @@ class _ManagerBrandPageState extends State<ManagerBrandPage> {
 
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final isEditing = _managerBrandComponent.selectedBrand != null;
+    if (isEditing && !_managerBrandComponent.canUpdateBrands) {
+      _showPermissionDenied('actualizar');
+      return;
+    }
+    if (!isEditing && !_managerBrandComponent.canCreateBrands) {
+      _showPermissionDenied('crear');
       return;
     }
 
@@ -149,6 +169,11 @@ class _ManagerBrandPageState extends State<ManagerBrandPage> {
   }
 
   Future<void> _handleDelete(int brandId) async {
+    if (!_managerBrandComponent.canDeleteBrands) {
+      _showPermissionDenied('eliminar');
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -206,6 +231,15 @@ class _ManagerBrandPageState extends State<ManagerBrandPage> {
 
   void _showBrandForm({BrandModel? brand}) {
     try {
+      if (brand != null && !_managerBrandComponent.canUpdateBrands) {
+        _showPermissionDenied('editar');
+        return;
+      }
+      if (brand == null && !_managerBrandComponent.canCreateBrands) {
+        _showPermissionDenied('crear');
+        return;
+      }
+
       if (brand != null) {
         _managerBrandComponent.setSelectedBrand(brand);
         _loadBrandData(brand);
@@ -554,7 +588,7 @@ class _ManagerBrandPageState extends State<ManagerBrandPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const NavbarComponent(),
+      appBar: const ModeloNavbar(),
       drawer: Drawer(
         child: SidebarComponent(
           items: [
@@ -628,9 +662,12 @@ class _ManagerBrandPageState extends State<ManagerBrandPage> {
           ),
         ),
       ),
-      floatingActionButton: AddButtonComponent(
-        onPressed: () => _showBrandForm(),
-      ),
+      floatingActionButton: _managerBrandComponent.canCreateBrands
+          ? AddButtonComponent(
+              onPressed: () => _showBrandForm(),
+            )
+          : null,
+      bottomNavigationBar: const ModeloMenuBar(activeRoute: 'brand'),
     );
   }
 
@@ -775,19 +812,23 @@ class _ManagerBrandPageState extends State<ManagerBrandPage> {
                               ),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: VcomColors.oroLujoso, size: 20),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _showBrandForm(brand: brand),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _handleDelete(brand.idBrand),
-                          ),
+                          if (_managerBrandComponent.canUpdateBrands)
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: VcomColors.oroLujoso, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _showBrandForm(brand: brand),
+                            ),
+                          if (_managerBrandComponent.canUpdateBrands &&
+                              _managerBrandComponent.canDeleteBrands)
+                            const SizedBox(width: 8),
+                          if (_managerBrandComponent.canDeleteBrands)
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _handleDelete(brand.idBrand),
+                            ),
                         ],
                       ),
                       if (brand.descriptionBrand != null) ...[

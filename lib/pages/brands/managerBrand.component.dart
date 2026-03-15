@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/common/permission.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/models/brand.model.dart';
@@ -10,6 +11,7 @@ import 'package:vcom_app/core/models/category.model.dart';
 /// Maneja toda la lógica, cálculos y estado relacionado con la gestión de marcas
 class ManagerBrandComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
+  final PermissionService _permissionService = PermissionService();
   
   // Estado
   List<BrandModel> _brands = [];
@@ -24,6 +26,14 @@ class ManagerBrandComponent extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   BrandModel? get selectedBrand => _selectedBrand;
+  bool get canReadBrands =>
+      _permissionService.canReadModule(routeHints: const ['brand', 'marca']);
+  bool get canCreateBrands =>
+      _permissionService.canCreateModule(routeHints: const ['brand', 'marca']);
+  bool get canUpdateBrands =>
+      _permissionService.canUpdateModule(routeHints: const ['brand', 'marca']);
+  bool get canDeleteBrands =>
+      _permissionService.canDeleteModule(routeHints: const ['brand', 'marca']);
 
   /// Obtiene el token de autenticación
   String? _getToken() {
@@ -47,6 +57,9 @@ class ManagerBrandComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canReadBrands) {
+        throw Exception('No tienes permiso para ver marcas');
+      }
       await Future.wait([
         fetchCategories(),
         fetchBrands(),
@@ -115,6 +128,10 @@ class ManagerBrandComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canReadBrands) {
+        throw Exception('No tienes permiso para ver marcas');
+      }
+
       final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.brandsList}');
       final response = await http.get(url, headers: _getHeaders());
 
@@ -190,6 +207,10 @@ class ManagerBrandComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canCreateBrands) {
+        throw Exception('No tienes permiso para crear marcas');
+      }
+
       final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.brandsCreate}');
       final response = await http.post(
         url,
@@ -224,6 +245,10 @@ class ManagerBrandComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canUpdateBrands) {
+        throw Exception('No tienes permiso para actualizar marcas');
+      }
+
       final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.brandsUpdate(brand.idBrand)}');
       final response = await http.put(
         url,
@@ -260,6 +285,10 @@ class ManagerBrandComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canDeleteBrands) {
+        throw Exception('No tienes permiso para eliminar marcas');
+      }
+
       final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.brandsDelete(id)}');
       final response = await http.delete(url, headers: _getHeaders());
 

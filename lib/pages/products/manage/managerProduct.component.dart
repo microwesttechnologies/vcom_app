@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:vcom_app/core/common/permission.service.dart';
 import 'package:http/http.dart' as http;
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
@@ -9,6 +10,7 @@ import 'package:vcom_app/core/models/product.model.dart';
 /// Maneja solo la lógica de listado de productos
 class ManagerProductComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
+  final PermissionService _permissionService = PermissionService();
   
   // Estado
   List<ProductModel> _products = [];
@@ -19,6 +21,14 @@ class ManagerProductComponent extends ChangeNotifier {
   List<ProductModel> get products => _products;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get canReadProducts =>
+      _permissionService.canReadModule(routeHints: const ['product', 'producto']);
+  bool get canCreateProducts =>
+      _permissionService.canCreateModule(routeHints: const ['product', 'producto']);
+  bool get canUpdateProducts =>
+      _permissionService.canUpdateModule(routeHints: const ['product', 'producto']);
+  bool get canDeleteProducts =>
+      _permissionService.canDeleteModule(routeHints: const ['product', 'producto']);
 
   /// Obtiene el token de autenticación
   String? _getToken() {
@@ -42,6 +52,9 @@ class ManagerProductComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canReadProducts) {
+        throw Exception('No tienes permiso para ver productos');
+      }
       await fetchProducts();
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
@@ -58,6 +71,10 @@ class ManagerProductComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!canReadProducts) {
+        throw Exception('No tienes permiso para ver productos');
+      }
+
       final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.productsList}');
       final response = await http.get(url, headers: _getHeaders());
 

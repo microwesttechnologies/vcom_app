@@ -19,7 +19,7 @@ class VideoPlayerPage extends StatelessWidget {
       extendBodyBehindAppBar: true,
       extendBody: true,
       appBar: const ModeloNavbar(showBackButton: true),
-      bottomNavigationBar: const ModeloMenuBar(activeIndex: 1),
+      bottomNavigationBar: const ModeloMenuBar(activeRoute: 'training'),
       body: VideoPlayerBody(video: video),
     );
   }
