@@ -98,6 +98,7 @@ class PusherDirectService {
           'channel_name': channelName,
         },
       ).timeout(const Duration(seconds: 10));
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         return _sanitizeAuthResponse(response.body);
@@ -116,6 +117,7 @@ class PusherDirectService {
             'channel_name': channelName,
           },
         ).timeout(const Duration(seconds: 10));
+        _tokenService.handleUnauthorizedStatus(fallbackResponse.statusCode);
 
         if (fallbackResponse.statusCode == 200) {
           return _sanitizeAuthResponse(fallbackResponse.body);

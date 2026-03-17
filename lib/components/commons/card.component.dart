@@ -150,7 +150,7 @@ class CardComponent extends StatelessWidget {
     final effectiveIconColor =
         iconColor ?? VcomColors.oroLujoso;
     final effectiveBorderColor =
-        borderColor ?? VcomColors.oroLujoso.withOpacity(0.5);
+        borderColor ?? VcomColors.oroLujoso.withValues(alpha: 0.5);
     final effectiveBorderWidth = borderWidth ?? 1.0;
     final effectiveBorderRadius = borderRadius ?? 12.0;
     final effectiveElevation = elevation ?? 2.0;
@@ -164,16 +164,16 @@ class CardComponent extends StatelessWidget {
       constraints: BoxConstraints(minHeight: effectiveHeight),
       padding: effectivePadding,
       decoration: BoxDecoration(
-        color: effectiveBackgroundColor.withOpacity(opacity),
+        color: effectiveBackgroundColor.withValues(alpha: opacity),
         border: Border.all(
-          color: effectiveBorderColor.withOpacity(opacity),
+          color: effectiveBorderColor.withValues(alpha: opacity),
           width: effectiveBorderWidth,
         ),
         borderRadius: BorderRadius.circular(effectiveBorderRadius),
         boxShadow: effectiveElevation > 0
             ? [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: effectiveElevation * 2,
                   offset: Offset(0, effectiveElevation),
                 ),
@@ -187,7 +187,7 @@ class CardComponent extends StatelessWidget {
           Icon(
             icon,
             size: _getIconSize(),
-            color: effectiveIconColor.withOpacity(opacity),
+            color: effectiveIconColor.withValues(alpha: opacity),
           ),
           SizedBox(width: _getIconSpacing()),
           Flexible(
@@ -202,7 +202,7 @@ class CardComponent extends StatelessWidget {
                   style: TextStyle(
                     fontSize: _getFontSize(),
                     fontWeight: FontWeight.w600,
-                    color: effectiveTextColor.withOpacity(opacity),
+                    color: effectiveTextColor.withValues(alpha: opacity),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -214,7 +214,7 @@ class CardComponent extends StatelessWidget {
                     style: TextStyle(
                       fontSize: _getFontSize() - 2,
                       fontWeight: FontWeight.w400,
-                      color: effectiveTextColor.withOpacity(opacity * 0.7),
+                      color: effectiveTextColor.withValues(alpha: opacity * 0.7),
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,

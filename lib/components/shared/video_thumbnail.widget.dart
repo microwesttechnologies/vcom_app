@@ -63,7 +63,7 @@ class _VideoThumbnailState extends State<VideoThumbnail> {
         });
       }
     } catch (e) {
-      print('Error cargando thumbnail: $e');
+      debugPrint('Error cargando thumbnail: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -104,7 +104,7 @@ class _VideoThumbnailState extends State<VideoThumbnail> {
             color: VcomColors.azulOverlayTransparente60,
             child: Icon(
               Icons.video_library,
-              color: VcomColors.oroLujoso.withOpacity(0.5),
+              color: VcomColors.oroLujoso.withValues(alpha: 0.5),
               size: 50,
             ),
           );

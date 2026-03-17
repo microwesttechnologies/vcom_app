@@ -100,14 +100,13 @@ class _WalletPageState extends State<WalletPage>
     _tabController = TabController(length: 3, vsync: this);
     _component = WalletComponent();
     _component.addListener(_onData);
-    _component.fetchWalletData();
+    _component.initialize();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _component.removeListener(_onData);
-    _component.dispose();
     super.dispose();
   }
 
@@ -142,8 +141,18 @@ class _WalletPageState extends State<WalletPage>
   }
 
   static const _monthNames = [
-    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
   ];
 
   /// Formatea fecha+hora ISO a "11/mar/2026 · 4:40 p.m."
@@ -286,7 +295,7 @@ class _WalletPageState extends State<WalletPage>
       );
     }
     return RefreshIndicator(
-      onRefresh: () => _component.fetchWalletData(),
+      onRefresh: () => _component.refresh(),
       color: VcomColors.oroLujoso,
       backgroundColor: const Color(0xFF1a2847),
       child: SingleChildScrollView(
@@ -338,72 +347,74 @@ class _WalletPageState extends State<WalletPage>
               ],
             ),
             child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Título
-          Text(
-            'SALDO LIQUIDADO',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: VcomColors.oroLujoso,
-              letterSpacing: 1.4,
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Monto
-          Text(
-            _copAmount(totalCop),
-            style: const TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-              color: VcomColors.blancoCrema,
-              letterSpacing: -0.5,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          // Etiqueta COP + período
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'COP',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.45),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              if (liq != null) ...[
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Título
                 Text(
-                  '  ·  ${_fmtDate(liq.startDate)} – ${_fmtDate(liq.endDate)}',
+                  'SALDO LIQUIDADO',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.35),
+                    fontWeight: FontWeight.w600,
+                    color: VcomColors.oroLujoso,
+                    letterSpacing: 1.4,
                   ),
                 ),
+                const SizedBox(height: 10),
+                // Monto
+                Text(
+                  _copAmount(totalCop),
+                  style: const TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    color: VcomColors.blancoCrema,
+                    letterSpacing: -0.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                // Etiqueta COP + período
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'COP',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.45),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (liq != null) ...[
+                      Text(
+                        '  ·  ${_fmtDate(liq.startDate)} – ${_fmtDate(liq.endDate)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.35),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (liq == null && !hasValue) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Sin liquidaciones registradas',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.35),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-          if (liq == null && !hasValue) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Sin liquidaciones registradas',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.35),
-              ),
             ),
-          ],
-        ],
-      ),
           ),
           // Barra dorada izquierda
           const Positioned(
-            left: 0, top: 0, bottom: 0,
+            left: 0,
+            top: 0,
+            bottom: 0,
             child: SizedBox(
               width: 3,
               child: DecoratedBox(
@@ -570,11 +581,13 @@ class _WalletPageState extends State<WalletPage>
     final all = _component.selectedWeekProductions;
 
     // Solo registros con valor real (ocultar los que tendrían "—")
-    final withValue = all.where((r) => r.totalUsd > 0 || r.earningsUsd > 0).toList();
+    final withValue = all
+        .where((r) => r.totalUsd > 0 || r.earningsUsd > 0)
+        .toList();
 
     // Opciones únicas para los filtros (solo de registros con valor)
-    final platforms =
-        withValue.map((r) => r.displayName).toSet().toList()..sort();
+    final platforms = withValue.map((r) => r.displayName).toSet().toList()
+      ..sort();
     final dates =
         withValue
             .map(
@@ -848,7 +861,9 @@ class _WalletPageState extends State<WalletPage>
             children: [
               Text(
                 hasAmount
-                    ? (amountCop > 0 ? _copAmount(amountCop) : _usdAmount(usdAmount))
+                    ? (amountCop > 0
+                          ? _copAmount(amountCop)
+                          : _usdAmount(usdAmount))
                     : '—',
                 style: TextStyle(
                   fontSize: 14,
@@ -897,8 +912,7 @@ class _WalletPageState extends State<WalletPage>
           GestureDetector(
             onTap: () => _openDeductionsWeekPicker(),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
@@ -908,8 +922,11 @@ class _WalletPageState extends State<WalletPage>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_month_outlined,
-                      color: VcomColors.oroLujoso, size: 18),
+                  const Icon(
+                    Icons.calendar_month_outlined,
+                    color: VcomColors.oroLujoso,
+                    size: 18,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -923,9 +940,11 @@ class _WalletPageState extends State<WalletPage>
                       ),
                     ),
                   ),
-                  Icon(Icons.keyboard_arrow_down_rounded,
-                      color: VcomColors.oroLujoso.withValues(alpha: 0.8),
-                      size: 22),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: VcomColors.oroLujoso.withValues(alpha: 0.8),
+                    size: 22,
+                  ),
                 ],
               ),
             ),
@@ -971,7 +990,7 @@ class _WalletPageState extends State<WalletPage>
     }
     final liquidations = _component.liquidations;
     return RefreshIndicator(
-      onRefresh: () => _component.fetchWalletData(),
+      onRefresh: () => _component.refresh(),
       color: VcomColors.oroLujoso,
       backgroundColor: const Color(0xFF1a2847),
       child: liquidations.isEmpty
@@ -1079,7 +1098,6 @@ class _WalletPageState extends State<WalletPage>
   }
 
   // ── Helpers compartidos ───────────────────────────────────────────────────────
-
 
   Widget _buildEmptyState(String message) {
     return Center(

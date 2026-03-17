@@ -125,7 +125,7 @@ class ButtonComponent extends StatelessWidget {
           Icon(
             icon,
             size: _getIconSize(),
-            color: isEnabled ? effectiveTextColor : effectiveTextColor.withOpacity(0.5),
+            color: isEnabled ? effectiveTextColor : effectiveTextColor.withValues(alpha: 0.5),
           ),
         if (icon != null && iconBefore)
           SizedBox(width: _getIconSpacing()),
@@ -134,7 +134,7 @@ class ButtonComponent extends StatelessWidget {
           style: TextStyle(
             fontSize: _getFontSize(),
             fontWeight: FontWeight.w600,
-            color: isEnabled ? effectiveTextColor : effectiveTextColor.withOpacity(0.5),
+            color: isEnabled ? effectiveTextColor : effectiveTextColor.withValues(alpha: 0.5),
           ),
         ),
         if (icon != null && !iconBefore)
@@ -143,7 +143,7 @@ class ButtonComponent extends StatelessWidget {
           Icon(
             icon,
             size: _getIconSize(),
-            color: isEnabled ? effectiveTextColor : effectiveTextColor.withOpacity(0.5),
+            color: isEnabled ? effectiveTextColor : effectiveTextColor.withValues(alpha: 0.5),
           ),
       ],
     );
@@ -151,7 +151,7 @@ class ButtonComponent extends StatelessWidget {
     Widget button = ElevatedButton(
       onPressed: isEnabled ? onPressed : null,
       style: ElevatedButton.styleFrom(
-        backgroundColor: isEnabled ? effectiveColor : effectiveColor.withOpacity(0.5),
+        backgroundColor: isEnabled ? effectiveColor : effectiveColor.withValues(alpha: 0.5),
         foregroundColor: effectiveTextColor,
         padding: EdgeInsets.symmetric(
           vertical: _getVerticalPadding(),

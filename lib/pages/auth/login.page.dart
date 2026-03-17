@@ -267,7 +267,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                               width: maxWidth,
                               padding: const EdgeInsets.all(28),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.4),
+                                color: Colors.black.withValues(alpha: 0.4),
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
                                   color: VcomColors.glassCardBorder,

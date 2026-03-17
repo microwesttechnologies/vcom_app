@@ -105,10 +105,10 @@ class CheckComponent extends StatelessWidget {
           height: _getCheckSize(),
           decoration: BoxDecoration(
             color: isChecked
-                ? effectiveColor.withOpacity(opacity)
+                ? effectiveColor.withValues(alpha: opacity)
                 : Colors.transparent,
             border: Border.all(
-              color: effectiveColor.withOpacity(opacity),
+              color: effectiveColor.withValues(alpha: opacity),
               width: 2.0,
             ),
             borderRadius: BorderRadius.circular(4.0),
@@ -133,7 +133,7 @@ class CheckComponent extends StatelessWidget {
           activeColor: effectiveColor,
           checkColor: VcomColors.azulMedianocheTexto,
           side: BorderSide(
-            color: effectiveColor.withOpacity(opacity),
+            color: effectiveColor.withValues(alpha: opacity),
             width: 2.0,
           ),
         ),
@@ -144,7 +144,7 @@ class CheckComponent extends StatelessWidget {
       label,
       style: TextStyle(
         fontSize: _getFontSize(),
-        color: effectiveTextColor.withOpacity(opacity),
+        color: effectiveTextColor.withValues(alpha: opacity),
       ),
     );
 

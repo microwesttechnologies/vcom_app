@@ -36,10 +36,13 @@ class _EventDetailPageState extends State<EventDetailPage> {
     final role = (_tokenService.getRole() ?? '').trim().toUpperCase();
     return role == 'MONITOR' || role == 'ADMIN';
   }
+
   bool get _canUpdateEvents => _permissionService.canUpdateModule(
-        routeHints: const ['event', 'evento', 'calendar', 'calendario'],
-      );
-  bool get _canDeleteEvents => _permissionService.canDeleteModule(
+    routeHints: const ['event', 'evento', 'calendar', 'calendario'],
+  );
+  bool get _canDeleteEvents =>
+      _canManageEvents ||
+      _permissionService.canDeleteModule(
         routeHints: const ['event', 'evento', 'calendar', 'calendario'],
       );
 
@@ -81,7 +84,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
               _buildInfoGrid(),
               const SizedBox(height: 20),
               if ((_event.linkAccess ?? '').isNotEmpty) _buildLinkCard(),
-              if ((_event.linkAccess ?? '').isNotEmpty) const SizedBox(height: 20),
+              if ((_event.linkAccess ?? '').isNotEmpty)
+                const SizedBox(height: 20),
               _buildDescription(),
               const SizedBox(height: 24),
               Row(
@@ -107,9 +111,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
               if (groupedItems.isEmpty)
                 Text(
                   'Este evento no tiene actividades cargadas.',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
                 )
               else
                 ...groupedItems.entries.map(
@@ -133,10 +135,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         image: imageUrl != null && imageUrl.isNotEmpty
-            ? DecorationImage(
-                image: NetworkImage(imageUrl),
-                fit: BoxFit.cover,
-              )
+            ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
             : null,
         gradient: imageUrl == null || imageUrl.isEmpty
             ? const LinearGradient(
@@ -208,7 +207,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
               label: const Text('Eliminar'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.redAccent,
-                side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.4)),
+                side: BorderSide(
+                  color: Colors.redAccent.withValues(alpha: 0.4),
+                ),
               ),
             ),
           ),
@@ -231,7 +232,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
             Expanded(
               child: _infoCard(
                 label: 'Hora',
-                value: '${_formatTime(_event.startTime)} - ${_formatTime(_event.endTime)}',
+                value:
+                    '${_formatTime(_event.startTime)} - ${_formatTime(_event.endTime)}',
               ),
             ),
           ],
@@ -257,9 +259,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
         onPressed: () async {
           await Clipboard.setData(ClipboardData(text: link));
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Link copiado')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Link copiado')));
         },
         icon: const Icon(Icons.copy_rounded, color: VcomColors.oroLujoso),
       ),
@@ -391,7 +393,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
     );
   }
 
-  Map<String, List<EventItineraryItem>> _groupItems(List<EventItineraryItem> items) {
+  Map<String, List<EventItineraryItem>> _groupItems(
+    List<EventItineraryItem> items,
+  ) {
     final grouped = <String, List<EventItineraryItem>>{};
     final sortedItems = List<EventItineraryItem>.from(items)
       ..sort((a, b) {
@@ -416,9 +420,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
 
   Future<void> _editEvent() async {
     final updated = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => EventFormPage(initialEvent: _event),
-      ),
+      MaterialPageRoute(builder: (_) => EventFormPage(initialEvent: _event)),
     );
 
     if (updated != true || !mounted || _event.idEvent == null) return;
@@ -479,7 +481,13 @@ class _EventDetailPageState extends State<EventDetailPage> {
   String _formatTime(String raw) {
     final parts = raw.split(':');
     if (parts.length < 2) return raw;
-    final parsed = DateTime(2026, 1, 1, int.parse(parts[0]), int.parse(parts[1]));
+    final parsed = DateTime(
+      2026,
+      1,
+      1,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
     return DateFormat('hh:mm a').format(parsed);
   }
 }

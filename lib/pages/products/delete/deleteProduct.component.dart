@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 
@@ -7,7 +8,8 @@ import 'package:vcom_app/core/common/envirotment.dev.dart';
 /// Maneja la lógica de eliminación de productos
 class DeleteProductComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
-  
+  final SessionCacheService _cache = SessionCacheService();
+
   // Estado
   bool _isLoading = false;
   String? _error;
@@ -15,6 +17,15 @@ class DeleteProductComponent extends ChangeNotifier {
   // Getters
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  String _cacheKey(String namespace, [String suffix = '']) {
+    return _cache.scopedKey(
+      namespace,
+      role: _tokenService.getRole() ?? 'guest',
+      userId: _tokenService.getUserId() ?? 'guest',
+      suffix: suffix,
+    );
+  }
 
   /// Obtiene el token de autenticación
   String? _getToken() {
@@ -38,10 +49,16 @@ class DeleteProductComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.productsDelete(id)}');
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.productsDelete(id)}',
+      );
       final response = await http.delete(url, headers: _getHeaders());
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
+        await _cache.removeByPrefix(_cacheKey('products::list'));
+        await _cache.removeByPrefix(_cacheKey('products::detail'));
+        await _cache.removeByPrefix(_cacheKey('shop::products'));
         _error = null;
       } else if (response.statusCode == 401) {
         throw Exception('No autenticado');
@@ -65,4 +82,3 @@ class DeleteProductComponent extends ChangeNotifier {
     notifyListeners();
   }
 }
-

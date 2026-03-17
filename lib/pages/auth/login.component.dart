@@ -4,6 +4,8 @@ import 'package:vcom_app/core/auth/login/login.services.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/credentials.service.dart';
 import 'package:vcom_app/core/common/biometric.service.dart';
+import 'package:vcom_app/core/common/session_cache.service.dart';
+import 'package:vcom_app/core/common/session_state_registry.service.dart';
 
 /// Controlador de lógica para el login
 /// Maneja toda la lógica, cálculos y estado relacionado con el login
@@ -12,6 +14,9 @@ class LoginComponent extends ChangeNotifier {
   final TextEditingController passwordController;
   final LoginService _loginService = LoginService();
   final TokenService _tokenService = TokenService();
+  final SessionCacheService _sessionCache = SessionCacheService();
+  final SessionStateRegistryService _sessionStateRegistry =
+      SessionStateRegistryService();
   final CredentialsService _credentialsService = CredentialsService();
   final BiometricService _biometricService = BiometricService();
   bool _obscurePassword = true;
@@ -21,8 +26,8 @@ class LoginComponent extends ChangeNotifier {
 
   /// Constructor
   LoginComponent()
-      : emailController = TextEditingController(),
-        passwordController = TextEditingController() {
+    : emailController = TextEditingController(),
+      passwordController = TextEditingController() {
     // Escuchar cambios en los controladores para actualizar el estado
     emailController.addListener(_onEmailChanged);
     passwordController.addListener(_onPasswordChanged);
@@ -54,7 +59,8 @@ class LoginComponent extends ChangeNotifier {
   Future<bool> loginWithBiometric() async {
     if (!_hasSavedCredentials) {
       throw Exception(
-          'Primero inicia sesión con usuario y contraseña\ny activa "Recordar credenciales"');
+        'Primero inicia sesión con usuario y contraseña\ny activa "Recordar credenciales"',
+      );
     }
 
     bool authenticated = false;
@@ -105,7 +111,7 @@ class LoginComponent extends ChangeNotifier {
   /// Carga las credenciales guardadas
   Future<void> _loadSavedCredentials() async {
     final credentials = await _credentialsService.loadCredentials();
-    
+
     if (credentials['remember'] == 'true') {
       _rememberCredentials = true;
       if (credentials['email'] != null) {
@@ -165,18 +171,23 @@ class LoginComponent extends ChangeNotifier {
     try {
       // 1. Realizar login y obtener token
       final loginResponse = await _loginService.executeLogin(email, password);
-      
+
+      await _sessionCache.clearSession();
+      _sessionStateRegistry.clearAll();
+
       // Guardar token
       _tokenService.setToken(loginResponse.token);
-      
+
       // 2. Obtener permisos y datos del usuario usando el token
-      final permissionsResponse = await _loginService.getPermissions(loginResponse.token);
-      
+      final permissionsResponse = await _loginService.getPermissions(
+        loginResponse.token,
+      );
+
       // Guardar permisos del backend y datos de usuario fallback.
       _tokenService.setPermissions(permissionsResponse);
       _tokenService.setUserName(permissionsResponse.user.name);
       _tokenService.setUserId(permissionsResponse.user.id);
-      
+
       // Guardar credenciales si el usuario marcó "Recordar credenciales"
       await _credentialsService.saveCredentials(
         remember: _rememberCredentials,

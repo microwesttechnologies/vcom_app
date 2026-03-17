@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
@@ -229,7 +229,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: VcomColors.oroLujoso.withOpacity(0.3),
+                      color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                     ),
                   ),
                 ),
@@ -237,9 +237,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      category != null
-                          ? 'Editar Categoría'
-                          : 'Nueva Categoría',
+                      category != null ? 'Editar Categoría' : 'Nueva Categoría',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -275,20 +273,20 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                         decoration: InputDecoration(
                           hintText: 'Ingrese el nombre de la categoría',
                           hintStyle: TextStyle(
-                            color: VcomColors.blancoCrema.withOpacity(0.5),
+                            color: VcomColors.blancoCrema.withValues(alpha: 0.5),
                           ),
                           filled: true,
                           fillColor: VcomColors.azulOverlayTransparente60,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: VcomColors.oroLujoso.withOpacity(0.3),
+                              color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: VcomColors.oroLujoso.withOpacity(0.3),
+                              color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -317,20 +315,20 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                         decoration: InputDecoration(
                           hintText: 'Ingrese la descripción de la categoría',
                           hintStyle: TextStyle(
-                            color: VcomColors.blancoCrema.withOpacity(0.5),
+                            color: VcomColors.blancoCrema.withValues(alpha: 0.5),
                           ),
                           filled: true,
                           fillColor: VcomColors.azulOverlayTransparente60,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: VcomColors.oroLujoso.withOpacity(0.3),
+                              color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: VcomColors.oroLujoso.withOpacity(0.3),
+                              color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -356,20 +354,20 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                         decoration: InputDecoration(
                           hintText: 'Ingrese el nombre del icono',
                           hintStyle: TextStyle(
-                            color: VcomColors.blancoCrema.withOpacity(0.5),
+                            color: VcomColors.blancoCrema.withValues(alpha: 0.5),
                           ),
                           filled: true,
                           fillColor: VcomColors.azulOverlayTransparente60,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: VcomColors.oroLujoso.withOpacity(0.3),
+                              color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: VcomColors.oroLujoso.withOpacity(0.3),
+                              color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -511,9 +509,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
         ),
       ),
       floatingActionButton: _managerCategoryComponent.canCreateCategories
-          ? AddButtonComponent(
-              onPressed: () => _showCategoryForm(),
-            )
+          ? AddButtonComponent(onPressed: () => _showCategoryForm())
           : null,
       bottomNavigationBar: const ModeloMenuBar(activeRoute: 'category'),
     );
@@ -548,7 +544,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
               _managerCategoryComponent.error!,
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -558,7 +554,8 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
               size: ButtonSize.medium,
               color: VcomColors.oroLujoso,
               textColor: VcomColors.azulMedianocheTexto,
-              onPressed: () => _managerCategoryComponent.fetchCategories(),
+              onPressed: () =>
+                  _managerCategoryComponent.fetchCategories(forceRefresh: true),
             ),
           ],
         ),
@@ -589,7 +586,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
               'Crea tu primera categoría',
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -617,7 +614,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
               '${_managerCategoryComponent.categories.length} categorías',
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -634,7 +631,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: VcomColors.oroLujoso.withOpacity(0.3),
+                    color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -679,7 +676,8 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                               ),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
-                              onPressed: () => _handleDelete(category.idCategory),
+                              onPressed: () =>
+                                  _handleDelete(category.idCategory),
                             ),
                         ],
                       ),
@@ -688,7 +686,7 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                         Text(
                           category.descriptionCategory!,
                           style: TextStyle(
-                            color: VcomColors.blancoCrema.withOpacity(0.7),
+                            color: VcomColors.blancoCrema.withValues(alpha: 0.7),
                             fontSize: 14,
                           ),
                         ),
@@ -719,8 +717,8 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
                             ),
                             decoration: BoxDecoration(
                               color: category.stateCategory
-                                  ? Colors.green.withOpacity(0.2)
-                                  : Colors.red.withOpacity(0.2),
+                                  ? Colors.green.withValues(alpha: 0.2)
+                                  : Colors.red.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -746,4 +744,3 @@ class _ManagerCategoryPageState extends State<ManagerCategoryPage> {
     );
   }
 }
-

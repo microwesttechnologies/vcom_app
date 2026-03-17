@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/models/product.model.dart';
@@ -11,7 +12,8 @@ import 'package:url_launcher/url_launcher.dart';
 /// Maneja toda la lógica de productos, categorías y funcionalidades de la tienda
 class ShopComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
-  
+  final SessionCacheService _cache = SessionCacheService();
+
   // Estado
   List<ProductModel> _products = [];
   List<ProductModel> _filteredProducts = [];
@@ -30,6 +32,14 @@ class ShopComponent extends ChangeNotifier {
   int? get selectedCategoryId => _selectedCategoryId;
   String get searchQuery => _searchQuery;
 
+  String _cacheKey(String namespace) {
+    return _cache.scopedKey(
+      namespace,
+      role: _tokenService.getRole() ?? 'guest',
+      userId: _tokenService.getUserId() ?? 'guest',
+    );
+  }
+
   /// Obtiene los headers con autenticación
   Map<String, String> _getHeaders() {
     final token = _tokenService.getToken();
@@ -41,15 +51,15 @@ class ShopComponent extends ChangeNotifier {
   }
 
   /// Inicializa el componente cargando productos y categorías
-  Future<void> initialize() async {
+  Future<void> initialize({bool forceRefresh = false}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
       await Future.wait([
-        fetchCategories(),
-        fetchProducts(),
+        fetchCategories(forceRefresh: forceRefresh),
+        fetchProducts(forceRefresh: forceRefresh),
       ]);
       _applyFilters();
     } catch (e) {
@@ -61,15 +71,56 @@ class ShopComponent extends ChangeNotifier {
   }
 
   /// Obtiene todas las categorías
-  Future<void> fetchCategories() async {
+  Future<void> fetchCategories({bool forceRefresh = false}) async {
     try {
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesList}');
+      final cacheKey = _cacheKey('shop::categories');
+      if (!forceRefresh) {
+        final cachedBody = await _cache.read(cacheKey);
+        if (cachedBody != null) {
+          final dynamic jsonResponse = jsonDecode(cachedBody);
+          List<dynamic> jsonList;
+
+          if (jsonResponse is List) {
+            jsonList = jsonResponse;
+          } else if (jsonResponse is Map<String, dynamic>) {
+            if (jsonResponse.containsKey('data')) {
+              jsonList = jsonResponse['data'] as List<dynamic>;
+            } else if (jsonResponse.containsKey('categories')) {
+              jsonList = jsonResponse['categories'] as List<dynamic>;
+            } else {
+              final listValues = jsonResponse.values
+                  .where((value) => value is List)
+                  .toList();
+              if (listValues.isNotEmpty) {
+                jsonList = listValues.first as List<dynamic>;
+              } else {
+                throw Exception('No se encontró la lista de categorías');
+              }
+            }
+          } else {
+            throw Exception('Formato de respuesta no válido');
+          }
+
+          _categories = jsonList
+              .map(
+                (json) => CategoryModel.fromJson(json as Map<String, dynamic>),
+              )
+              .where((category) => category.stateCategory)
+              .toList();
+          return;
+        }
+      }
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesList}',
+      );
       final response = await http.get(url, headers: _getHeaders());
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         final dynamic jsonResponse = jsonDecode(response.body);
         List<dynamic> jsonList;
-        
+
         if (jsonResponse is List) {
           jsonList = jsonResponse;
         } else if (jsonResponse is Map<String, dynamic>) {
@@ -78,7 +129,9 @@ class ShopComponent extends ChangeNotifier {
           } else if (jsonResponse.containsKey('categories')) {
             jsonList = jsonResponse['categories'] as List<dynamic>;
           } else {
-            final listValues = jsonResponse.values.where((value) => value is List).toList();
+            final listValues = jsonResponse.values
+                .where((value) => value is List)
+                .toList();
             if (listValues.isNotEmpty) {
               jsonList = listValues.first as List<dynamic>;
             } else {
@@ -88,11 +141,12 @@ class ShopComponent extends ChangeNotifier {
         } else {
           throw Exception('Formato de respuesta no válido');
         }
-        
+
         _categories = jsonList
             .map((json) => CategoryModel.fromJson(json as Map<String, dynamic>))
             .where((category) => category.stateCategory)
             .toList();
+        await _cache.write(cacheKey, response.body);
       } else {
         throw Exception('Error al obtener categorías: ${response.statusCode}');
       }
@@ -103,15 +157,61 @@ class ShopComponent extends ChangeNotifier {
   }
 
   /// Obtiene todos los productos
-  Future<void> fetchProducts() async {
+  Future<void> fetchProducts({bool forceRefresh = false}) async {
     try {
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.productsList}');
+      final cacheKey = _cacheKey('shop::products');
+      if (!forceRefresh) {
+        final cachedBody = await _cache.read(cacheKey);
+        if (cachedBody != null) {
+          final dynamic jsonResponse = jsonDecode(cachedBody);
+          List<dynamic> jsonList;
+
+          if (jsonResponse is List) {
+            jsonList = jsonResponse;
+          } else if (jsonResponse is Map<String, dynamic>) {
+            if (jsonResponse.containsKey('data')) {
+              jsonList = jsonResponse['data'] as List<dynamic>;
+            } else if (jsonResponse.containsKey('products')) {
+              jsonList = jsonResponse['products'] as List<dynamic>;
+            } else {
+              final listValues = jsonResponse.values
+                  .where((value) => value is List)
+                  .toList();
+              if (listValues.isNotEmpty) {
+                jsonList = listValues.first as List<dynamic>;
+              } else {
+                throw Exception('No se encontró la lista de productos');
+              }
+            }
+          } else {
+            throw Exception('Formato de respuesta no válido');
+          }
+
+          _products = jsonList
+              .map(
+                (json) => ProductModel.fromJson(json as Map<String, dynamic>),
+              )
+              .where((product) => product.stateProduct && product.stock > 0)
+              .toList();
+          _products.sort(
+            (a, b) => (b.createdAt ?? DateTime.now()).compareTo(
+              a.createdAt ?? DateTime.now(),
+            ),
+          );
+          return;
+        }
+      }
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.productsList}',
+      );
       final response = await http.get(url, headers: _getHeaders());
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         final dynamic jsonResponse = jsonDecode(response.body);
         List<dynamic> jsonList;
-        
+
         if (jsonResponse is List) {
           jsonList = jsonResponse;
         } else if (jsonResponse is Map<String, dynamic>) {
@@ -120,7 +220,9 @@ class ShopComponent extends ChangeNotifier {
           } else if (jsonResponse.containsKey('products')) {
             jsonList = jsonResponse['products'] as List<dynamic>;
           } else {
-            final listValues = jsonResponse.values.where((value) => value is List).toList();
+            final listValues = jsonResponse.values
+                .where((value) => value is List)
+                .toList();
             if (listValues.isNotEmpty) {
               jsonList = listValues.first as List<dynamic>;
             } else {
@@ -130,15 +232,19 @@ class ShopComponent extends ChangeNotifier {
         } else {
           throw Exception('Formato de respuesta no válido');
         }
-        
+
         _products = jsonList
             .map((json) => ProductModel.fromJson(json as Map<String, dynamic>))
             .where((product) => product.stateProduct && product.stock > 0)
             .toList();
-            
+
         // Ordenar por productos más vistos (simulado por fecha de creación más reciente)
-        _products.sort((a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()));
-        
+        _products.sort(
+          (a, b) => (b.createdAt ?? DateTime.now()).compareTo(
+            a.createdAt ?? DateTime.now(),
+          ),
+        );
+        await _cache.write(cacheKey, response.body);
       } else {
         throw Exception('Error al obtener productos: ${response.statusCode}');
       }
@@ -166,16 +272,29 @@ class ShopComponent extends ChangeNotifier {
   void _applyFilters() {
     _filteredProducts = _products.where((product) {
       // Filtro por categoría: revisa product.category primero, luego brand.idCategory como fallback
-      bool matchesCategory = _selectedCategoryId == null ||
+      bool matchesCategory =
+          _selectedCategoryId == null ||
           product.category?.idCategory == _selectedCategoryId ||
           product.brand?.idCategory == _selectedCategoryId;
 
       // Filtro por búsqueda de texto
-      bool matchesSearch = _searchQuery.isEmpty ||
-          product.nameProduct.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (product.descriptionProduct?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-          (product.brand?.nameBrand.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-          (product.category?.nameCategory.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+      bool matchesSearch =
+          _searchQuery.isEmpty ||
+          product.nameProduct.toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          ) ||
+          (product.descriptionProduct?.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              ) ??
+              false) ||
+          (product.brand?.nameBrand.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              ) ??
+              false) ||
+          (product.category?.nameCategory.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              ) ??
+              false);
 
       return matchesCategory && matchesSearch;
     }).toList();
@@ -188,17 +307,21 @@ class ShopComponent extends ChangeNotifier {
 
   /// Obtiene productos por categoría
   List<ProductModel> getProductsByCategory(int categoryId) {
-    return _products.where((product) => product.brand?.idCategory == categoryId).toList();
+    return _products
+        .where((product) => product.brand?.idCategory == categoryId)
+        .toList();
   }
 
   /// Abre WhatsApp con mensaje predefinido
   Future<void> contactWhatsApp(ProductModel product) async {
     const phoneNumber = '+573025620704';
-    final productUrl = 'https://vcamb.microwesttechnologies.com/product/${product.idProduct}';
-    final message = 'Hola! Quiero más información de este producto: ${product.nameProduct}\n\nLink: $productUrl';
-    
+    final productUrl =
+        'https://vcamb.microwesttechnologies.com/product/${product.idProduct}';
+    final message =
+        'Hola! Quiero más información de este producto: ${product.nameProduct}\n\nLink: $productUrl';
+
     final whatsappUrl = Uri.parse(
-      'https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}'
+      'https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}',
     );
 
     try {
@@ -230,6 +353,6 @@ class ShopComponent extends ChangeNotifier {
 
   /// Recarga datos
   Future<void> refresh() async {
-    await initialize();
+    await initialize(forceRefresh: true);
   }
 }

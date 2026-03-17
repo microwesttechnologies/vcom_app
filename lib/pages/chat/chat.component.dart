@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:vcom_app/core/common/envirotment.dev.dart';
+import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/models/chat/conversation.model.dart';
 import 'package:vcom_app/core/models/chat/message.model.dart';
@@ -13,6 +15,7 @@ import 'package:vcom_app/core/realtime/presence.service.dart';
 /// Basado en la app de prueba que funciona
 class ChatComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
+  final SessionCacheService _cache = SessionCacheService();
   final PusherDirectService _pusher = PusherDirectService();
   final PresenceService _presence = PresenceService();
 
@@ -20,7 +23,7 @@ class ChatComponent extends ChangeNotifier {
   List<ConversationModel> _conversations = [];
   List<MessageModel> _messages = [];
   ConversationModel? _selectedConversation;
-  
+
   bool _loading = false;
   bool _loadingMessages = false;
   bool _isOtherUserTyping = false;
@@ -37,6 +40,15 @@ class ChatComponent extends ChangeNotifier {
   bool get isOtherUserTyping => _isOtherUserTyping;
   String? get error => _error;
 
+  String _cacheKey(String namespace, [String suffix = '']) {
+    return _cache.scopedKey(
+      namespace,
+      role: _tokenService.getRole() ?? 'guest',
+      userId: _tokenService.getUserId() ?? 'guest',
+      suffix: suffix,
+    );
+  }
+
   // Headers para el backend
   Map<String, String> _headers() {
     final token = _tokenService.getToken();
@@ -48,7 +60,7 @@ class ChatComponent extends ChangeNotifier {
   }
 
   /// Inicializa el componente
-  Future<void> initialize(String role) async {
+  Future<void> initialize(String role, {bool forceRefresh = false}) async {
     _loading = true;
     _error = null;
     _currentUserId = _tokenService.getUserId();
@@ -68,12 +80,12 @@ class ChatComponent extends ChangeNotifier {
       // 2. Inicializar y activar el servicio de presencia (usa el mismo Pusher)
       await _presence.initialize();
       await _presence.activate();
-      
+
       // 3. Escuchar cambios de estado de presencia
       _presence.addListener(_onPresenceChanged);
 
       // 4. Cargar conversaciones desde el backend
-      await fetchConversations();
+      await fetchConversations(forceRefresh: forceRefresh);
 
       print('✅ Chat inicializado correctamente');
     } catch (e) {
@@ -102,23 +114,21 @@ class ChatComponent extends ChangeNotifier {
     print('🔄 _onPresenceChanged() LLAMADO');
     print('🔄 Actualizando ${_conversations.length} conversaciones');
     print('🔄 ========================================');
-    
+
     // Actualizar el estado de las conversaciones
     _conversations = _conversations.map((conv) {
       print('👤 Procesando conversación:');
       print('   📝 Nombre: ${conv.otherUserName}');
       print('   🔑 ID: ${conv.idOtherUser}');
       print('   📊 Estado anterior: ${conv.userStatus}');
-      
+
       final isOnline = _presence.isUserOnline(conv.idOtherUser);
       final newStatus = isOnline ? 'online' : 'offline';
-      
+
       print('   ✨ Estado nuevo: $newStatus');
       print('   ---');
-      
-      return conv.copyWith(
-        userStatus: newStatus,
-      );
+
+      return conv.copyWith(userStatus: newStatus);
     }).toList();
 
     // Si hay una conversación seleccionada, actualizarla también
@@ -126,12 +136,14 @@ class ChatComponent extends ChangeNotifier {
       print('💬 Actualizando conversación seleccionada:');
       print('   📝 Nombre: ${_selectedConversation!.otherUserName}');
       print('   🔑 ID: ${_selectedConversation!.idOtherUser}');
-      
-      final isOnline = _presence.isUserOnline(_selectedConversation!.idOtherUser);
+
+      final isOnline = _presence.isUserOnline(
+        _selectedConversation!.idOtherUser,
+      );
       _selectedConversation = _selectedConversation!.copyWith(
         userStatus: isOnline ? 'online' : 'offline',
       );
-      
+
       print('   ✨ Estado: ${isOnline ? "ONLINE" : "OFFLINE"}');
     }
 
@@ -142,24 +154,57 @@ class ChatComponent extends ChangeNotifier {
   }
 
   /// Obtiene las conversaciones desde el backend
-  Future<void> fetchConversations() async {
+  Future<void> fetchConversations({bool forceRefresh = false}) async {
     try {
       print('📥 Obteniendo conversaciones desde el backend...');
-      
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.chatConversations}');
-      final response = await http.get(url, headers: _headers()).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Timeout al obtener conversaciones');
-        },
+
+      final cacheKey = _cacheKey('chat::conversations');
+      if (!forceRefresh) {
+        final cachedBody = await _cache.read(cacheKey);
+        if (cachedBody != null) {
+          final data = jsonDecode(cachedBody);
+          final list = data is List ? data : (data['data'] ?? []);
+
+          _conversations = [];
+          for (final e in list) {
+            try {
+              final conv = ConversationModel.fromJson(e);
+              _conversations.add(conv);
+            } catch (e) {
+              print('⚠️ Error parseando conversación: $e');
+            }
+          }
+
+          _conversations = _conversations.map((conv) {
+            final isOnline = _presence.isUserOnline(conv.idOtherUser);
+            return conv.copyWith(userStatus: isOnline ? 'online' : 'offline');
+          }).toList();
+
+          _error = null;
+          notifyListeners();
+          return;
+        }
+      }
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatConversations}',
       );
+      final response = await http
+          .get(url, headers: _headers())
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Timeout al obtener conversaciones');
+            },
+          );
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final list = data is List ? data : (data['data'] ?? []);
 
         print('📋 Lista de conversaciones raw: ${list.length} items');
-        
+
         _conversations = [];
         for (var e in list) {
           try {
@@ -173,15 +218,16 @@ class ChatComponent extends ChangeNotifier {
         // Actualizar estados de conversaciones con datos de presencia
         _conversations = _conversations.map((conv) {
           final isOnline = _presence.isUserOnline(conv.idOtherUser);
-          return conv.copyWith(
-            userStatus: isOnline ? 'online' : 'offline',
-          );
+          return conv.copyWith(userStatus: isOnline ? 'online' : 'offline');
         }).toList();
 
         print('✅ Conversaciones obtenidas: ${_conversations.length}');
         _error = null;
+        await _cache.write(cacheKey, response.body);
       } else {
-        throw Exception('Error al obtener conversaciones: ${response.statusCode}');
+        throw Exception(
+          'Error al obtener conversaciones: ${response.statusCode}',
+        );
       }
     } catch (e) {
       _error = e.toString();
@@ -200,44 +246,50 @@ class ChatComponent extends ChangeNotifier {
     print('📱 ¿Está vacío?: ${conversation.idOtherUser.isEmpty}');
 
     // Si la conversación no tiene ID válido, crearla primero
-    if (conversation.idConversation == null || conversation.idConversation == 0) {
+    if (conversation.idConversation == null ||
+        conversation.idConversation == 0) {
       print('⚠️ Conversación sin ID, creando nueva conversación...');
-      
+
       String otherUserId = conversation.idOtherUser;
-      
+
       // Si idOtherUser está vacío, buscarlo por nombre
       if (otherUserId.isEmpty) {
-        print('⚠️ idOtherUser está vacío, buscando por nombre: "${conversation.otherUserName}"');
+        print(
+          '⚠️ idOtherUser está vacío, buscando por nombre: "${conversation.otherUserName}"',
+        );
         try {
           otherUserId = await _getUserIdByName(conversation.otherUserName);
           print('✅ ID encontrado: $otherUserId');
         } catch (e) {
-          _error = 'No se pudo encontrar el usuario: ${conversation.otherUserName}';
+          _error =
+              'No se pudo encontrar el usuario: ${conversation.otherUserName}';
           notifyListeners();
           return;
         }
       }
-      
+
       await _createOrGetConversation(otherUserId);
-      
+
       // Buscar la conversación recién creada en la lista
-      await fetchConversations();
-      
+      await fetchConversations(forceRefresh: true);
+
       // Encontrar la conversación con el usuario
       final newConversation = _conversations.firstWhere(
-        (c) => c.idOtherUser == otherUserId || c.otherUserName == conversation.otherUserName,
+        (c) =>
+            c.idOtherUser == otherUserId ||
+            c.otherUserName == conversation.otherUserName,
         orElse: () => conversation,
       );
-      
+
       _selectedConversation = newConversation;
     } else {
       _selectedConversation = conversation;
     }
-    
+
     notifyListeners();
 
     // Suscribirse al canal de Pusher solo si hay ID válido
-    if (_selectedConversation!.idConversation != null && 
+    if (_selectedConversation!.idConversation != null &&
         _selectedConversation!.idConversation! > 0) {
       final channelName = 'chat-${_selectedConversation!.idConversation}';
       await _pusher.subscribe(channelName);
@@ -255,16 +307,19 @@ class ChatComponent extends ChangeNotifier {
   Future<String> _getUserIdByName(String userName) async {
     try {
       print('🔍 Buscando ID de usuario por nombre: "$userName"');
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.chatGetUserByName}');
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatGetUserByName}',
+      );
       print('🔍 URL: $url');
 
-      final response = await http.post(
-        url,
-        headers: _headers(),
-        body: jsonEncode({
-          'user_name': userName,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            url,
+            headers: _headers(),
+            body: jsonEncode({'user_name': userName}),
+          )
+          .timeout(const Duration(seconds: 10));
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       print('🔍 Status Code: ${response.statusCode}');
       print('🔍 Response Body: ${response.body}');
@@ -292,26 +347,31 @@ class ChatComponent extends ChangeNotifier {
     }
 
     try {
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.chatCreateOrGetConversation}');
-      
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatCreateOrGetConversation}',
+      );
+
       print('🔵 Creando/obteniendo conversación');
       print('🔵 URL: $url');
       print('🔵 other_user_id: $otherUserId');
-      
-      final response = await http.post(
-        url,
-        headers: _headers(),
-        body: jsonEncode({
-          'other_user_id': otherUserId,
-        }),
-      ).timeout(const Duration(seconds: 10));
+
+      final response = await http
+          .post(
+            url,
+            headers: _headers(),
+            body: jsonEncode({'other_user_id': otherUserId}),
+          )
+          .timeout(const Duration(seconds: 10));
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       print('🔵 Status Code: ${response.statusCode}');
       print('🔵 Response Body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        print('✅ Conversación creada/obtenida: ${data['conversation']['id_conversation']}');
+        print(
+          '✅ Conversación creada/obtenida: ${data['conversation']['id_conversation']}',
+        );
       } else {
         print('❌ Error Response: ${response.body}');
         throw Exception('Error al crear conversación: ${response.statusCode}');
@@ -330,7 +390,10 @@ class ChatComponent extends ChangeNotifier {
   }
 
   /// Obtiene los mensajes desde el backend
-  Future<void> fetchMessages(int conversationId) async {
+  Future<void> fetchMessages(
+    int conversationId, {
+    bool forceRefresh = false,
+  }) async {
     if (conversationId == 0) {
       _messages = [];
       notifyListeners();
@@ -343,24 +406,48 @@ class ChatComponent extends ChangeNotifier {
     try {
       print('📥 Obteniendo mensajes de conversación: $conversationId');
 
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.chatMessages(conversationId)}');
-      final response = await http.get(url, headers: _headers()).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Timeout al obtener mensajes');
-        },
+      final cacheKey = _cacheKey('chat::messages', '$conversationId');
+      if (!forceRefresh) {
+        final cachedBody = await _cache.read(cacheKey);
+        if (cachedBody != null) {
+          final data = jsonDecode(cachedBody);
+          final list = data is List ? data : (data['data'] ?? []);
+          _messages = list
+              .map<MessageModel>(
+                (e) => MessageModel.fromJson(e, currentUserId: _currentUserId),
+              )
+              .toList();
+          _error = null;
+          return;
+        }
+      }
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatMessages(conversationId)}',
       );
+      final response = await http
+          .get(url, headers: _headers())
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Timeout al obtener mensajes');
+            },
+          );
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final list = data is List ? data : (data['data'] ?? []);
 
         _messages = list
-            .map<MessageModel>((e) => MessageModel.fromJson(e, currentUserId: _currentUserId))
+            .map<MessageModel>(
+              (e) => MessageModel.fromJson(e, currentUserId: _currentUserId),
+            )
             .toList();
 
         print('✅ Mensajes obtenidos: ${_messages.length}');
         _error = null;
+        await _cache.write(cacheKey, response.body);
       } else {
         throw Exception('Error al obtener mensajes: ${response.statusCode}');
       }
@@ -376,7 +463,10 @@ class ChatComponent extends ChangeNotifier {
 
   /// Envía un mensaje directamente a Pusher
   /// Usa actualización optimista: muestra el mensaje de inmediato antes de la red
-  Future<void> sendMessage(String content, {String messageType = 'text'}) async {
+  Future<void> sendMessage(
+    String content, {
+    String messageType = 'text',
+  }) async {
     if (_selectedConversation == null) {
       throw Exception('No hay conversación seleccionada');
     }
@@ -403,6 +493,7 @@ class ChatComponent extends ChangeNotifier {
       currentUserId: _currentUserId,
     );
     _messages.add(optimisticMessage);
+    await _invalidateChatCache();
     notifyListeners();
 
     try {
@@ -423,22 +514,26 @@ class ChatComponent extends ChangeNotifier {
   }
 
   /// Guarda el mensaje en el backend (opcional, para persistencia)
-  Future<void> _saveMessageToBackend(String content, {String messageType = 'text'}) async {
+  Future<void> _saveMessageToBackend(
+    String content, {
+    String messageType = 'text',
+  }) async {
     if (_selectedConversation?.idConversation == null) return;
 
     try {
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.chatSendMessage}');
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatSendMessage}',
+      );
       final body = {
         'conversation_id': _selectedConversation!.idConversation,
         'content': content,
         'message_type': messageType, // 'text', 'image', o 'video'
       };
 
-      await http.post(
-        url,
-        headers: _headers(),
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 5));
+      final response = await http
+          .post(url, headers: _headers(), body: jsonEncode(body))
+          .timeout(const Duration(seconds: 5));
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       print('✅ Mensaje guardado en el backend');
     } catch (e) {
@@ -459,7 +554,7 @@ class ChatComponent extends ChangeNotifier {
       // Manejar eventos de typing
       if (type == 'typing.start') {
         final userId = data['user_id'] as String?;
-        
+
         // Solo mostrar typing si NO es el usuario actual
         if (userId != null && userId != _currentUserId) {
           print('⌨️ Usuario comenzó a escribir');
@@ -473,7 +568,7 @@ class ChatComponent extends ChangeNotifier {
 
       if (type == 'typing.stop') {
         final userId = data['user_id'] as String?;
-        
+
         // Solo detener typing si NO es el usuario actual
         if (userId != null && userId != _currentUserId) {
           print('⌨️ Usuario dejó de escribir');
@@ -508,6 +603,7 @@ class ChatComponent extends ChangeNotifier {
         if (!exists) {
           _messages.add(message);
           print('✅ Mensaje agregado a la lista (${_messages.length} mensajes)');
+          unawaited(_invalidateChatCache());
           notifyListeners();
         } else {
           print('⚠️ Mensaje duplicado, ignorando');
@@ -533,24 +629,30 @@ class ChatComponent extends ChangeNotifier {
         return c.copyWith(
           lastMessage: message.content,
           lastMessageAt: message.createdAt,
-          unreadCount: message.isFromCurrentUser ? c.unreadCount : (c.unreadCount + 1),
+          unreadCount: message.isFromCurrentUser
+              ? c.unreadCount
+              : (c.unreadCount + 1),
         );
       }
       return c;
     }).toList();
 
+    unawaited(_invalidateChatCache());
     notifyListeners();
   }
 
   /// Recarga las conversaciones
   Future<void> refresh() async {
-    await fetchConversations();
+    await fetchConversations(forceRefresh: true);
   }
 
   /// Recarga los mensajes de la conversación actual
   Future<void> reloadMessages() async {
     if (_selectedConversation?.idConversation != null) {
-      await fetchMessages(_selectedConversation!.idConversation!);
+      await fetchMessages(
+        _selectedConversation!.idConversation!,
+        forceRefresh: true,
+      );
     }
   }
 
@@ -558,17 +660,19 @@ class ChatComponent extends ChangeNotifier {
   Future<void> markMessagesAsRead(int conversationId) async {
     try {
       print('📖 Marcando mensajes como leídos: conversación $conversationId');
-      
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.chatMarkAsRead(conversationId)}');
-      
-      final response = await http.post(
-        url,
-        headers: _headers(),
-      ).timeout(const Duration(seconds: 5));
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatMarkAsRead(conversationId)}',
+      );
+
+      final response = await http
+          .post(url, headers: _headers())
+          .timeout(const Duration(seconds: 5));
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         print('✅ Mensajes marcados como leídos');
-        
+
         // Actualizar el contador local de no leídos
         _conversations = _conversations.map((conv) {
           if (conv.idConversation == conversationId) {
@@ -576,12 +680,15 @@ class ChatComponent extends ChangeNotifier {
           }
           return conv;
         }).toList();
-        
+
         // Si es la conversación seleccionada, actualizarla también
         if (_selectedConversation?.idConversation == conversationId) {
-          _selectedConversation = _selectedConversation!.copyWith(unreadCount: 0);
+          _selectedConversation = _selectedConversation!.copyWith(
+            unreadCount: 0,
+          );
         }
-        
+
+        await _invalidateChatCache();
         notifyListeners();
       } else {
         print('⚠️ Error marcando mensajes como leídos: ${response.statusCode}');
@@ -595,57 +702,64 @@ class ChatComponent extends ChangeNotifier {
   /// Emitir evento de typing start
   void emitTypingStart() {
     if (_selectedConversation?.idConversation == null) return;
-    
+
     final channelName = 'chat-${_selectedConversation!.idConversation}';
-    _pusher.sendMessage(
-      channelName: channelName,
-      eventName: 'client-typing',
-      data: {
-        'type': 'typing.start',
-        'user_id': _currentUserId,
-        'user_name': _userName,
-      },
-    ).catchError((e) {
-      print('⚠️ Error enviando typing start: $e');
-    });
+    _pusher
+        .sendMessage(
+          channelName: channelName,
+          eventName: 'client-typing',
+          data: {
+            'type': 'typing.start',
+            'user_id': _currentUserId,
+            'user_name': _userName,
+          },
+        )
+        .catchError((e) {
+          print('⚠️ Error enviando typing start: $e');
+        });
   }
 
   /// Emitir evento de typing stop
   void emitTypingStop() {
     if (_selectedConversation?.idConversation == null) return;
-    
+
     final channelName = 'chat-${_selectedConversation!.idConversation}';
-    _pusher.sendMessage(
-      channelName: channelName,
-      eventName: 'client-typing',
-      data: {
-        'type': 'typing.stop',
-        'user_id': _currentUserId,
-        'user_name': _userName,
-      },
-    ).catchError((e) {
-      print('⚠️ Error enviando typing stop: $e');
-    });
+    _pusher
+        .sendMessage(
+          channelName: channelName,
+          eventName: 'client-typing',
+          data: {
+            'type': 'typing.stop',
+            'user_id': _currentUserId,
+            'user_name': _userName,
+          },
+        )
+        .catchError((e) {
+          print('⚠️ Error enviando typing stop: $e');
+        });
   }
 
   @override
   void dispose() {
     // Remover listener de presencia
     _presence.removeListener(_onPresenceChanged);
-    
+
     // Desactivar presencia (marca como offline)
     _presence.deactivate().catchError((e) {
       print('⚠️ Error en dispose al desactivar presencia: $e');
     });
-    
+
     super.dispose();
   }
-  
+
   /// Método público para desconectar explícitamente
   Future<void> disconnect() async {
     // Desactivar presencia y desconectar
     await _presence.deactivate();
   }
+
+  Future<void> _invalidateChatCache() async {
+    await _cache.removeByPrefix(_cacheKey('chat::conversations'));
+    await _cache.removeByPrefix(_cacheKey('chat::messages'));
+  }
 }
-
-

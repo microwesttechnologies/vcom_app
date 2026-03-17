@@ -53,18 +53,30 @@ class EventModel {
   }
 
   Map<String, dynamic> toJson() {
+    return _toRequestJson(includeItineraryId: true);
+  }
+
+  Map<String, dynamic> toCreateJson() {
+    return _toRequestJson(includeItineraryId: false);
+  }
+
+  Map<String, dynamic> _toRequestJson({required bool includeItineraryId}) {
     return {
       'title_event': titleEvent,
-      'description_event': descriptionEvent,
-      'location_event': locationEvent,
-      'link_access': linkAccess,
-      'image_event': imageEvent,
+      if (_hasValue(descriptionEvent)) 'description_event': descriptionEvent,
+      if (_hasValue(locationEvent)) 'location_event': locationEvent,
+      if (_hasValue(linkAccess)) 'link_access': linkAccess,
+      if (_hasValue(imageEvent)) 'image_event': imageEvent,
       'start_event': startEvent,
       'end_event': endEvent,
       'start_time': _serializeTime(startTime),
       'end_time': _serializeTime(endTime),
       'state_event': stateEvent,
-      if (itinerary != null) 'itinerary': itinerary!.toJson(),
+      if (itinerary != null)
+        'itinerary': itinerary!.toJson(
+          includeId: includeItineraryId,
+          includeDate: includeItineraryId,
+        ),
     };
   }
 
@@ -125,6 +137,10 @@ class EventModel {
     if (normalized.length >= 5) return normalized.substring(0, 5);
     return normalized;
   }
+
+  static bool _hasValue(String? value) {
+    return value != null && value.trim().isNotEmpty;
+  }
 }
 
 class EventItinerary {
@@ -154,10 +170,13 @@ class EventItinerary {
     );
   }
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toJson({
+    bool includeId = true,
+    bool includeDate = true,
+  }) {
     return {
-      if (idItinerary != null) 'id_itinerary': idItinerary,
-      'items': items.map((item) => item.toJson()).toList(),
+      if (includeId && idItinerary != null) 'id_itinerary': idItinerary,
+      'items': items.map((item) => item.toJson(includeDate: includeDate)).toList(),
       'state_itinerary': stateItinerary,
     };
   }
@@ -199,10 +218,10 @@ class EventItineraryItem {
     );
   }
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toJson({bool includeDate = true}) {
     return {
       'title': title,
-      if (date.trim().isNotEmpty) 'date': date,
+      if (includeDate && date.trim().isNotEmpty) 'date': date,
       'start_time': EventModel._serializeTime(startTime),
       'end_time': EventModel._serializeTime(endTime),
     };

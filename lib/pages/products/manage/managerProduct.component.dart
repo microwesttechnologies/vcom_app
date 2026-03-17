@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:vcom_app/core/common/permission.service.dart';
 import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/models/product.model.dart';
@@ -11,7 +12,8 @@ import 'package:vcom_app/core/models/product.model.dart';
 class ManagerProductComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
   final PermissionService _permissionService = PermissionService();
-  
+  final SessionCacheService _cache = SessionCacheService();
+
   // Estado
   List<ProductModel> _products = [];
   bool _isLoading = false;
@@ -21,14 +23,26 @@ class ManagerProductComponent extends ChangeNotifier {
   List<ProductModel> get products => _products;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get canReadProducts =>
-      _permissionService.canReadModule(routeHints: const ['product', 'producto']);
-  bool get canCreateProducts =>
-      _permissionService.canCreateModule(routeHints: const ['product', 'producto']);
-  bool get canUpdateProducts =>
-      _permissionService.canUpdateModule(routeHints: const ['product', 'producto']);
-  bool get canDeleteProducts =>
-      _permissionService.canDeleteModule(routeHints: const ['product', 'producto']);
+  bool get canReadProducts => _permissionService.canReadModule(
+    routeHints: const ['product', 'producto'],
+  );
+  bool get canCreateProducts => _permissionService.canCreateModule(
+    routeHints: const ['product', 'producto'],
+  );
+  bool get canUpdateProducts => _permissionService.canUpdateModule(
+    routeHints: const ['product', 'producto'],
+  );
+  bool get canDeleteProducts => _permissionService.canDeleteModule(
+    routeHints: const ['product', 'producto'],
+  );
+
+  String _cacheKey(String namespace) {
+    return _cache.scopedKey(
+      namespace,
+      role: _tokenService.getRole() ?? 'guest',
+      userId: _tokenService.getUserId() ?? 'guest',
+    );
+  }
 
   /// Obtiene el token de autenticación
   String? _getToken() {
@@ -46,7 +60,7 @@ class ManagerProductComponent extends ChangeNotifier {
   }
 
   /// Inicializa el componente cargando productos
-  Future<void> initialize() async {
+  Future<void> initialize({bool forceRefresh = false}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -55,7 +69,7 @@ class ManagerProductComponent extends ChangeNotifier {
       if (!canReadProducts) {
         throw Exception('No tienes permiso para ver productos');
       }
-      await fetchProducts();
+      await fetchProducts(forceRefresh: forceRefresh);
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -65,7 +79,7 @@ class ManagerProductComponent extends ChangeNotifier {
   }
 
   /// Obtiene todos los productos
-  Future<void> fetchProducts() async {
+  Future<void> fetchProducts({bool forceRefresh = false}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -75,13 +89,60 @@ class ManagerProductComponent extends ChangeNotifier {
         throw Exception('No tienes permiso para ver productos');
       }
 
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.productsList}');
+      final cacheKey = _cacheKey('products::list');
+      if (!forceRefresh) {
+        final cachedBody = await _cache.read(cacheKey);
+        if (cachedBody != null) {
+          final dynamic jsonResponse = jsonDecode(cachedBody);
+          List<dynamic> jsonList;
+
+          if (jsonResponse is List) {
+            jsonList = jsonResponse;
+          } else if (jsonResponse is Map<String, dynamic>) {
+            if (jsonResponse.containsKey('data')) {
+              jsonList = jsonResponse['data'] as List<dynamic>;
+            } else if (jsonResponse.containsKey('products')) {
+              jsonList = jsonResponse['products'] as List<dynamic>;
+            } else if (jsonResponse.containsKey('results')) {
+              jsonList = jsonResponse['results'] as List<dynamic>;
+            } else {
+              final listValues = jsonResponse.values
+                  .where((value) => value is List)
+                  .toList();
+              if (listValues.isNotEmpty) {
+                jsonList = listValues.first as List<dynamic>;
+              } else {
+                throw Exception(
+                  'No se encontró la lista de productos en la respuesta. Estructura: ${jsonResponse.keys.join(", ")}',
+                );
+              }
+            }
+          } else {
+            throw Exception(
+              'Formato de respuesta no válido. Tipo recibido: ${jsonResponse.runtimeType}',
+            );
+          }
+
+          _products = jsonList
+              .map(
+                (json) => ProductModel.fromJson(json as Map<String, dynamic>),
+              )
+              .toList();
+          _error = null;
+          return;
+        }
+      }
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.productsList}',
+      );
       final response = await http.get(url, headers: _getHeaders());
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         final dynamic jsonResponse = jsonDecode(response.body);
         List<dynamic> jsonList;
-        
+
         // Manejar si la respuesta es un array directo o un objeto con una propiedad
         if (jsonResponse is List) {
           jsonList = jsonResponse;
@@ -95,20 +156,27 @@ class ManagerProductComponent extends ChangeNotifier {
             jsonList = jsonResponse['results'] as List<dynamic>;
           } else {
             // Buscar cualquier propiedad que sea una lista
-            final listValues = jsonResponse.values.where((value) => value is List).toList();
+            final listValues = jsonResponse.values
+                .where((value) => value is List)
+                .toList();
             if (listValues.isNotEmpty) {
               jsonList = listValues.first as List<dynamic>;
             } else {
-              throw Exception('No se encontró la lista de productos en la respuesta. Estructura: ${jsonResponse.keys.join(", ")}');
+              throw Exception(
+                'No se encontró la lista de productos en la respuesta. Estructura: ${jsonResponse.keys.join(", ")}',
+              );
             }
           }
         } else {
-          throw Exception('Formato de respuesta no válido. Tipo recibido: ${jsonResponse.runtimeType}');
+          throw Exception(
+            'Formato de respuesta no válido. Tipo recibido: ${jsonResponse.runtimeType}',
+          );
         }
-        
+
         _products = jsonList
             .map((json) => ProductModel.fromJson(json as Map<String, dynamic>))
             .toList();
+        await _cache.write(cacheKey, response.body);
         _error = null;
       } else if (response.statusCode == 401) {
         throw Exception('No autenticado');
@@ -130,4 +198,3 @@ class ManagerProductComponent extends ChangeNotifier {
     notifyListeners();
   }
 }
-

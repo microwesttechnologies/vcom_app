@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/shared/sidebar.component.dart';
@@ -62,11 +62,9 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
 
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const CreateProductPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const CreateProductPage()),
     );
-    
+
     if (result == true && mounted) {
       _managerProductComponent.fetchProducts();
     }
@@ -78,14 +76,14 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
       _showPermissionDenied('editar');
       return;
     }
-    
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => EditProductPage(productId: product.idProduct!),
       ),
     );
-    
+
     if (result == true && mounted) {
       _managerProductComponent.fetchProducts();
     }
@@ -97,17 +95,17 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
       _showPermissionDenied('eliminar');
       return;
     }
-    
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => DeleteProductPage(
           productId: product.idProduct!,
-          productName: product.nameProduct ?? 'Producto',
+          productName: product.nameProduct,
         ),
       ),
     );
-    
+
     if (result == true && mounted) {
       _managerProductComponent.fetchProducts();
     }
@@ -180,9 +178,7 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: VcomColors.gradienteNocturno,
-        ),
+        decoration: const BoxDecoration(gradient: VcomColors.gradienteNocturno),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
@@ -191,33 +187,27 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
         ),
       ),
       floatingActionButton: _managerProductComponent.canCreateProducts
-          ? AddButtonComponent(
-              onPressed: _navigateToCreate,
-            )
+          ? AddButtonComponent(onPressed: _navigateToCreate)
           : null,
       bottomNavigationBar: const ModeloMenuBar(activeRoute: 'product'),
     );
   }
 
   Widget _buildContent() {
-    if (_managerProductComponent.isLoading && _managerProductComponent.products.isEmpty) {
+    if (_managerProductComponent.isLoading &&
+        _managerProductComponent.products.isEmpty) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: VcomColors.oroLujoso,
-        ),
+        child: CircularProgressIndicator(color: VcomColors.oroLujoso),
       );
     }
 
-    if (_managerProductComponent.error != null && _managerProductComponent.products.isEmpty) {
+    if (_managerProductComponent.error != null &&
+        _managerProductComponent.products.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: VcomColors.error,
-            ),
+            Icon(Icons.error_outline, size: 64, color: VcomColors.error),
             const SizedBox(height: 16),
             Text(
               'Error al cargar productos',
@@ -232,7 +222,7 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
               _managerProductComponent.error!,
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -242,7 +232,8 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
               size: ButtonSize.medium,
               color: VcomColors.oroLujoso,
               textColor: VcomColors.azulMedianocheTexto,
-              onPressed: () => _managerProductComponent.fetchProducts(),
+              onPressed: () =>
+                  _managerProductComponent.fetchProducts(forceRefresh: true),
             ),
           ],
         ),
@@ -273,7 +264,7 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
               'Crea tu primer producto',
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -302,7 +293,7 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
               '${_managerProductComponent.products.length} productos',
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -320,7 +311,7 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: VcomColors.oroLujoso.withOpacity(0.3),
+                    color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -334,7 +325,7 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                         children: [
                           Expanded(
                             child: Text(
-                              product.nameProduct ?? 'Sin nombre',
+                              product.nameProduct,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -346,7 +337,11 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                           ),
                           if (_managerProductComponent.canUpdateProducts)
                             IconButton(
-                              icon: const Icon(Icons.edit, color: VcomColors.oroLujoso, size: 20),
+                              icon: const Icon(
+                                Icons.edit,
+                                color: VcomColors.oroLujoso,
+                                size: 20,
+                              ),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () => _navigateToEdit(product),
@@ -356,7 +351,11 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                             const SizedBox(width: 8),
                           if (_managerProductComponent.canDeleteProducts)
                             IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                                size: 20,
+                              ),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () => _navigateToDelete(product),
@@ -371,7 +370,7 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                           child: Text(
                             product.descriptionProduct!,
                             style: TextStyle(
-                              color: VcomColors.blancoCrema.withOpacity(0.7),
+                              color: VcomColors.blancoCrema.withValues(alpha: 0.7),
                               fontSize: 14,
                             ),
                             maxLines: 2,
@@ -386,22 +385,31 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                           if (product.brand != null)
                             Chip(
                               label: Text(
-                                product.brand!.nameBrand ?? '',
+                                product.brand!.nameBrand,
                                 style: const TextStyle(fontSize: 12),
                               ),
-                              backgroundColor: VcomColors.oroLujoso.withOpacity(0.2),
-                              labelStyle: TextStyle(color: VcomColors.oroBrillante),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              backgroundColor: VcomColors.oroLujoso.withValues(alpha: 0.2),
+                              labelStyle: TextStyle(
+                                color: VcomColors.oroBrillante,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                             ),
                           if (product.category != null)
                             Chip(
                               label: Text(
-                                product.category!.nameCategory ?? '',
+                                product.category!.nameCategory,
                                 style: const TextStyle(fontSize: 12),
                               ),
-                              backgroundColor: VcomColors.azulOverlayTransparente60,
-                              labelStyle: TextStyle(color: VcomColors.blancoCrema),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              backgroundColor:
+                                  VcomColors.azulOverlayTransparente60,
+                              labelStyle: TextStyle(
+                                color: VcomColors.blancoCrema,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                             ),
                         ],
                       ),
@@ -415,7 +423,7 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 160),
                             child: Text(
-                              '\$${product.priceCop?.toStringAsFixed(0) ?? '0'} COP',
+                              '\$${product.priceCop.toStringAsFixed(0)} COP',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -426,10 +434,10 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                             ),
                           ),
                           Text(
-                            'Stock: ${product.stock ?? 0}',
+                            'Stock: ${product.stock}',
                             style: TextStyle(
                               fontSize: 14,
-                              color: VcomColors.blancoCrema.withOpacity(0.7),
+                              color: VcomColors.blancoCrema.withValues(alpha: 0.7),
                             ),
                           ),
                           Container(
@@ -438,16 +446,20 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: (product.stateProduct ?? false)
-                                  ? Colors.green.withOpacity(0.2)
-                                  : Colors.red.withOpacity(0.2),
+                              color: product.stateProduct
+                                  ? Colors.green.withValues(alpha: 0.2)
+                                  : Colors.red.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              (product.stateProduct ?? false) ? 'Activo' : 'Inactivo',
+                              product.stateProduct
+                                  ? 'Activo'
+                                  : 'Inactivo',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: (product.stateProduct ?? false) ? Colors.green : Colors.red,
+                                color: product.stateProduct
+                                    ? Colors.green
+                                    : Colors.red,
                               ),
                             ),
                           ),
@@ -464,5 +476,3 @@ class _ManagerProductPageState extends State<ManagerProductPage> {
     );
   }
 }
-
-

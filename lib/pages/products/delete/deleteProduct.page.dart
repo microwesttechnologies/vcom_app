@@ -134,7 +134,7 @@ class _DeleteProductPageState extends State<DeleteProductPage> {
                   'Está a punto de eliminar el producto:',
                   style: TextStyle(
                     fontSize: 16,
-                    color: VcomColors.blancoCrema.withOpacity(0.7),
+                    color: VcomColors.blancoCrema.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -151,7 +151,7 @@ class _DeleteProductPageState extends State<DeleteProductPage> {
                   'Esta acción no se puede deshacer.',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.red.withOpacity(0.8),
+                    color: Colors.red.withValues(alpha: 0.8),
                   ),
                 ),
                 const SizedBox(height: 48),

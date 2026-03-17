@@ -183,7 +183,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               child: Text(
                 _chatComponent.error!,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: VcomColors.blancoCrema.withOpacity(0.7)),
+                style: TextStyle(color: VcomColors.blancoCrema.withValues(alpha: 0.7)),
               ),
             ),
             ElevatedButton(
@@ -212,12 +212,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.chat_bubble_outline, size: 64, color: VcomColors.oroLujoso.withOpacity(0.5)),
+            Icon(Icons.chat_bubble_outline, size: 64, color: VcomColors.oroLujoso.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(
               'No hay conversaciones',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: VcomColors.blancoCrema.withOpacity(0.7),
+                    color: VcomColors.blancoCrema.withValues(alpha: 0.7),
                   ),
             ),
             const SizedBox(height: 8),
@@ -258,7 +258,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         itemCount: chat.conversations.length,
         separatorBuilder: (context, index) => Divider(
           height: 1,
-          color: VcomColors.oroLujoso.withOpacity(0.1),
+          color: VcomColors.oroLujoso.withValues(alpha: 0.1),
         ),
         itemBuilder: (context, index) {
           final conversation = chat.conversations[index];
@@ -319,7 +319,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       statusText,
                       style: TextStyle(
                         fontSize: 10,
-                        color: VcomColors.blancoCrema.withOpacity(0.4),
+                        color: VcomColors.blancoCrema.withValues(alpha: 0.4),
                       ),
                     ),
                 ],
@@ -380,14 +380,14 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           Icon(
                             Icons.chat_outlined,
                             size: 64,
-                            color: VcomColors.oroLujoso.withOpacity(0.3),
+                            color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                           ),
                           const SizedBox(height: 16),
                           Text(
                             'No hay mensajes\n¡Envía el primero!',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: VcomColors.blancoCrema.withOpacity(0.6),
+                              color: VcomColors.blancoCrema.withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -436,7 +436,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: VcomColors.azulNocheSombra.withOpacity(0.3),
+                                  color: VcomColors.azulNocheSombra.withValues(alpha: 0.3),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -468,8 +468,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: isMe
-                                        ? VcomColors.azulMedianocheTexto.withOpacity(0.7)
-                                        : VcomColors.blancoCrema.withOpacity(0.5),
+                                        ? VcomColors.azulMedianocheTexto.withValues(alpha: 0.7)
+                                        : VcomColors.blancoCrema.withValues(alpha: 0.5),
                                   ),
                                 ),
                               ],
@@ -531,7 +531,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             color: const Color.fromARGB(255, 1, 7, 21),
             border: Border(
               top: BorderSide(
-                color: VcomColors.oroLujoso.withOpacity(0.3),
+                color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -580,13 +580,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.2),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.2),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -835,7 +835,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       return Text(
         'Sin mensajes',
         style: TextStyle(
-          color: VcomColors.blancoCrema.withOpacity(0.5),
+          color: VcomColors.blancoCrema.withValues(alpha: 0.5),
           fontStyle: FontStyle.italic,
           fontSize: 13,
         ),
@@ -862,13 +862,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           Icon(
             Icons.image,
             size: 16,
-            color: VcomColors.oroLujoso.withOpacity(0.7),
+            color: VcomColors.oroLujoso.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 4),
           Text(
             'Imagen',
             style: TextStyle(
-              color: VcomColors.blancoCrema.withOpacity(0.6),
+              color: VcomColors.blancoCrema.withValues(alpha: 0.6),
               fontSize: 13,
             ),
           ),
@@ -882,13 +882,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           Icon(
             Icons.videocam,
             size: 16,
-            color: VcomColors.oroLujoso.withOpacity(0.7),
+            color: VcomColors.oroLujoso.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 4),
           Text(
             'Video',
             style: TextStyle(
-              color: VcomColors.blancoCrema.withOpacity(0.6),
+              color: VcomColors.blancoCrema.withValues(alpha: 0.6),
               fontSize: 13,
             ),
           ),
@@ -903,8 +903,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
         color: conversation.unreadCount > 0
-            ? VcomColors.blancoCrema.withOpacity(0.9)  // Más visible si no leído
-            : VcomColors.blancoCrema.withOpacity(0.6),
+            ? VcomColors.blancoCrema.withValues(alpha: 0.9)  // Más visible si no leído
+            : VcomColors.blancoCrema.withValues(alpha: 0.6),
         fontSize: 13,
         fontWeight: conversation.unreadCount > 0 
             ? FontWeight.w500  // Más peso si no leído

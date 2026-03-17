@@ -121,7 +121,7 @@ class LabelComponent extends StatelessWidget {
           Icon(
             icon,
             size: _getIconSize(),
-            color: effectiveColor.withOpacity(opacity),
+            color: effectiveColor.withValues(alpha: opacity),
           ),
         if (icon != null && iconBefore)
           SizedBox(width: _getIconSpacing()),
@@ -130,7 +130,7 @@ class LabelComponent extends StatelessWidget {
           style: TextStyle(
             fontSize: _getFontSize(),
             fontWeight: effectiveFontWeight,
-            color: effectiveColor.withOpacity(opacity),
+            color: effectiveColor.withValues(alpha: opacity),
           ),
         ),
         if (icon != null && !iconBefore)
@@ -139,7 +139,7 @@ class LabelComponent extends StatelessWidget {
           Icon(
             icon,
             size: _getIconSize(),
-            color: effectiveColor.withOpacity(opacity),
+            color: effectiveColor.withValues(alpha: opacity),
           ),
       ],
     );
@@ -151,7 +151,7 @@ class LabelComponent extends StatelessWidget {
           horizontal: _getHorizontalPadding(),
         ),
         decoration: BoxDecoration(
-          color: effectiveBackgroundColor.withOpacity(opacity),
+          color: effectiveBackgroundColor.withValues(alpha: opacity),
           borderRadius: BorderRadius.circular(6.0),
         ),
         child: labelContent,

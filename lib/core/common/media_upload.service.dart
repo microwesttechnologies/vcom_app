@@ -127,6 +127,7 @@ class MediaUploadService {
       );
 
       final response = await http.Response.fromStream(streamedResponse);
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       print('📤 Status Code: ${response.statusCode}');
       print('📤 Response Body: ${response.body}');

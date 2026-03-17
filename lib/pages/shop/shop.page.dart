@@ -41,7 +41,7 @@ class _ShopPageState extends State<ShopPage> {
     _shopComponent = ShopComponent();
     _shopComponent.addListener(_onComponentChanged);
     _shopComponent.initialize();
-    
+
     _dashboardComponent = DashboardComponent();
     _dashboardComponent.addListener(_onComponentChanged);
     _dashboardComponent.fetchModules().then((_) {
@@ -54,12 +54,12 @@ class _ShopPageState extends State<ShopPage> {
 
   /// Actualiza el índice seleccionado para la tienda
   void _updateSelectedIndexForShop() {
-    final shopModuleIndex = _dashboardComponent.modules.indexWhere(
-      (module) {
-        final route = module.route.toLowerCase();
-        return route.contains('shop') || route.contains('tienda') || route.contains('store');
-      },
-    );
+    final shopModuleIndex = _dashboardComponent.modules.indexWhere((module) {
+      final route = module.route.toLowerCase();
+      return route.contains('shop') ||
+          route.contains('tienda') ||
+          route.contains('store');
+    });
     if (shopModuleIndex != -1) {
       setState(() {
         _selectedIndex = shopModuleIndex;
@@ -106,10 +106,7 @@ class _ShopPageState extends State<ShopPage> {
             const SizedBox(height: 16),
             Text(
               'Error al cargar módulos',
-              style: TextStyle(
-                fontSize: 16,
-                color: VcomColors.blancoCrema,
-              ),
+              style: TextStyle(fontSize: 16, color: VcomColors.blancoCrema),
             ),
             const SizedBox(height: 16),
             TextButton(
@@ -125,17 +122,20 @@ class _ShopPageState extends State<ShopPage> {
     final moduleItems = _dashboardComponent.modules
         .where((module) => module.state) // Solo módulos activos
         .map((module) {
-      final index = _dashboardComponent.modules.indexOf(module) + 1; // +1 porque Dashboard será el índice 0
-      return SidebarItem(
-        label: module.nameModule,
-        icon: IconHelper.getIconFromString(module.icon),
-        isSelected: _selectedIndex == index,
-        onTap: () {
-          Navigator.pop(context);
-          _navigateToModule(module);
-        },
-      );
-    }).toList();
+          final index =
+              _dashboardComponent.modules.indexOf(module) +
+              1; // +1 porque Dashboard será el índice 0
+          return SidebarItem(
+            label: module.nameModule,
+            icon: IconHelper.getIconFromString(module.icon),
+            isSelected: _selectedIndex == index,
+            onTap: () {
+              Navigator.pop(context);
+              _navigateToModule(module);
+            },
+          );
+        })
+        .toList();
 
     // Agregar botón de Dashboard al principio
     final sidebarItems = [
@@ -164,10 +164,7 @@ class _ShopPageState extends State<ShopPage> {
             const SizedBox(height: 16),
             Text(
               'No hay módulos disponibles',
-              style: TextStyle(
-                fontSize: 16,
-                color: VcomColors.blancoCrema,
-              ),
+              style: TextStyle(fontSize: 16, color: VcomColors.blancoCrema),
             ),
           ],
         ),
@@ -186,9 +183,12 @@ class _ShopPageState extends State<ShopPage> {
   /// Navega a la página correspondiente según la ruta del módulo
   void _navigateToModule(ModuleModel module) {
     final route = module.route.toLowerCase();
-    
+
     // Determinar si estamos en la tienda para mantener el índice seleccionado
-    final isShopRoute = route.contains('shop') || route.contains('tienda') || route.contains('store');
+    final isShopRoute =
+        route.contains('shop') ||
+        route.contains('tienda') ||
+        route.contains('store');
     if (isShopRoute) {
       // Ya estamos en la tienda, solo actualizar el índice
       final moduleIndex = _dashboardComponent.modules.indexOf(module);
@@ -211,7 +211,9 @@ class _ShopPageState extends State<ShopPage> {
       targetPage = const ManagerBrandPage();
     } else if (route.contains('product') || route.contains('producto')) {
       targetPage = const ManagerProductPage();
-    } else if (route.contains('shop') || route.contains('tienda') || route.contains('store')) {
+    } else if (route.contains('shop') ||
+        route.contains('tienda') ||
+        route.contains('store')) {
       targetPage = const ShopPage();
     } else if (route.contains('chat') || route.contains('mensaje')) {
       targetPage = const ChatPage();
@@ -300,10 +302,8 @@ class _ShopPageState extends State<ShopPage> {
         bottomNavigationBar: const ModeloMenuBar(activeRoute: 'shop'),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 280),
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
           child: inDetail
               ? ProductDetailBody(
                   key: ValueKey(_currentProduct!.idProduct),
@@ -377,7 +377,7 @@ class _ShopPageState extends State<ShopPage> {
               _shopComponent.error!,
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -399,31 +399,32 @@ class _ShopPageState extends State<ShopPage> {
       color: VcomColors.oroLujoso,
       backgroundColor: const Color(0xFF1a2847),
       child: CustomScrollView(
-      controller: _scrollController,
-      slivers: [
-        // Barra de búsqueda
-        SliverToBoxAdapter(
-          child: Container(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Barra de búsqueda
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: _buildSearchBar(),
+            ),
+          ),
+
+          // Filtros de categorías
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildCategoryFilters(),
+            ),
+          ),
+
+          // Grid de productos
+          SliverPadding(
             padding: const EdgeInsets.all(16),
-            child: _buildSearchBar(),
+            sliver: _buildProductsGrid(),
           ),
-        ),
-        
-        // Filtros de categorías
-        SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildCategoryFilters(),
-          ),
-        ),
-        
-        // Grid de productos
-        SliverPadding(
-          padding: const EdgeInsets.all(16),
-          sliver: _buildProductsGrid(),
-        ),
-      ],
-    ),
+        ],
+      ),
     );
   }
 
@@ -440,13 +441,21 @@ class _ShopPageState extends State<ShopPage> {
         decoration: InputDecoration(
           hintText: 'Buscar artículos...',
           hintStyle: TextStyle(
-              color: Colors.white.withValues(alpha: 0.38), fontSize: 15),
-          prefixIcon: Icon(Icons.search,
-              color: Colors.white.withValues(alpha: 0.5), size: 22),
+            color: Colors.white.withValues(alpha: 0.38),
+            fontSize: 15,
+          ),
+          prefixIcon: Icon(
+            Icons.search,
+            color: Colors.white.withValues(alpha: 0.5),
+            size: 22,
+          ),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear,
-                      color: Colors.white.withValues(alpha: 0.5), size: 20),
+                  icon: Icon(
+                    Icons.clear,
+                    color: Colors.white.withValues(alpha: 0.5),
+                    size: 20,
+                  ),
                   onPressed: () {
                     _searchController.clear();
                     _shopComponent.searchProducts('');
@@ -454,8 +463,10 @@ class _ShopPageState extends State<ShopPage> {
                 )
               : null,
           border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 16,
+          ),
         ),
         onChanged: (value) => _shopComponent.searchProducts(value),
       ),
@@ -489,9 +500,7 @@ class _ShopPageState extends State<ShopPage> {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected
-                ? VcomColors.oroLujoso
-                : const Color(0xFFD4D4D8),
+            color: isSelected ? VcomColors.oroLujoso : const Color(0xFFD4D4D8),
             width: 0.6,
           ),
         ),
@@ -500,16 +509,12 @@ class _ShopPageState extends State<ShopPage> {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: isSelected
-                ? VcomColors.oroLujoso
-                : const Color(0xFFD4D4D8),
+            color: isSelected ? VcomColors.oroLujoso : const Color(0xFFD4D4D8),
           ),
         ),
       ),
     );
   }
-
-
 
   Widget _buildProductsGrid() {
     // Mostrar loader mientras carga
@@ -544,13 +549,17 @@ class _ShopPageState extends State<ShopPage> {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.search_off, size: 64, color: VcomColors.oroLujoso.withOpacity(0.5)),
+              Icon(
+                Icons.search_off,
+                size: 64,
+                color: VcomColors.oroLujoso.withValues(alpha: 0.5),
+              ),
               const SizedBox(height: 16),
               Text(
                 'No se encontraron productos',
                 style: TextStyle(
                   fontSize: 16,
-                  color: VcomColors.blancoCrema.withOpacity(0.7),
+                  color: VcomColors.blancoCrema.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -566,22 +575,22 @@ class _ShopPageState extends State<ShopPage> {
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,
       ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          return _buildProductCard(_shopComponent.products[index]);
-        },
-        childCount: _shopComponent.products.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        return _buildProductCard(_shopComponent.products[index]);
+      }, childCount: _shopComponent.products.length),
     );
   }
 
   Widget _buildProductCard(ProductModel product) {
     final primaryImage = product.images.isNotEmpty
-        ? product.images.firstWhere((img) => img.isPrimary,
-            orElse: () => product.images.first)
+        ? product.images.firstWhere(
+            (img) => img.isPrimary,
+            orElse: () => product.images.first,
+          )
         : null;
 
-    final categoryName = product.category?.nameCategory ?? product.brand?.nameBrand ?? '';
+    final categoryName =
+        product.category?.nameCategory ?? product.brand?.nameBrand ?? '';
 
     return GestureDetector(
       onTap: () => _openProduct(product),
@@ -612,7 +621,8 @@ class _ShopPageState extends State<ShopPage> {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16)),
+                      top: Radius.circular(16),
+                    ),
                     child: primaryImage != null
                         ? Image.network(
                             primaryImage.imageUrl,
@@ -623,12 +633,15 @@ class _ShopPageState extends State<ShopPage> {
                   ),
                   // Degradado inferior suave
                   Positioned(
-                    left: 0, right: 0, bottom: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     height: 60,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(4)),
+                          bottom: Radius.circular(4),
+                        ),
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -656,7 +669,9 @@ class _ShopPageState extends State<ShopPage> {
                             color: Colors.black.withValues(alpha: 0.75),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: VcomColors.oroLujoso.withValues(alpha: 0.4),
+                              color: VcomColors.oroLujoso.withValues(
+                                alpha: 0.4,
+                              ),
                               width: 0.8,
                             ),
                           ),
@@ -679,7 +694,9 @@ class _ShopPageState extends State<ShopPage> {
               child: Container(
                 decoration: const BoxDecoration(
                   color: Colors.black,
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(16),
+                  ),
                 ),
                 padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                 child: Column(

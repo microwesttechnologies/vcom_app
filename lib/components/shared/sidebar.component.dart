@@ -115,7 +115,7 @@ class SidebarComponent extends StatelessWidget {
                   },
                   child: Container(
                     color: isSelected
-                        ? effectiveSelectedColor.withOpacity(0.1)
+                        ? effectiveSelectedColor.withValues(alpha: 0.1)
                         : Colors.transparent,
                     child: ListTile(
                       leading: Icon(
@@ -156,7 +156,7 @@ class SidebarComponent extends StatelessWidget {
                             )
                           : null,
                       selected: isSelected,
-                      selectedTileColor: effectiveSelectedColor.withOpacity(0.1),
+                      selectedTileColor: effectiveSelectedColor.withValues(alpha: 0.1),
                     ),
                   ),
                 );
@@ -212,10 +212,10 @@ class SidebarComponent extends StatelessWidget {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.red.withOpacity(0.3),
+                    color: Colors.red.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),

@@ -32,13 +32,13 @@ class VcomColors {
   static const Color azulOverlayTransparente = Color.fromRGBO(10, 20, 40, 1.0);
 
   /// Azul Overlay Transparente con opacidad recomendada (60%)
-  static Color get azulOverlayTransparente60 => azulOverlayTransparente.withOpacity(0.6);
+  static Color get azulOverlayTransparente60 => azulOverlayTransparente.withValues(alpha: 0.6);
 
   /// Azul Overlay Transparente con opacidad recomendada (50%)
-  static Color get azulOverlayTransparente50 => azulOverlayTransparente.withOpacity(0.5);
+  static Color get azulOverlayTransparente50 => azulOverlayTransparente.withValues(alpha: 0.5);
 
   /// Azul Overlay Transparente con opacidad recomendada (70%)
-  static Color get azulOverlayTransparente70 => azulOverlayTransparente.withOpacity(0.7);
+  static Color get azulOverlayTransparente70 => azulOverlayTransparente.withValues(alpha: 0.7);
 
   // ============================================================================
   // ACENTOS METÁLICOS (ORO)
@@ -150,9 +150,9 @@ class VcomColors {
         surface: azulZafiroProfundo,
         onSurface: blancoCrema,
         surfaceContainerHighest: azulNocheSombra,
-        onSurfaceVariant: blancoCrema.withOpacity(0.7),
-        outline: oroLujoso.withOpacity(0.5),
-        outlineVariant: oroBrillante.withOpacity(0.3),
+        onSurfaceVariant: blancoCrema.withValues(alpha: 0.7),
+        outline: oroLujoso.withValues(alpha: 0.5),
+        outlineVariant: oroBrillante.withValues(alpha: 0.3),
         shadow: azulNocheSombra,
         scrim: azulNocheSombra,
         inverseSurface: blancoCrema,

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:vcom_app/core/common/permission.service.dart';
+import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/models/category.model.dart';
@@ -11,7 +12,8 @@ import 'package:vcom_app/core/models/category.model.dart';
 class ManagerCategoryComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
   final PermissionService _permissionService = PermissionService();
-  
+  final SessionCacheService _cache = SessionCacheService();
+
   // Estado
   List<CategoryModel> _categories = [];
   bool _isLoading = false;
@@ -23,14 +25,27 @@ class ManagerCategoryComponent extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   CategoryModel? get selectedCategory => _selectedCategory;
-  bool get canReadCategories =>
-      _permissionService.canReadModule(routeHints: const ['category', 'categoria']);
-  bool get canCreateCategories =>
-      _permissionService.canCreateModule(routeHints: const ['category', 'categoria']);
-  bool get canUpdateCategories =>
-      _permissionService.canUpdateModule(routeHints: const ['category', 'categoria']);
-  bool get canDeleteCategories =>
-      _permissionService.canDeleteModule(routeHints: const ['category', 'categoria']);
+  bool get canReadCategories => _permissionService.canReadModule(
+    routeHints: const ['category', 'categoria'],
+  );
+  bool get canCreateCategories => _permissionService.canCreateModule(
+    routeHints: const ['category', 'categoria'],
+  );
+  bool get canUpdateCategories => _permissionService.canUpdateModule(
+    routeHints: const ['category', 'categoria'],
+  );
+  bool get canDeleteCategories => _permissionService.canDeleteModule(
+    routeHints: const ['category', 'categoria'],
+  );
+
+  String _cacheKey(String namespace, [String suffix = '']) {
+    return _cache.scopedKey(
+      namespace,
+      role: _tokenService.getRole() ?? 'guest',
+      userId: _tokenService.getUserId() ?? 'guest',
+      suffix: suffix,
+    );
+  }
 
   /// Obtiene el token de autenticación
   String? _getToken() {
@@ -48,7 +63,7 @@ class ManagerCategoryComponent extends ChangeNotifier {
   }
 
   /// Inicializa el componente cargando categorías
-  Future<void> initialize() async {
+  Future<void> initialize({bool forceRefresh = false}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -57,7 +72,7 @@ class ManagerCategoryComponent extends ChangeNotifier {
       if (!canReadCategories) {
         throw Exception('No tienes permiso para ver categorías');
       }
-      await fetchCategories();
+      await fetchCategories(forceRefresh: forceRefresh);
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -67,7 +82,7 @@ class ManagerCategoryComponent extends ChangeNotifier {
   }
 
   /// Obtiene todas las categorías
-  Future<void> fetchCategories() async {
+  Future<void> fetchCategories({bool forceRefresh = false}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -77,13 +92,58 @@ class ManagerCategoryComponent extends ChangeNotifier {
         throw Exception('No tienes permiso para ver categorías');
       }
 
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesList}');
+      final cacheKey = _cacheKey('categories::list');
+      if (!forceRefresh) {
+        final cachedBody = await _cache.read(cacheKey);
+        if (cachedBody != null) {
+          final dynamic jsonResponse = jsonDecode(cachedBody);
+          List<dynamic> jsonList;
+
+          if (jsonResponse is List) {
+            jsonList = jsonResponse;
+          } else if (jsonResponse is Map<String, dynamic>) {
+            if (jsonResponse.containsKey('data')) {
+              jsonList = jsonResponse['data'] as List<dynamic>;
+            } else if (jsonResponse.containsKey('categories')) {
+              jsonList = jsonResponse['categories'] as List<dynamic>;
+            } else if (jsonResponse.containsKey('results')) {
+              jsonList = jsonResponse['results'] as List<dynamic>;
+            } else {
+              final listValues = jsonResponse.values
+                  .where((value) => value is List)
+                  .toList();
+              if (listValues.isNotEmpty) {
+                jsonList = listValues.first as List<dynamic>;
+              } else {
+                throw Exception(
+                  'No se encontró la lista de categorías en la respuesta',
+                );
+              }
+            }
+          } else {
+            throw Exception('Formato de respuesta no válido');
+          }
+
+          _categories = jsonList
+              .map(
+                (json) => CategoryModel.fromJson(json as Map<String, dynamic>),
+              )
+              .toList();
+          _error = null;
+          return;
+        }
+      }
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesList}',
+      );
       final response = await http.get(url, headers: _getHeaders());
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         final dynamic jsonResponse = jsonDecode(response.body);
         List<dynamic> jsonList;
-        
+
         // Manejar si la respuesta es un array directo o un objeto con una propiedad
         if (jsonResponse is List) {
           jsonList = jsonResponse;
@@ -95,20 +155,25 @@ class ManagerCategoryComponent extends ChangeNotifier {
           } else if (jsonResponse.containsKey('results')) {
             jsonList = jsonResponse['results'] as List<dynamic>;
           } else {
-            final listValues = jsonResponse.values.where((value) => value is List).toList();
+            final listValues = jsonResponse.values
+                .where((value) => value is List)
+                .toList();
             if (listValues.isNotEmpty) {
               jsonList = listValues.first as List<dynamic>;
             } else {
-              throw Exception('No se encontró la lista de categorías en la respuesta');
+              throw Exception(
+                'No se encontró la lista de categorías en la respuesta',
+              );
             }
           }
         } else {
           throw Exception('Formato de respuesta no válido');
         }
-        
+
         _categories = jsonList
             .map((json) => CategoryModel.fromJson(json as Map<String, dynamic>))
             .toList();
+        await _cache.write(cacheKey, response.body);
         _error = null;
       } else if (response.statusCode == 401) {
         throw Exception('No autenticado');
@@ -127,11 +192,22 @@ class ManagerCategoryComponent extends ChangeNotifier {
   /// Obtiene una categoría por ID
   Future<CategoryModel> fetchCategoryById(int id) async {
     try {
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesGet(id)}');
+      final cacheKey = _cacheKey('categories::detail', '$id');
+      final cachedBody = await _cache.read(cacheKey);
+      if (cachedBody != null) {
+        final json = jsonDecode(cachedBody) as Map<String, dynamic>;
+        return CategoryModel.fromJson(json);
+      }
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesGet(id)}',
+      );
       final response = await http.get(url, headers: _getHeaders());
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
+        await _cache.write(cacheKey, response.body);
         return CategoryModel.fromJson(json);
       } else if (response.statusCode == 401) {
         throw Exception('No autenticado');
@@ -157,15 +233,23 @@ class ManagerCategoryComponent extends ChangeNotifier {
         throw Exception('No tienes permiso para crear categorías');
       }
 
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesCreate}');
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesCreate}',
+      );
       final response = await http.post(
         url,
         headers: _getHeaders(),
         body: jsonEncode(category.toJson()),
       );
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 201) {
-        await fetchCategories(); // Recargar lista
+        await _cache.removeByPrefix(_cacheKey('categories::detail'));
+        await _cache.removeByPrefix(_cacheKey('categories::list'));
+        await _cache.removeByPrefix(_cacheKey('shop::categories'));
+        await _cache.removeByPrefix(_cacheKey('brands::categories'));
+        await _cache.removeByPrefix(_cacheKey('products::form::categories'));
+        await fetchCategories(forceRefresh: true);
         _error = null;
       } else if (response.statusCode == 401) {
         throw Exception('No autenticado');
@@ -195,15 +279,23 @@ class ManagerCategoryComponent extends ChangeNotifier {
         throw Exception('No tienes permiso para actualizar categorías');
       }
 
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesUpdate(category.idCategory)}');
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesUpdate(category.idCategory)}',
+      );
       final response = await http.put(
         url,
         headers: _getHeaders(),
         body: jsonEncode(category.toJson()),
       );
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
-        await fetchCategories(); // Recargar lista
+        await _cache.removeByPrefix(_cacheKey('categories::detail'));
+        await _cache.removeByPrefix(_cacheKey('categories::list'));
+        await _cache.removeByPrefix(_cacheKey('shop::categories'));
+        await _cache.removeByPrefix(_cacheKey('brands::categories'));
+        await _cache.removeByPrefix(_cacheKey('products::form::categories'));
+        await fetchCategories(forceRefresh: true);
         _error = null;
       } else if (response.statusCode == 401) {
         throw Exception('No autenticado');
@@ -213,7 +305,9 @@ class ManagerCategoryComponent extends ChangeNotifier {
         final errorBody = jsonDecode(response.body);
         throw Exception('Error de validación: ${errorBody.toString()}');
       } else {
-        throw Exception('Error al actualizar categoría: ${response.statusCode}');
+        throw Exception(
+          'Error al actualizar categoría: ${response.statusCode}',
+        );
       }
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
@@ -235,11 +329,19 @@ class ManagerCategoryComponent extends ChangeNotifier {
         throw Exception('No tienes permiso para eliminar categorías');
       }
 
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesDelete(id)}');
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesDelete(id)}',
+      );
       final response = await http.delete(url, headers: _getHeaders());
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
-        await fetchCategories(); // Recargar lista
+        await _cache.removeByPrefix(_cacheKey('categories::detail'));
+        await _cache.removeByPrefix(_cacheKey('categories::list'));
+        await _cache.removeByPrefix(_cacheKey('shop::categories'));
+        await _cache.removeByPrefix(_cacheKey('brands::categories'));
+        await _cache.removeByPrefix(_cacheKey('products::form::categories'));
+        await fetchCategories(forceRefresh: true);
         _error = null;
       } else if (response.statusCode == 401) {
         throw Exception('No autenticado');
@@ -275,4 +377,3 @@ class ManagerCategoryComponent extends ChangeNotifier {
     notifyListeners();
   }
 }
-

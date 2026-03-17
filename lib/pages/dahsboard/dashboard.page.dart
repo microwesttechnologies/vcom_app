@@ -45,7 +45,7 @@ class _DashboardPageState extends State<DashboardPage> {
     _dashboardModeloComponent.addListener(_onComponentChanged);
 
     if (_usesModeloDashboard) {
-      _dashboardModeloComponent.fetchDashboardData();
+      _dashboardModeloComponent.initialize();
     } else {
       _dashboardComponent.fetchModules();
     }
@@ -61,7 +61,6 @@ class _DashboardPageState extends State<DashboardPage> {
   void _onComponentChanged() {
     setState(() {});
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +167,6 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
       bottomNavigationBar: const ModeloMenuBar(activeRoute: 'dashboard'),
-
     );
   }
 
@@ -200,7 +198,8 @@ class _DashboardPageState extends State<DashboardPage> {
         routeLower.contains('calendar') ||
         routeLower.contains('calendario')) {
       targetPage = const EventsPage();
-    } else if (routeLower.contains('training') || routeLower.contains('entrenamiento')) {
+    } else if (routeLower.contains('training') ||
+        routeLower.contains('entrenamiento')) {
       targetPage = const TrainingPage();
     }
 
@@ -293,7 +292,7 @@ class _DashboardPageState extends State<DashboardPage> {
               _dashboardComponent.error!,
               style: TextStyle(
                 fontSize: 14,
-                color: VcomColors.blancoCrema.withOpacity(0.7),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),

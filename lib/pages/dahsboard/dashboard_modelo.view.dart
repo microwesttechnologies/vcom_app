@@ -62,7 +62,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return RefreshIndicator(
-      onRefresh: () => widget.component.fetchDashboardData(),
+      onRefresh: () => widget.component.fetchDashboardData(forceRefresh: true),
       color: VcomColors.oroLujoso,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -87,8 +87,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
   }
 
   Widget _buildBalanceCard(DashboardModeloComponent comp) {
-    final balance = comp.balance;
-    final amountCop = comp.liquidatedAmountCop ?? _fallbackBalanceCop(balance);
+    final amountCop = comp.liquidatedAmountCop;
     final hasAmount = amountCop != null;
     final formatted = hasAmount ? _fmtCop.format(amountCop) : '—';
 
@@ -111,83 +110,78 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                   ),
                 ],
               ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'SALDO LIQUIDADO',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: VcomColors.oroLujoso,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        formatted,
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w800,
-                          color: VcomColors.blancoCrema,
-                          letterSpacing: -1,
+                  Text(
+                    'SALDO LIQUIDADO',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: VcomColors.oroLujoso,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            formatted,
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w800,
+                              color: VcomColors.blancoCrema,
+                              letterSpacing: -1,
+                            ),
+                            maxLines: 1,
+                          ),
                         ),
-                        maxLines: 1,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'COP',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: VcomColors.blancoCrema.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (!hasAmount) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Sin pagos liquidados registrados',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: VcomColors.blancoCrema.withValues(alpha: 0.55),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'COP',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: VcomColors.blancoCrema.withValues(alpha: 0.6),
-                    ),
-                  ),
+                  ],
                 ],
               ),
-              if (!hasAmount) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'Sin pagos liquidados registrados',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: VcomColors.blancoCrema.withValues(alpha: 0.55),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        // Barra dorada izquierda (evita border con colores no uniformes)
-        const Positioned(
-          left: 0, top: 0, bottom: 0,
-          child: SizedBox(
-            width: 4,
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: VcomColors.oroLujoso),
             ),
-          ),
+            // Barra dorada izquierda (evita border con colores no uniformes)
+            const Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: SizedBox(
+                width: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: VcomColors.oroLujoso),
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
       ),
     );
-  }
-
-  double? _fallbackBalanceCop(ModelBalanceModel? balance) {
-    if (balance == null) return null;
-    final currency = balance.currency.toUpperCase();
-    if (currency == 'COP') return balance.amount;
-    return null;
   }
 
   Widget _buildNextTrainingSection(DashboardModeloComponent comp) {
@@ -434,7 +428,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
         decoration: BoxDecoration(
           color: VcomColors.azulNocheSombra,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: VcomColors.oroLujoso.withOpacity(0.2)),
+          border: Border.all(color: VcomColors.oroLujoso.withValues(alpha: 0.2)),
         ),
         child: Column(
           children: [
@@ -451,7 +445,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: VcomColors.blancoCrema.withOpacity(0.6),
+                color: VcomColors.blancoCrema.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -520,7 +514,8 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.5),
                     border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1)),
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -537,7 +532,9 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                             color: VcomColors.azulNocheSombra,
                             child: Icon(
                               Icons.image,
-                              color: VcomColors.oroLujoso.withValues(alpha: 0.5),
+                              color: VcomColors.oroLujoso.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                           ),
                         ),
@@ -578,7 +575,9 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                 ),
                 // Barra dorada izquierda
                 const Positioned(
-                  left: 0, top: 0, bottom: 0,
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
                   child: SizedBox(
                     width: 4,
                     child: DecoratedBox(
@@ -600,21 +599,21 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: VcomColors.azulZafiroProfundo,
-        border: Border.all(color: VcomColors.oroLujoso.withOpacity(0.2)),
+        border: Border.all(color: VcomColors.oroLujoso.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
           Icon(
             Icons.event_busy,
             size: 48,
-            color: VcomColors.oroLujoso.withOpacity(0.5),
+            color: VcomColors.oroLujoso.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
           Text(
             'No hay entrenamientos programados',
             style: TextStyle(
               fontSize: 16,
-              color: VcomColors.blancoCrema.withOpacity(0.7),
+              color: VcomColors.blancoCrema.withValues(alpha: 0.7),
             ),
             textAlign: TextAlign.center,
           ),

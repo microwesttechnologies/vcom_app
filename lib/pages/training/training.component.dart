@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:vcom_app/core/common/envirotment.dev.dart';
+import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/models/video.model.dart';
 
@@ -9,6 +10,9 @@ import 'package:vcom_app/core/models/video.model.dart';
 /// Maneja toda la lógica de videos y categorías de entrenamiento
 /// Requiere autenticación mediante token JWT
 class TrainingComponent extends ChangeNotifier {
+  final TokenService _tokenService = TokenService();
+  final SessionCacheService _cache = SessionCacheService();
+
   // Estado
   List<VideoModel> _videos = [];
   List<VideoModel> _filteredVideos = [];
@@ -27,30 +31,39 @@ class TrainingComponent extends ChangeNotifier {
   String get selectedFilter => _selectedFilter;
   String get searchQuery => _searchQuery;
 
+  String _cacheKey(String namespace, [String suffix = '']) {
+    return _cache.scopedKey(
+      namespace,
+      role: _tokenService.getRole() ?? 'guest',
+      userId: _tokenService.getUserId() ?? 'guest',
+      suffix: suffix,
+    );
+  }
+
   /// Obtiene los headers con autenticación si el token está disponible
   Map<String, String> _getHeaders() {
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    
+
     // Agregar token de autenticación si está disponible
-    final token = TokenService().getToken();
+    final token = _tokenService.getToken();
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
-    
+
     return headers;
   }
 
   /// Inicializa el componente cargando videos
-  Future<void> initialize() async {
+  Future<void> initialize({bool forceRefresh = false}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await fetchVideos();
+      await fetchVideos(forceRefresh: forceRefresh);
       _applyFilters();
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
@@ -61,20 +74,61 @@ class TrainingComponent extends ChangeNotifier {
   }
 
   /// Obtiene todos los videos
-  Future<void> fetchVideos() async {
+  Future<void> fetchVideos({bool forceRefresh = false}) async {
     try {
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.videosList}');
-      final response = await http.get(url, headers: _getHeaders()).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Tiempo de espera agotado');
-        },
+      final cacheKey = _cacheKey('training::videos');
+      if (!forceRefresh) {
+        final cachedBody = await _cache.read(cacheKey);
+        if (cachedBody != null) {
+          final dynamic jsonResponse = jsonDecode(cachedBody);
+          List<dynamic> jsonList;
+
+          if (jsonResponse is List) {
+            jsonList = jsonResponse;
+          } else if (jsonResponse is Map<String, dynamic>) {
+            if (jsonResponse.containsKey('data')) {
+              jsonList = jsonResponse['data'] as List<dynamic>;
+            } else {
+              throw Exception('Formato de respuesta no válido');
+            }
+          } else {
+            throw Exception('Formato de respuesta no válido');
+          }
+
+          _videos = jsonList
+              .map((json) => VideoModel.fromJson(json as Map<String, dynamic>))
+              .where((video) => video.stateVideo)
+              .toList();
+
+          final categoryMap = <int, CategoryVideoModel>{};
+          for (final video in _videos) {
+            if (video.categoryVideo != null) {
+              categoryMap[video.categoryVideo!.idCategoryVideo] =
+                  video.categoryVideo!;
+            }
+          }
+          _categories = categoryMap.values.toList();
+          return;
+        }
+      }
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.videosList}',
       );
+      final response = await http
+          .get(url, headers: _getHeaders())
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Tiempo de espera agotado');
+            },
+          );
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
         final dynamic jsonResponse = jsonDecode(response.body);
         List<dynamic> jsonList;
-        
+
         if (jsonResponse is List) {
           jsonList = jsonResponse;
         } else if (jsonResponse is Map<String, dynamic>) {
@@ -86,7 +140,7 @@ class TrainingComponent extends ChangeNotifier {
         } else {
           throw Exception('Formato de respuesta no válido');
         }
-        
+
         _videos = jsonList
             .map((json) => VideoModel.fromJson(json as Map<String, dynamic>))
             .where((video) => video.stateVideo)
@@ -96,10 +150,12 @@ class TrainingComponent extends ChangeNotifier {
         final categoryMap = <int, CategoryVideoModel>{};
         for (var video in _videos) {
           if (video.categoryVideo != null) {
-            categoryMap[video.categoryVideo!.idCategoryVideo] = video.categoryVideo!;
+            categoryMap[video.categoryVideo!.idCategoryVideo] =
+                video.categoryVideo!;
           }
         }
         _categories = categoryMap.values.toList();
+        await _cache.write(cacheKey, response.body);
       } else {
         throw Exception('Error al obtener videos: ${response.statusCode}');
       }
@@ -128,8 +184,9 @@ class TrainingComponent extends ChangeNotifier {
     var result = _videos;
 
     if (_selectedFilter != 'Todos los Artículos') {
-      result = result.where((v) =>
-          v.categoryVideo?.nameCategoryVideo == _selectedFilter).toList();
+      result = result
+          .where((v) => v.categoryVideo?.nameCategoryVideo == _selectedFilter)
+          .toList();
     }
 
     if (_searchQuery.isNotEmpty) {
@@ -148,18 +205,12 @@ class TrainingComponent extends ChangeNotifier {
   /// Obtiene un video por ID
   Future<VideoModel?> getVideoById(int id) async {
     try {
-      final url = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.videosGet(id)}');
-      final response = await http.get(url, headers: _getHeaders()).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Tiempo de espera agotado');
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final dynamic jsonResponse = jsonDecode(response.body);
+      final cacheKey = _cacheKey('training::video', '$id');
+      final cachedBody = await _cache.read(cacheKey);
+      if (cachedBody != null) {
+        final dynamic jsonResponse = jsonDecode(cachedBody);
         Map<String, dynamic> videoJson;
-        
+
         if (jsonResponse is Map<String, dynamic>) {
           if (jsonResponse.containsKey('data')) {
             videoJson = jsonResponse['data'] as Map<String, dynamic>;
@@ -169,7 +220,38 @@ class TrainingComponent extends ChangeNotifier {
         } else {
           throw Exception('Formato de respuesta no válido');
         }
-        
+
+        return VideoModel.fromJson(videoJson);
+      }
+
+      final url = Uri.parse(
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.videosGet(id)}',
+      );
+      final response = await http
+          .get(url, headers: _getHeaders())
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Tiempo de espera agotado');
+            },
+          );
+      _tokenService.handleUnauthorizedStatus(response.statusCode);
+
+      if (response.statusCode == 200) {
+        final dynamic jsonResponse = jsonDecode(response.body);
+        Map<String, dynamic> videoJson;
+
+        if (jsonResponse is Map<String, dynamic>) {
+          if (jsonResponse.containsKey('data')) {
+            videoJson = jsonResponse['data'] as Map<String, dynamic>;
+          } else {
+            videoJson = jsonResponse;
+          }
+        } else {
+          throw Exception('Formato de respuesta no válido');
+        }
+
+        await _cache.write(cacheKey, response.body);
         return VideoModel.fromJson(videoJson);
       } else {
         throw Exception('Error al obtener video: ${response.statusCode}');
@@ -182,6 +264,6 @@ class TrainingComponent extends ChangeNotifier {
 
   /// Recarga los videos
   Future<void> refresh() async {
-    await initialize();
+    await initialize(forceRefresh: true);
   }
 }

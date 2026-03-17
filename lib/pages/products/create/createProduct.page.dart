@@ -161,7 +161,7 @@ class _CreateProductPageState extends State<CreateProductPage> {
           backgroundColor: VcomColors.azulZafiroProfundo,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: VcomColors.oroLujoso.withOpacity(0.3)),
+            side: BorderSide(color: VcomColors.oroLujoso.withValues(alpha: 0.3)),
           ),
           title: Row(
             children: [
@@ -187,7 +187,7 @@ class _CreateProductPageState extends State<CreateProductPage> {
               child: Text(
                 errorMessage,
                 style: TextStyle(
-                  color: VcomColors.blancoCrema.withOpacity(0.9),
+                  color: VcomColors.blancoCrema.withValues(alpha: 0.9),
                   fontSize: 14,
                   height: 1.4,
                 ),
@@ -246,20 +246,20 @@ class _CreateProductPageState extends State<CreateProductPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
-                    value: _selectedCategoryId,
+                    initialValue: _selectedCategoryId,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: VcomColors.azulOverlayTransparente60,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -307,20 +307,20 @@ class _CreateProductPageState extends State<CreateProductPage> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
-                    value: _selectedBrandId,
+                    initialValue: _selectedBrandId,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: VcomColors.azulOverlayTransparente60,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -358,20 +358,20 @@ class _CreateProductPageState extends State<CreateProductPage> {
                     decoration: InputDecoration(
                       hintText: 'Ingrese el nombre del producto',
                       hintStyle: TextStyle(
-                        color: VcomColors.blancoCrema.withOpacity(0.5),
+                        color: VcomColors.blancoCrema.withValues(alpha: 0.5),
                       ),
                       filled: true,
                       fillColor: VcomColors.azulOverlayTransparente60,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -401,20 +401,20 @@ class _CreateProductPageState extends State<CreateProductPage> {
                     decoration: InputDecoration(
                       hintText: 'Ingrese la descripción del producto',
                       hintStyle: TextStyle(
-                        color: VcomColors.blancoCrema.withOpacity(0.5),
+                        color: VcomColors.blancoCrema.withValues(alpha: 0.5),
                       ),
                       filled: true,
                       fillColor: VcomColors.azulOverlayTransparente60,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -441,20 +441,20 @@ class _CreateProductPageState extends State<CreateProductPage> {
                     decoration: InputDecoration(
                       hintText: 'Ingrese la referencia del producto',
                       hintStyle: TextStyle(
-                        color: VcomColors.blancoCrema.withOpacity(0.5),
+                        color: VcomColors.blancoCrema.withValues(alpha: 0.5),
                       ),
                       filled: true,
                       fillColor: VcomColors.azulOverlayTransparente60,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(
-                          color: VcomColors.oroLujoso.withOpacity(0.3),
+                          color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -493,20 +493,20 @@ class _CreateProductPageState extends State<CreateProductPage> {
                               decoration: InputDecoration(
                                 hintText: '0.00',
                                 hintStyle: TextStyle(
-                                  color: VcomColors.blancoCrema.withOpacity(0.5),
+                                  color: VcomColors.blancoCrema.withValues(alpha: 0.5),
                                 ),
                                 filled: true,
                                 fillColor: VcomColors.azulOverlayTransparente60,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: BorderSide(
-                                    color: VcomColors.oroLujoso.withOpacity(0.3),
+                                    color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: BorderSide(
-                                    color: VcomColors.oroLujoso.withOpacity(0.3),
+                                    color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
@@ -552,20 +552,20 @@ class _CreateProductPageState extends State<CreateProductPage> {
                               decoration: InputDecoration(
                                 hintText: '0',
                                 hintStyle: TextStyle(
-                                  color: VcomColors.blancoCrema.withOpacity(0.5),
+                                  color: VcomColors.blancoCrema.withValues(alpha: 0.5),
                                 ),
                                 filled: true,
                                 fillColor: VcomColors.azulOverlayTransparente60,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: BorderSide(
-                                    color: VcomColors.oroLujoso.withOpacity(0.3),
+                                    color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: BorderSide(
-                                    color: VcomColors.oroLujoso.withOpacity(0.3),
+                                    color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
@@ -606,7 +606,7 @@ class _CreateProductPageState extends State<CreateProductPage> {
                       color: VcomColors.azulOverlayTransparente60,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: VcomColors.oroLujoso.withOpacity(0.3),
+                        color: VcomColors.oroLujoso.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Column(
@@ -698,7 +698,7 @@ class _CreateProductPageState extends State<CreateProductPage> {
                                   style: TextStyle(color: VcomColors.blancoCrema),
                                 ),
                                 style: OutlinedButton.styleFrom(
-                                  side: BorderSide(color: VcomColors.oroLujoso.withOpacity(0.5)),
+                                  side: BorderSide(color: VcomColors.oroLujoso.withValues(alpha: 0.5)),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -715,7 +715,7 @@ class _CreateProductPageState extends State<CreateProductPage> {
                                   style: TextStyle(color: VcomColors.blancoCrema),
                                 ),
                                 style: OutlinedButton.styleFrom(
-                                  side: BorderSide(color: VcomColors.oroLujoso.withOpacity(0.5)),
+                                  side: BorderSide(color: VcomColors.oroLujoso.withValues(alpha: 0.5)),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -730,7 +730,7 @@ class _CreateProductPageState extends State<CreateProductPage> {
                             child: Text(
                               'No hay imágenes seleccionadas',
                               style: TextStyle(
-                                color: VcomColors.blancoCrema.withOpacity(0.5),
+                                color: VcomColors.blancoCrema.withValues(alpha: 0.5),
                                 fontSize: 12,
                               ),
                               textAlign: TextAlign.center,

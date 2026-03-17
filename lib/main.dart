@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
-import 'package:vcom_app/pages/auth/login.page.dart';
+import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/pages/app_launch/app_intro.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
@@ -28,16 +31,31 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  Timer? _sessionCheckTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(TokenService().handleExpiredTokenIfNeeded());
+    _sessionCheckTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => unawaited(TokenService().handleExpiredTokenIfNeeded()),
+    );
   }
 
   @override
   void dispose() {
+    _sessionCheckTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(TokenService().handleExpiredTokenIfNeeded());
+    }
   }
 
   @override
@@ -45,11 +63,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'VCOM App',
       debugShowCheckedModeBanner: false,
+      navigatorKey: TokenService().navigatorKey,
       locale: const Locale('es', 'CO'),
-      supportedLocales: const [
-        Locale('es', 'CO'),
-        Locale('es'),
-      ],
+      supportedLocales: const [Locale('es', 'CO'), Locale('es')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -60,7 +76,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         useMaterial3: true,
         scaffoldBackgroundColor: VcomColors.azulZafiroProfundo,
       ),
-      home: const LoginPage(),
+      home: const AppIntroPage(),
       routes: {
         '/dashboard': (context) => const DashboardPage(),
         '/products': (context) => const ManagerProductPage(),

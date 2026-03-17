@@ -48,7 +48,6 @@ class ProductDetailBody extends StatefulWidget {
 
 class _ProductDetailBodyState extends State<ProductDetailBody> {
   late ShopComponent _shopComponent;
-  int _currentImageIndex = 0;
   final PageController _pageController = PageController();
 
   @override
@@ -293,7 +292,6 @@ class _ProductDetailBodyState extends State<ProductDetailBody> {
 
     return PageView.builder(
       controller: _pageController,
-      onPageChanged: (i) => setState(() => _currentImageIndex = i),
       itemCount: images.length,
       itemBuilder: (_, i) => Image.network(
         images[i].imageUrl,

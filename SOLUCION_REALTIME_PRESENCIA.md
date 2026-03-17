@@ -255,7 +255,7 @@ if (!isOnline)
     statusText,  // "Hace 5 min", "Hace 2h", etc.
     style: TextStyle(
       fontSize: 10,
-      color: VcomColors.blancoCrema.withOpacity(0.4),
+      color: VcomColors.blancoCrema.withValues(alpha: 0.4),
     ),
   ),
 ```
@@ -271,7 +271,7 @@ Text(
     fontSize: 12,
     color: _presence.isUserOnline(userId)
         ? VcomColors.success  // Verde si online
-        : VcomColors.blancoCrema.withOpacity(0.5),  // Gris si offline
+        : VcomColors.blancoCrema.withValues(alpha: 0.5),  // Gris si offline
   ),
 ),
 ```

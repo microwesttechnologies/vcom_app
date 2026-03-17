@@ -169,7 +169,7 @@ class TabMenuComponent extends StatelessWidget {
     final selectedColor = items[selectedIndex].selectedIconColor ??
         theme.colorScheme.primary;
     final unselectedColor = items[selectedIndex].unselectedIconColor ??
-        theme.colorScheme.onSurface.withOpacity(0.6);
+        theme.colorScheme.onSurface.withValues(alpha: 0.6);
 
     // Construir los items del BottomNavigationBar
     final bottomNavItems =
