@@ -284,15 +284,22 @@ class EventsComponent extends ChangeNotifier {
             .toList()
           ..sort();
 
+    final currentYear = DateTime.now().year;
+    for (var year = currentYear; year <= 2037; year++) {
+      if (!years.contains(year)) {
+        years.add(year);
+      }
+    }
+
     if (!years.contains(_selectedYear)) {
       years.add(_selectedYear);
-      years.sort();
     }
 
     if (years.isEmpty) {
       return [_selectedYear];
     }
 
+    years.sort();
     return years;
   }
 

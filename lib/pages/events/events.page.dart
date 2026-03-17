@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
@@ -98,9 +100,11 @@ class _EventsPageState extends State<EventsPage> {
                         child: DropdownButton<int>(
                           value: _component.selectedYear,
                           isExpanded: true,
+                          isDense: true,
                           underline: const SizedBox.shrink(),
                           dropdownColor: const Color(0xFF1A2740),
-                          style: const TextStyle(color: Colors.white, fontSize: 18),
+                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          iconSize: 22,
                           items: years
                               .map(
                                 (year) => DropdownMenuItem(
@@ -144,24 +148,30 @@ class _EventsPageState extends State<EventsPage> {
   Widget _buildSearchBar() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: TextField(
         controller: _searchController,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
+        style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
           hintText: 'Buscar evento',
           hintStyle: TextStyle(
             color: Colors.white.withValues(alpha: 0.4),
+            fontSize: 13,
           ),
           prefixIcon: Icon(
             Icons.search,
             color: Colors.white.withValues(alpha: 0.6),
+            size: 20,
+          ),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 40,
+            minHeight: 40,
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         ),
         onChanged: _component.setSearchQuery,
       ),
@@ -173,9 +183,11 @@ class _EventsPageState extends State<EventsPage> {
       child: DropdownButton<int?>(
         value: _component.selectedMonth,
         isExpanded: true,
+        isDense: true,
         underline: const SizedBox.shrink(),
         dropdownColor: const Color(0xFF1A2740),
-        style: const TextStyle(color: Colors.white, fontSize: 18),
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        iconSize: 22,
         items: [
           const DropdownMenuItem<int?>(
             value: null,
@@ -195,14 +207,29 @@ class _EventsPageState extends State<EventsPage> {
   }
 
   Widget _buildDropdownShell({required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A2740),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF506182).withValues(alpha: 0.30),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.16),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: child,
+        ),
       ),
-      child: child,
     );
   }
 
@@ -212,26 +239,33 @@ class _EventsPageState extends State<EventsPage> {
     final monthLabel = startDate != null ? DateFormat('MMM', 'es').format(startDate) : '--';
     final yearLabel = startDate != null ? DateFormat('yyyy').format(startDate) : '--';
 
+    final loc = event.locationEvent?.trim() ?? '';
+    final locParts = loc.contains(',') ? loc.split(',').map((s) => s.trim()).toList() : [loc];
+    final locationName = locParts.isNotEmpty && locParts[0].isNotEmpty ? locParts[0] : 'Ubicación por definir';
+    final locationSubtitle = locParts.length > 1 && locParts[1].isNotEmpty
+        ? locParts[1]
+        : (event.descriptionEvent?.trim().isNotEmpty == true ? event.descriptionEvent!.trim() : '');
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: InkWell(
         onTap: () => _openDetail(event),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF111A2B),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            color: const Color.fromARGB(255, 12, 12, 12),
+            borderRadius: BorderRadius.circular(5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                height: 220,
+                height: 150,
                 child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
                     ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
                       child: SizedBox.expand(
                         child: event.imageEvent?.isNotEmpty == true
                             ? Image.network(
@@ -247,95 +281,131 @@ class _EventsPageState extends State<EventsPage> {
                     Positioned.fill(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
                           gradient: LinearGradient(
                             begin: Alignment.bottomCenter,
                             end: Alignment.topCenter,
                             colors: [
-                              Colors.black.withValues(alpha: 0.75),
+                              const Color.fromARGB(255, 0, 0, 0),
+                              const Color.fromARGB(0, 0, 0, 0).withValues(alpha: 0.2),
                               Colors.transparent,
                             ],
+                            stops: const [0.0, 0.5, 1.0],
                           ),
                         ),
                       ),
                     ),
                     Positioned(
-                      right: 14,
-                      top: 14,
-                      child: Container(
-                        width: 112,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2A3350).withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              '$dayLabel DE ${monthLabel.toUpperCase()}',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
+                      left: 20,
+                      right: 130,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Text(
+                            event.titleEvent,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              yearLabel,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.06),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.08),
-                                ),
-                              ),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    _formatTime(event.startTime),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'HORA',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.35),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                     Positioned(
-                      left: 18,
-                      right: 140,
-                      bottom: 18,
-                      child: Text(
-                        event.titleEvent,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          height: 1.1,
+                      right: 5,
+                      top: 18,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(5),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                          child: Container(
+                            width: 90,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  const Color(0xFFD7E2FF).withValues(alpha: 0.14),
+                                  const Color(0xFF42547B).withValues(alpha: 0.28),
+                                  const Color(0xFF1A2740).withValues(alpha: 0.48),
+                                ],
+                                stops: const [0.0, 0.42, 1.0],
+                              ),
+                              borderRadius: BorderRadius.circular(5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.24),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '$dayLabel DE ${monthLabel.toUpperCase()}',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  yearLabel,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                    horizontal: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    // color: Colors.white.withValues(alpha: 0.07),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.10),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        _formatTime(event.startTime),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'HORA',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.4),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -343,32 +413,46 @@ class _EventsPageState extends State<EventsPage> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      event.locationEvent?.isNotEmpty == true
-                          ? event.locationEvent!
-                          : 'Ubicación por definir',
-                      style: const TextStyle(
-                        color: VcomColors.blancoCrema,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: 140,
+                    padding: const EdgeInsets.fromLTRB(20, 10, 14, 18),
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(5),
+                        bottomRight: Radius.circular(5),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      event.descriptionEvent?.isNotEmpty == true
-                          ? event.descriptionEvent!
-                          : 'Sin descripción adicional.',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          locationName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (locationSubtitle.isNotEmpty) ...[
+                          Text(
+                            locationSubtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: VcomColors.oroLujoso,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
