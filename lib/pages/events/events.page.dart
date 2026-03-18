@@ -391,16 +391,16 @@ class _EventsPageState extends State<EventsPage> {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'HORA',
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.4),
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
                                     ],
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'HORA',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],

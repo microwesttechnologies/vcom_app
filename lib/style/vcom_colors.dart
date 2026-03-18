@@ -48,7 +48,7 @@ class VcomColors {
   /// Un oro medio dorado, utilizado en la mayoría de los iconos, las marcas de las
   /// cajas y los iconos.
   /// RGB: 196, 154, 72
-  static const Color oroLujoso = Color.fromRGBO(196, 154, 72, 1.0);
+  static const Color oroLujoso = Color.fromRGBO(212, 175, 55, 1);
 
   /// Oro Brillante - Iluminación y Hover
   /// Un tono más claro del degradado metálico, usado en los bordes superiores de las

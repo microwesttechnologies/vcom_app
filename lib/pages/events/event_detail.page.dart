@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -73,53 +75,67 @@ class _EventDetailPageState extends State<EventDetailPage> {
         ),
         child: SafeArea(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            padding: const EdgeInsets.only(top: 8, bottom: 32),
             children: [
               _buildHero(),
-              const SizedBox(height: 20),
-              if (_canManageEvents && (_canUpdateEvents || _canDeleteEvents))
-                _buildActions(),
-              if (_canManageEvents && (_canUpdateEvents || _canDeleteEvents))
-                const SizedBox(height: 20),
-              _buildInfoGrid(),
-              const SizedBox(height: 20),
-              if ((_event.linkAccess ?? '').isNotEmpty) _buildLinkCard(),
-              if ((_event.linkAccess ?? '').isNotEmpty)
-                const SizedBox(height: 20),
-              _buildDescription(),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Itinerario',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: VcomColors.blancoCrema,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Transform.translate(
+                offset: const Offset(0, -16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_canManageEvents && (_canUpdateEvents || _canDeleteEvents))
+                      _buildActions(),
+                    if (_canManageEvents && (_canUpdateEvents || _canDeleteEvents))
+                      const SizedBox(height: 12),
+                    _buildInfoGrid(),
+                    const SizedBox(height: 12),
+                    if ((_event.linkAccess ?? '').isNotEmpty) _buildLinkCard(),
+                    if ((_event.linkAccess ?? '').isNotEmpty)
+                      const SizedBox(height: 12),
+                    _buildDescription(),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Itinerario',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: VcomColors.blancoCrema,
+                          ),
+                        ),
+                        Text(
+                          '${_event.itinerary?.items.length ?? 0} actividades',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Text(
-                    '${_event.itinerary?.items.length ?? 0} actividades',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.55),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (groupedItems.isEmpty)
-                Text(
-                  'Este evento no tiene actividades cargadas.',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-                )
-              else
-                ...groupedItems.entries.map(
-                  (entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: _buildDayBlock(entry.key, entry.value),
-                  ),
+                    const SizedBox(height: 12),
+                    if (groupedItems.isEmpty)
+                      Text(
+                        'Este evento no tiene actividades cargadas.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 11,
+                        ),
+                      )
+                    else
+                      ...groupedItems.entries.map(
+                        (entry) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildDayBlock(entry.key, entry.value),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
+            ),
             ],
           ),
         ),
@@ -133,7 +149,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
     return Container(
       height: 320,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(0),
         image: imageUrl != null && imageUrl.isNotEmpty
             ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
             : null,
@@ -146,9 +162,9 @@ class _EventDetailPageState extends State<EventDetailPage> {
             : null,
       ),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 52),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(7),
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -165,20 +181,20 @@ class _EventDetailPageState extends State<EventDetailPage> {
             Text(
               _event.titleEvent,
               style: const TextStyle(
-                fontSize: 34,
+                fontSize: 28,
                 height: 1.05,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 9),
             Text(
               _event.descriptionEvent?.trim().isNotEmpty == true
                   ? _event.descriptionEvent!
                   : 'Evento programado para el equipo.',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.78),
-                fontSize: 15,
+                fontSize: 11,
               ),
             ),
           ],
@@ -226,14 +242,15 @@ class _EventDetailPageState extends State<EventDetailPage> {
               child: _infoCard(
                 label: 'Fecha',
                 value: _formatDateRange(_event.startEvent, _event.endEvent),
+                icon: Icons.calendar_today,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _infoCard(
                 label: 'Hora',
-                value:
-                    '${_formatTime(_event.startTime)} - ${_formatTime(_event.endTime)}',
+                value: '${_formatTime(_event.startTime)}',
+                icon: Icons.access_time,
               ),
             ),
           ],
@@ -244,6 +261,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
           value: (_event.locationEvent ?? '').isNotEmpty
               ? _event.locationEvent!
               : 'Sin ubicación',
+          icon: Icons.location_on,
         ),
       ],
     );
@@ -255,6 +273,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
     return _infoCard(
       label: 'Link de acceso',
       value: link,
+      icon: Icons.link,
       trailing: IconButton(
         onPressed: () async {
           await Clipboard.setData(ClipboardData(text: link));
@@ -263,28 +282,53 @@ class _EventDetailPageState extends State<EventDetailPage> {
             context,
           ).showSnackBar(const SnackBar(content: Text('Link copiado')));
         },
-        icon: const Icon(Icons.copy_rounded, color: VcomColors.oroLujoso),
+        icon: const Icon(Icons.copy_rounded, color: Color.fromARGB(121, 255, 255, 255)),
+        iconSize: 18,
+        style: IconButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(32, 32),
+        ),
       ),
       onTap: () => _openLink(link),
     );
   }
 
   Widget _buildDescription() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF111A2B),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Text(
-        _event.descriptionEvent?.trim().isNotEmpty == true
-            ? _event.descriptionEvent!
-            : 'Sin descripción adicional.',
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.8),
-          height: 1.5,
-        ),
+    return _glassCard(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.description_outlined,
+                size: 12,
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'DESCRIPCION',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            _event.descriptionEvent?.trim().isNotEmpty == true
+                ? _event.descriptionEvent!
+                : 'Sin descripción adicional.',
+            style: const TextStyle(
+              color: VcomColors.oroLujoso,
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              height: 1.5,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -297,22 +341,15 @@ class _EventDetailPageState extends State<EventDetailPage> {
           'Horario ${_formatLongDate(date)}',
           style: const TextStyle(
             color: VcomColors.blancoCrema,
-            fontSize: 20,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 12),
         ...items.map(
-          (item) => Container(
+          (item) => _glassCard(
             margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF111A2B),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: VcomColors.oroLujoso.withValues(alpha: 0.16),
-              ),
-            ),
+            padding: const EdgeInsets.all(8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -320,6 +357,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                   '${_formatTime(item.startTime)} - ${_formatTime(item.endTime)}',
                   style: const TextStyle(
                     color: VcomColors.oroLujoso,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -328,7 +366,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
                   item.title,
                   style: const TextStyle(
                     color: VcomColors.blancoCrema,
-                    fontSize: 18,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -343,38 +381,40 @@ class _EventDetailPageState extends State<EventDetailPage> {
   Widget _infoCard({
     required String label,
     required String value,
+    IconData? icon,
     Widget? trailing,
     VoidCallback? onTap,
   }) {
-    final content = Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF111A2B),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
+    final content = _glassCard(
+      padding: const EdgeInsets.all(8),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label.toUpperCase(),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.42),
-                    fontSize: 12,
-                    letterSpacing: 1.0,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 12, color: Colors.white.withValues(alpha: 0.6)),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      label.toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
                 Text(
                   value,
                   style: const TextStyle(
                     color: VcomColors.oroLujoso,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
@@ -388,8 +428,39 @@ class _EventDetailPageState extends State<EventDetailPage> {
     if (onTap == null) return content;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(7),
       child: content,
+    );
+  }
+
+  Widget _glassCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(8),
+    EdgeInsetsGeometry? margin,
+  }) {
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(7),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: const Color(0xFF23314A).withValues(alpha: 0.34),
+              borderRadius: BorderRadius.circular(7),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 
@@ -413,9 +484,40 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 
   Future<void> _openLink(String value) async {
-    final uri = Uri.tryParse(value);
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return;
+
+    final hasValidScheme = trimmed.toLowerCase().startsWith('http://') ||
+        trimmed.toLowerCase().startsWith('https://');
+    if (!hasValidScheme) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'El enlace debe comenzar con http:// o https://',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final uri = Uri.tryParse(trimmed);
     if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No se pudo abrir el enlace: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _editEvent() async {
