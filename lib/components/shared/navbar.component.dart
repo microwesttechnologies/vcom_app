@@ -871,12 +871,8 @@ class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
         return; // canceló sin error
       }
 
-      // 2. Guardar credenciales y marcar huella como activa
-      await CredentialsService().saveCredentials(
-        remember: true,
-        email: id,
-        password: pass,
-      );
+      // 2. Guardar credenciales exclusivas de huella (no se sobrescriben con "Recordar credenciales")
+      await CredentialsService().saveBiometricCredentials(email: id, password: pass);
       await CredentialsService().setBiometricEnabled(true);
 
       if (mounted) {

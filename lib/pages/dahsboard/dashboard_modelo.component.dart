@@ -6,6 +6,9 @@ import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/session_state_registry.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/models/dashboard_modelo.model.dart';
+import 'package:vcom_app/core/models/event.model.dart';
+import 'package:vcom_app/core/models/product.model.dart';
+import 'package:vcom_app/pages/shop/shop.component.dart';
 
 /// Componente del dashboard para rol MODELO
 /// Obtiene saldo, usuario y próximo entrenamiento de los endpoints
@@ -26,7 +29,8 @@ class DashboardModeloComponent extends ChangeNotifier {
 
   ModelBalanceModel? _balance;
   double? _liquidatedAmountCop;
-  NextTrainingModel? _nextTraining;
+  EventModel? _nextEvent;
+  List<ProductModel> _latestProducts = [];
   String? _userName;
   String? _userAvatarUrl;
   bool _isLoading = false;
@@ -35,7 +39,8 @@ class DashboardModeloComponent extends ChangeNotifier {
 
   ModelBalanceModel? get balance => _balance;
   double? get liquidatedAmountCop => _liquidatedAmountCop;
-  NextTrainingModel? get nextTraining => _nextTraining;
+  EventModel? get nextEvent => _nextEvent;
+  List<ProductModel> get latestProducts => _latestProducts;
   String? get userName => _userName ?? _tokenService.getUserName();
   String? get userAvatarUrl => _userAvatarUrl;
   bool get isLoading => _isLoading;
@@ -88,7 +93,8 @@ class DashboardModeloComponent extends ChangeNotifier {
       await Future.wait([
         _fetchBalance(forceRefresh: forceRefresh),
         _fetchLatestLiquidationAmount(forceRefresh: forceRefresh),
-        _fetchNextTraining(forceRefresh: forceRefresh),
+        _fetchNextEvent(forceRefresh: forceRefresh),
+        _fetchLatestProducts(forceRefresh: forceRefresh),
         _fetchUserInfo(forceRefresh: forceRefresh),
       ]);
     } catch (e) {
@@ -103,7 +109,8 @@ class DashboardModeloComponent extends ChangeNotifier {
   void resetSessionState() {
     _balance = null;
     _liquidatedAmountCop = null;
-    _nextTraining = null;
+    _nextEvent = null;
+    _latestProducts = [];
     _userName = null;
     _userAvatarUrl = null;
     _isLoading = false;
@@ -282,25 +289,23 @@ class DashboardModeloComponent extends ChangeNotifier {
     return null;
   }
 
-  Future<void> _fetchNextTraining({bool forceRefresh = false}) async {
+  Future<void> _fetchNextEvent({bool forceRefresh = false}) async {
     try {
-      final cacheKey = _cacheKey('dashboard_modelo::next_training');
+      final cacheKey = _cacheKey('dashboard_modelo::next_event');
       if (!forceRefresh) {
         final cachedBody = await _cache.read(cacheKey);
         if (cachedBody != null) {
           final json = jsonDecode(cachedBody);
-          final data = json is Map ? (json['data'] ?? json) : json;
-          if (data != null) {
-            _nextTraining = NextTrainingModel.fromJson(
-              data as Map<String, dynamic>,
-            );
+          final list = _extractEventList(json);
+          if (list.isNotEmpty) {
+            _nextEvent = _pickNextEvent(list);
             return;
           }
         }
       }
 
       final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.modelsNextTraining}',
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.eventsList}',
       );
       final response = await http
           .get(url, headers: _getHeaders())
@@ -312,61 +317,67 @@ class DashboardModeloComponent extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        final data = json is Map ? (json['data'] ?? json) : json;
-        if (data != null) {
-          _nextTraining = NextTrainingModel.fromJson(
-            data as Map<String, dynamic>,
-          );
+        final list = _extractEventList(json);
+        if (list.isNotEmpty) {
+          _nextEvent = _pickNextEvent(list);
           await _cache.write(cacheKey, response.body);
+        } else {
+          _nextEvent = null;
         }
-      }
-      if (_nextTraining == null) {
-        await _fetchFirstVideoAsFallback(forceRefresh: forceRefresh);
+      } else {
+        _nextEvent = null;
       }
     } catch (_) {
-      await _fetchFirstVideoAsFallback(forceRefresh: forceRefresh);
+      _nextEvent = null;
     }
   }
 
-  Future<void> _fetchFirstVideoAsFallback({bool forceRefresh = false}) async {
+  List<Map<String, dynamic>> _extractEventList(dynamic json) {
+    if (json is List) return json.whereType<Map<String, dynamic>>().toList();
+    if (json is Map) {
+      final data = json['data'] ?? json['events'];
+      if (data is List) {
+        return data.whereType<Map<String, dynamic>>().toList();
+      }
+    }
+    return [];
+  }
+
+  EventModel? _pickNextEvent(List<Map<String, dynamic>> list) {
+    final now = DateTime.now();
+    final events = list
+        .map((e) => EventModel.fromJson(e))
+        .where((e) => e.stateEvent)
+        .toList()
+      ..sort((a, b) {
+        final cmp = a.startEvent.compareTo(b.startEvent);
+        if (cmp != 0) return cmp;
+        return a.startTime.compareTo(b.startTime);
+      });
+
+    for (final e in events) {
+      final start = _parseEventStart(e);
+      if (start != null && start.isAfter(now)) return e;
+    }
+    return events.isNotEmpty ? events.first : null;
+  }
+
+  DateTime? _parseEventStart(EventModel e) {
+    final dateStr = e.startEvent.trim();
+    final timeStr = e.startTime.trim();
+    if (dateStr.isEmpty) return null;
+    final timePart = timeStr.length >= 5 ? timeStr.substring(0, 5) : '09:00';
+    return DateTime.tryParse('$dateStr $timePart');
+  }
+
+  Future<void> _fetchLatestProducts({bool forceRefresh = false}) async {
     try {
-      final cacheKey = _cacheKey('dashboard_modelo::video_fallback');
-      if (!forceRefresh) {
-        final cachedBody = await _cache.read(cacheKey);
-        if (cachedBody != null) {
-          final json = jsonDecode(cachedBody);
-          final list = json is List ? json : (json['data'] as List? ?? []);
-          if (list.isNotEmpty) {
-            final first = list.first as Map<String, dynamic>;
-            _nextTraining = NextTrainingModel.fromVideo(first);
-            return;
-          }
-        }
-      }
-
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.videosList}',
-      );
-      final response = await http
-          .get(url, headers: _getHeaders())
-          .timeout(
-            const Duration(seconds: 8),
-            onTimeout: () => throw Exception('Tiempo agotado'),
-          );
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        List<dynamic> list = json is List
-            ? json
-            : (json['data'] as List? ?? []);
-        if (list.isNotEmpty) {
-          final first = list.first as Map<String, dynamic>;
-          _nextTraining = NextTrainingModel.fromVideo(first);
-          await _cache.write(cacheKey, response.body);
-        }
-      }
-    } catch (_) {}
+      final shop = ShopComponent();
+      await shop.initialize(forceRefresh: forceRefresh);
+      _latestProducts = shop.allProducts.take(3).toList();
+    } catch (_) {
+      _latestProducts = [];
+    }
   }
 
   Future<void> _fetchUserInfo({bool forceRefresh = false}) async {

@@ -72,8 +72,8 @@ class LoginComponent extends ChangeNotifier {
 
     if (!authenticated) return false; // El usuario canceló
 
-    // Cargar credenciales guardadas y ejecutar login
-    final creds = await _credentialsService.loadCredentials();
+    // Cargar credenciales vinculadas a la huella (nunca las del formulario)
+    final creds = await _credentialsService.loadBiometricCredentials();
     final email = creds['email'] ?? '';
     final password = creds['password'] ?? '';
 

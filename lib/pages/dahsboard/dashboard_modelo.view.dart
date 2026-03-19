@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:vcom_app/core/models/dashboard_modelo.model.dart';
+import 'package:vcom_app/core/models/event.model.dart';
+import 'package:vcom_app/core/models/product.model.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard_modelo.component.dart';
-import 'package:vcom_app/pages/training/training.page.dart';
-import 'package:vcom_app/pages/training/video_player.page.dart';
+import 'package:vcom_app/pages/events/event_detail.page.dart';
+import 'package:vcom_app/pages/events/events.page.dart';
+import 'package:vcom_app/pages/shop/product_detail.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
-import 'package:vcom_app/core/models/video.model.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 /// Vista del dashboard para rol MODELO
@@ -22,7 +23,7 @@ class DashboardModeloView extends StatefulWidget {
 
 class _DashboardModeloViewState extends State<DashboardModeloView> {
   Timer? _countdownTimer;
-  Duration _countdown = const Duration(hours: 2, minutes: 14, seconds: 10);
+  Duration _countdown = Duration.zero;
   final NumberFormat _fmtCop = NumberFormat.currency(
     locale: 'es_CO',
     symbol: '\$',
@@ -32,15 +33,47 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
   @override
   void initState() {
     super.initState();
-    _startCountdown();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateCountdown();
+      _startCountdown();
+    });
+  }
+
+  void _updateCountdown() {
+    final event = widget.component.nextEvent;
+    if (event == null) {
+      _countdown = Duration.zero;
+      return;
+    }
+    final start = _parseEventStart(event);
+    if (start == null) {
+      _countdown = Duration.zero;
+      return;
+    }
+    final now = DateTime.now();
+    if (start.isBefore(now)) {
+      _countdown = Duration.zero;
+      return;
+    }
+    setState(() {
+      _countdown = start.difference(now);
+    });
+  }
+
+  DateTime? _parseEventStart(EventModel e) {
+    final dateStr = e.startEvent.trim();
+    final timeStr = e.startTime.trim();
+    if (dateStr.isEmpty) return null;
+    final timePart = timeStr.length >= 5 ? timeStr.substring(0, 5) : '09:00';
+    return DateTime.tryParse('$dateStr $timePart');
   }
 
   void _startCountdown() {
+    _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && _countdown.inSeconds > 0) {
-        setState(() {
-          _countdown = Duration(seconds: _countdown.inSeconds - 1);
-        });
+      if (mounted) {
+        _updateCountdown();
+        if (_countdown == Duration.zero) _countdownTimer?.cancel();
       }
     });
   }
@@ -77,9 +110,9 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
           children: [
             _buildBalanceCard(comp),
             const SizedBox(height: 24),
-            _buildNextTrainingSection(comp),
+            _buildNextEventSection(comp),
             const SizedBox(height: 24),
-            _buildNovedadesSection(),
+            _buildNovedadesSection(comp),
           ],
         ),
       ),
@@ -184,8 +217,8 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
     );
   }
 
-  Widget _buildNextTrainingSection(DashboardModeloComponent comp) {
-    final next = comp.nextTraining;
+  Widget _buildNextEventSection(DashboardModeloComponent comp) {
+    final next = comp.nextEvent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,7 +229,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Próximo Entrenamiento',
+                'Próximo Evento',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -207,7 +240,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
             GestureDetector(
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const TrainingPage()),
+                MaterialPageRoute(builder: (_) => const EventsPage()),
               ),
               child: Text(
                 'VER TODO',
@@ -227,16 +260,19 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
         ),
         const SizedBox(height: 16),
         if (next != null)
-          _buildTrainingCard(next)
+          _buildEventCard(next)
         else
-          _buildEmptyTrainingCard(),
+          _buildEmptyEventCard(),
       ],
     );
   }
 
-  Widget _buildTrainingCard(NextTrainingModel next) {
+  Widget _buildEventCard(EventModel event) {
+    final imageUrl = event.imageEvent;
+    final statusLabel = _computeEventStatusLabel(event);
+
     return GestureDetector(
-      onTap: () => _openTrainingDetails(next),
+      onTap: () => _openEventDetails(event),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
@@ -264,9 +300,9 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      next.imageUrl != null && next.imageUrl!.isNotEmpty
+                      imageUrl != null && imageUrl.isNotEmpty
                           ? Image.network(
-                              next.imageUrl!,
+                              imageUrl,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) =>
                                   _buildPlaceholderImage(),
@@ -304,7 +340,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                             ],
                           ),
                           child: Text(
-                            next.status ?? 'EN VIVO EN 2H',
+                            statusLabel,
                             style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -322,9 +358,9 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              next.title.isNotEmpty
-                                  ? next.title
-                                  : 'Sesión de Pasarela Pro',
+                              event.titleEvent.isNotEmpty
+                                  ? event.titleEvent
+                                  : 'Evento programado',
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -335,20 +371,25 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                             Row(
                               children: [
                                 Icon(
-                                  Icons.person_outline,
+                                  Icons.location_on_outlined,
                                   size: 14,
                                   color: VcomColors.blancoCrema.withValues(
                                     alpha: 0.8,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'Coach Maestro: ${next.coachName ?? 'Julian'}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: VcomColors.blancoCrema.withValues(
-                                      alpha: 0.8,
+                                Expanded(
+                                  child: Text(
+                                    (event.locationEvent ?? '').isNotEmpty
+                                        ? event.locationEvent!
+                                        : 'Sin ubicación',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: VcomColors.blancoCrema.withValues(
+                                        alpha: 0.8,
+                                      ),
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -386,7 +427,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                       SizedBox(
                         width: double.infinity,
                         child: Text(
-                          'DETALLES DE LA SESIÓN',
+                          'DETALLES DEL EVENTO',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
@@ -407,13 +448,36 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
     );
   }
 
+  String _computeEventStatusLabel(EventModel event) {
+    final start = _parseEventStart(event);
+    if (start == null) return 'PRÓXIMAMENTE';
+    final now = DateTime.now();
+    if (start.isBefore(now)) return 'EN VIVO';
+    final diff = start.difference(now);
+    if (diff.inHours > 0) return 'EN VIVO EN ${diff.inHours}H';
+    if (diff.inMinutes > 0) return 'EN ${diff.inMinutes} MIN';
+    return 'EN VIVO';
+  }
+
+  Widget _productPlaceholder() {
+    return Container(
+      width: 48,
+      height: 48,
+      color: VcomColors.azulNocheSombra,
+      child: Icon(
+        Icons.image,
+        color: VcomColors.oroLujoso.withValues(alpha: 0.5),
+      ),
+    );
+  }
+
   Widget _buildPlaceholderImage() {
     return Container(
       height: 144,
       color: VcomColors.azulNocheSombra,
       child: Center(
         child: Icon(
-          Icons.video_library,
+          Icons.event,
           size: 48,
           color: VcomColors.oroLujoso.withValues(alpha: 0.4),
         ),
@@ -454,19 +518,8 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
     );
   }
 
-  Widget _buildNovedadesSection() {
-    final novedades = [
-      {
-        'title': 'Vestido de novia',
-        'subtitle': 'Tienda',
-        'imageUrl': 'https://picsum.photos/seed/novia/96',
-      },
-      {
-        'title': 'Inteligencia financiera',
-        'subtitle': 'Capacitaciones',
-        'imageUrl': 'https://picsum.photos/seed/finanzas/96',
-      },
-    ];
+  Widget _buildNovedadesSection(DashboardModeloComponent comp) {
+    final products = comp.latestProducts;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,27 +533,65 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
           ),
         ),
         const SizedBox(height: 12),
-        ...novedades.map(
-          (item) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _buildNovedadCard(
-              item['title']!,
-              item['subtitle']!,
-              item['imageUrl']!,
+        if (products.isEmpty)
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ShopPage()),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.black.withValues(alpha: 0.5),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.store, color: VcomColors.oroLujoso.withValues(alpha: 0.5), size: 32),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'No hay productos en la tienda',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: VcomColors.blancoCrema.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: VcomColors.blancoCrema.withValues(alpha: 0.5)),
+                ],
+              ),
+            ),
+          )
+        else
+          ...products.map(
+            (product) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildNovedadCard(product),
             ),
           ),
-        ),
       ],
     );
   }
 
-  Widget _buildNovedadCard(String title, String subtitle, String imageUrl) {
+  Widget _buildNovedadCard(ProductModel product) {
+    final imageUrl = product.images.isNotEmpty
+        ? (product.images.firstWhere(
+            (img) => img.isPrimary,
+            orElse: () => product.images.first,
+          ).imageUrl)
+        : null;
+    final subtitle = product.category?.nameCategory ?? 'Tienda';
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const ShopPage()),
+          MaterialPageRoute(
+            builder: (_) => ProductDetailPage(product: product),
+          ),
         ),
         borderRadius: BorderRadius.circular(12),
         child: ClipRRect(
@@ -521,23 +612,15 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          imageUrl,
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 48,
-                            height: 48,
-                            color: VcomColors.azulNocheSombra,
-                            child: Icon(
-                              Icons.image,
-                              color: VcomColors.oroLujoso.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                          ),
-                        ),
+                        child: imageUrl != null && imageUrl.isNotEmpty
+                            ? Image.network(
+                                imageUrl,
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _productPlaceholder(),
+                              )
+                            : _productPlaceholder(),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -545,7 +628,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              title,
+                              product.nameProduct,
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
@@ -593,9 +676,11 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
     );
   }
 
-  Widget _buildEmptyTrainingCard() {
-    return Container(
-      padding: const EdgeInsets.all(32),
+  Widget _buildEmptyEventCard() {
+    return SizedBox(
+      width: double.infinity,
+      child: Container(
+        padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: VcomColors.azulZafiroProfundo,
@@ -610,7 +695,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No hay entrenamientos programados',
+            'No hay eventos programados',
             style: TextStyle(
               fontSize: 16,
               color: VcomColors.blancoCrema.withValues(alpha: 0.7),
@@ -621,10 +706,10 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
           TextButton(
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const TrainingPage()),
+              MaterialPageRoute(builder: (_) => const EventsPage()),
             ),
             child: Text(
-              'Ver entrenamientos disponibles',
+              'Ver eventos disponibles',
               style: TextStyle(
                 color: VcomColors.oroLujoso,
                 fontWeight: FontWeight.w600,
@@ -633,27 +718,16 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
           ),
         ],
       ),
+      ),
     );
   }
 
-  void _openTrainingDetails(NextTrainingModel next) {
-    if (next.imageUrl == null || next.imageUrl!.isEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const TrainingPage()),
-      );
-      return;
-    }
-    final video = VideoModel(
-      idVideo: next.id,
-      titleVideo: next.title,
-      urlSource: next.imageUrl!,
-      idUser: '',
-      categoryVideo: null,
-    );
+  void _openEventDetails(EventModel event) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => VideoPlayerPage(video: video)),
+      MaterialPageRoute(
+        builder: (_) => EventDetailPage(event: event),
+      ),
     );
   }
 }
