@@ -75,7 +75,7 @@ class EventModel {
       if (itinerary != null)
         'itinerary': itinerary!.toJson(
           includeId: includeItineraryId,
-          includeDate: includeItineraryId,
+          includeDate: true,
         ),
     };
   }

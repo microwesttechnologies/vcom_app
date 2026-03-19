@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:ui';
 
+import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
@@ -101,44 +103,53 @@ class _EventFormPageState extends State<EventFormPage> {
                       Text(
                         _isEditing ? 'Editar evento' : 'Nuevo evento',
                         style: const TextStyle(
-                          fontSize: 28,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: VcomColors.blancoCrema,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 10),
                       _buildField(
                         controller: _titleController,
                         label: 'Nombre evento',
                         hint: 'Escribe aquí el título',
+                        icon: Icons.event_note_outlined,
                         validator: (value) =>
                             value == null || value.trim().isEmpty
                                 ? 'Ingresa el nombre del evento'
                                 : null,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       _buildField(
                         controller: _descriptionController,
                         label: 'Descripción',
                         hint: 'Describe el evento',
+                        icon: Icons.edit_note_outlined,
                         minLines: 4,
                         maxLines: 5,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _buildField(
                         controller: _locationController,
                         label: 'Lugar',
                         hint: 'Ubicación',
+                        icon: Icons.location_on_outlined,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       _buildField(
                         controller: _linkController,
                         label: 'Link acceso virtual',
                         hint: 'https://...',
+                        icon: Icons.link,
+                        suffixIcon: Icon(
+                          Icons.open_in_new,
+                          size: 12,
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       _buildImagePicker(),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
@@ -168,7 +179,7 @@ class _EventFormPageState extends State<EventFormPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
@@ -198,33 +209,14 @@ class _EventFormPageState extends State<EventFormPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                      SwitchListTile.adaptive(
-                        value: _stateEvent,
-                        onChanged: (value) => setState(() => _stateEvent = value),
-                        title: const Text(
-                          'Evento publicado',
-                          style: TextStyle(color: VcomColors.blancoCrema),
-                        ),
-                        activeThumbColor: VcomColors.oroLujoso,
-                        activeTrackColor:
-                            VcomColors.oroLujoso.withValues(alpha: 0.35),
-                        tileColor: VcomColors.azulZafiroProfundo.withValues(alpha: 0.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.08),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
                             'Itinerario',
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 12,
                               fontWeight: FontWeight.bold,
                               color: VcomColors.blancoCrema,
                             ),
@@ -233,25 +225,20 @@ class _EventFormPageState extends State<EventFormPage> {
                             '${_items.length} actividades',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.55),
+                              fontSize: 11,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       if (_items.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: VcomColors.azulZafiroProfundo.withValues(alpha: 0.45),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
-                            ),
-                          ),
+                        _glassCard(
+                          padding: const EdgeInsets.all(8),
                           child: Text(
                             'Aún no hay actividades en el itinerario.',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 11,
                             ),
                           ),
                         )
@@ -265,21 +252,43 @@ class _EventFormPageState extends State<EventFormPage> {
                                 ),
                               ),
                             ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () => _openItineraryEditorRoute(),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.16),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
+                      const SizedBox(height: 10),
+                      InkWell(
+                        onTap: () => _openItineraryEditorRoute(),
+                        borderRadius: BorderRadius.circular(7),
+                        child: DottedBorder(
+                          color: Colors.grey,
+                          strokeWidth: 1.5,
+                          dashPattern: const [6, 4],
+                          borderType: BorderType.RRect,
+                          radius: const Radius.circular(7),
+                          padding: EdgeInsets.zero,
+                          child: _glassCard(
+                            padding: const EdgeInsets.all(8),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.add_circle_outline,
+                                    color: Color.fromARGB(120, 255, 254, 250),
+                                    size: 15,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'AGREGAR ACTIVIDAD AL ITINERARIO',
+                                    style: const TextStyle(
+                                      color: Color.fromARGB(120, 255, 254, 250),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        icon: const Icon(Icons.add_circle_outline),
-                        label: const Text('Agregar actividad al itinerario'),
                       ),
                     ],
                   ),
@@ -293,34 +302,42 @@ class _EventFormPageState extends State<EventFormPage> {
                           onPressed: _saving ? null : () => Navigator.of(context).pop(),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: VcomColors.blancoCrema,
-                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            minimumSize: const Size(0, 36),
                             side: BorderSide(
                               color: Colors.white.withValues(alpha: 0.12),
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text('Cancelar'),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(fontSize: 11),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _saving ? null : _save,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: VcomColors.oroLujoso,
                             foregroundColor: VcomColors.azulMedianocheTexto,
-                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            minimumSize: const Size(0, 36),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: Text(_saving
-                              ? 'Guardando...'
-                              : _isEditing
-                                  ? 'Actualizar'
-                                  : 'Publicar'),
+                          child: Text(
+                            _saving
+                                ? 'Guardando...'
+                                : _isEditing
+                                    ? 'Actualizar'
+                                    : 'Publicar',
+                            style: const TextStyle(fontSize: 11),
+                          ),
                         ),
                       ),
                     ],
@@ -338,55 +355,109 @@ class _EventFormPageState extends State<EventFormPage> {
     required TextEditingController controller,
     required String label,
     required String hint,
+    required IconData icon,
     String? Function(String? value)? validator,
     int minLines = 1,
     int maxLines = 1,
+    Widget? suffixIcon,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.4),
-            fontSize: 12,
-            letterSpacing: 1.1,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 12,
+              color: Colors.white.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 8,
+                letterSpacing: 1.1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           validator: validator,
           minLines: minLines,
           maxLines: maxLines,
-          style: const TextStyle(color: VcomColors.blancoCrema),
+          style: const TextStyle(
+            color: VcomColors.blancoCrema,
+            fontSize: 12,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
-              color: Colors.white.withValues(alpha: 0.35),
+              color: Colors.white.withValues(alpha: 0.4),
+              fontSize: 12,
             ),
-            filled: true,
-            fillColor: VcomColors.azulZafiroProfundo.withValues(alpha: 0.5),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
+            filled: false,
+            isDense: true,
+            contentPadding: const EdgeInsets.only(top: 2, left: 0, right: 0, bottom: 0),
+            border: UnderlineInputBorder(
               borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withValues(alpha: 0.2),
               ),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
+            enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withValues(alpha: 0.2),
               ),
             ),
-            focusedBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(18)),
-              borderSide: BorderSide(color: VcomColors.oroLujoso),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: VcomColors.oroLujoso,
+                width: 2,
+              ),
             ),
+            suffixIcon: suffixIcon,
+            suffixIconConstraints: suffixIcon != null
+                ? const BoxConstraints(minWidth: 24, minHeight: 0, maxHeight: 16)
+                : null,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _glassCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(8),
+    EdgeInsetsGeometry? margin,
+  }) {
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(7),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: const Color(0xFF23314A).withValues(alpha: 0.34),
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 
@@ -397,16 +468,9 @@ class _EventFormPageState extends State<EventFormPage> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: VcomColors.azulZafiroProfundo.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.08),
-          ),
-        ),
+      borderRadius: BorderRadius.circular(7),
+      child: _glassCard(
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -414,17 +478,17 @@ class _EventFormPageState extends State<EventFormPage> {
               label.toUpperCase(),
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 11,
+                fontSize: 8,
                 letterSpacing: 1.0,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               value,
               style: const TextStyle(
                 color: VcomColors.blancoCrema,
-                fontSize: 16,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -446,7 +510,7 @@ class _EventFormPageState extends State<EventFormPage> {
           'IMAGEN',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.4),
-            fontSize: 12,
+            fontSize: 8,
             letterSpacing: 1.1,
             fontWeight: FontWeight.w600,
           ),
@@ -454,112 +518,123 @@ class _EventFormPageState extends State<EventFormPage> {
         const SizedBox(height: 8),
         InkWell(
           onTap: _uploadingImage ? null : _showImageSourcePicker,
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: VcomColors.azulZafiroProfundo.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            child: hasImage
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: hasPendingImage
-                              ? Image.file(
-                                  _pendingImageFile!,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                )
-                              : Image.network(
-                                  _imageUrl!,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: const Color(0xFF1A2740),
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.broken_image_outlined,
-                                          color: Colors.white54,
-                                          size: 42,
+          borderRadius: BorderRadius.circular(7),
+          child: hasImage
+              ? _glassCard(
+                  padding: const EdgeInsets.all(8),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(7),
+                          child: AspectRatio(
+                            aspectRatio: 16 / 9,
+                            child: hasPendingImage
+                                ? Image.file(
+                                    _pendingImageFile!,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                  )
+                                : Image.network(
+                                    _imageUrl!,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: const Color(0xFF1A2740),
+                                        child: const Center(
+                                          child: Icon(
+                                            Icons.broken_image_outlined,
+                                            color: Colors.white54,
+                                            size: 42,
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                                      );
+                                    },
+                                  ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _uploadingImage
-                                  ? 'Preparando imagen...'
-                                  : hasPendingImage
-                                      ? 'Imagen lista para publicar'
-                                      : 'Toca para cambiar la imagen',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.72),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _uploadingImage
+                                    ? 'Preparando imagen...'
+                                    : hasPendingImage
+                                        ? 'Imagen lista para publicar'
+                                        : 'Toca para cambiar la imagen',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.72),
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
-                          ),
-                          IconButton(
-                            onPressed: _uploadingImage
-                                ? null
-                                : () => setState(() {
-                                    _pendingImageFile = null;
-                                    _imageUrl = null;
-                                  }),
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.redAccent,
+                            IconButton(
+                              onPressed: _uploadingImage
+                                  ? null
+                                  : () => setState(() {
+                                      _pendingImageFile = null;
+                                      _imageUrl = null;
+                                    }),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : DottedBorder(
+                  color: Colors.grey,
+                  strokeWidth: 1.5,
+                  dashPattern: const [6, 4],
+                  borderType: BorderType.RRect,
+                  radius: const Radius.circular(7),
+                  padding: EdgeInsets.zero,
+                  child: _glassCard(
+                    padding: const EdgeInsets.all(8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_uploadingImage)
+                            const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: VcomColors.oroLujoso,
+                              ),
+                            )
+                          else
+                            const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              color: Color.fromARGB(120, 255, 254, 250),
+                              size: 15,
+                            ),
+                          const SizedBox(width: 12),
+                          Text(
+                            _uploadingImage
+                                ? 'Preparando imagen...'
+                                : 'AGREGAR IMAGEN',
+                            style: const TextStyle(
+                              color: Color.fromARGB(120, 255, 254, 250),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 9,
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      if (_uploadingImage)
-                        const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: VcomColors.oroLujoso,
-                          ),
-                        )
-                      else
-                        const Icon(
-                          Icons.add_photo_alternate_outlined,
-                          color: VcomColors.oroLujoso,
-                        ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _uploadingImage
-                              ? 'Preparando imagen...'
-                              : 'Agregar imagen desde el celular',
-                          style: const TextStyle(
-                            color: VcomColors.blancoCrema,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-          ),
+                ),
         ),
       ],
     );
@@ -569,15 +644,8 @@ class _EventFormPageState extends State<EventFormPage> {
     required EventItineraryItem item,
     required int index,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF101B31),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: VcomColors.oroLujoso.withValues(alpha: 0.12),
-        ),
-      ),
+    return _glassCard(
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -611,6 +679,7 @@ class _EventFormPageState extends State<EventFormPage> {
             _formatDisplayDate(item.date),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 11,
             ),
           ),
           const SizedBox(height: 8),
@@ -619,6 +688,7 @@ class _EventFormPageState extends State<EventFormPage> {
             style: const TextStyle(
               color: VcomColors.oroLujoso,
               fontWeight: FontWeight.w600,
+              fontSize: 11,
             ),
           ),
         ],
@@ -735,7 +805,7 @@ class _EventFormPageState extends State<EventFormPage> {
                       initialItem == null ? 'Nueva actividad' : 'Editar actividad',
                       style: const TextStyle(
                         color: VcomColors.blancoCrema,
-                        fontSize: 20,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -744,6 +814,7 @@ class _EventFormPageState extends State<EventFormPage> {
                       controller: titleController,
                       label: 'Título',
                       hint: 'Nombre de la actividad',
+                      icon: Icons.title,
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -1056,7 +1127,7 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
                     Text(
                       _isEditing ? 'Editar actividad' : 'Nueva actividad',
                       style: const TextStyle(
-                        fontSize: 28,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: VcomColors.blancoCrema,
                       ),
@@ -1066,6 +1137,7 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
                       controller: _titleController,
                       label: 'Titulo',
                       hint: 'Nombre de la actividad',
+                      icon: Icons.title,
                     ),
                     const SizedBox(height: 16),
                     _buildPickerCard(
@@ -1128,7 +1200,10 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
                             borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                        child: const Text('Cancelar'),
+                        child: const Text(
+                          'Cancelar',
+                          style: TextStyle(fontSize: 12),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1143,7 +1218,10 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
                             borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                        child: const Text('Guardar'),
+                        child: const Text(
+                          'Guardar',
+                          style: TextStyle(fontSize: 12),
+                        ),
                       ),
                     ),
                   ],
@@ -1176,49 +1254,100 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
     required TextEditingController controller,
     required String label,
     required String hint,
+    required IconData icon,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.4),
-            fontSize: 12,
-            letterSpacing: 1.1,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 12,
+              color: Colors.white.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 8,
+                letterSpacing: 1.1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
-          style: const TextStyle(color: VcomColors.blancoCrema),
+          textAlignVertical: TextAlignVertical.bottom,
+          style: const TextStyle(
+            color: VcomColors.blancoCrema,
+            fontSize: 12,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
-              color: Colors.white.withValues(alpha: 0.35),
+              color: Colors.white.withValues(alpha: 0.4),
+              fontSize: 12,
             ),
-            filled: true,
-            fillColor: VcomColors.azulZafiroProfundo.withValues(alpha: 0.5),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
+            filled: false,
+            isDense: true,
+            contentPadding: const EdgeInsets.only(top: 2, left: 0, right: 0, bottom: 0),
+            border: UnderlineInputBorder(
               borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withValues(alpha: 0.2),
               ),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
+            enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withValues(alpha: 0.2),
               ),
             ),
-            focusedBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(18)),
-              borderSide: BorderSide(color: VcomColors.oroLujoso),
+            focusedBorder: const UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: VcomColors.oroLujoso,
+                width: 2,
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _glassCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(8),
+    EdgeInsetsGeometry? margin,
+  }) {
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(7),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: const Color(0xFF23314A).withValues(alpha: 0.34),
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 
@@ -1229,16 +1358,9 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: VcomColors.azulZafiroProfundo.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.08),
-          ),
-        ),
+      borderRadius: BorderRadius.circular(7),
+      child: _glassCard(
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1246,17 +1368,17 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
               label.toUpperCase(),
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 11,
+                fontSize: 8,
                 letterSpacing: 1.0,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               value,
               style: const TextStyle(
                 color: VcomColors.blancoCrema,
-                fontSize: 16,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),

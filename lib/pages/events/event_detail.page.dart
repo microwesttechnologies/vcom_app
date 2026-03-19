@@ -85,37 +85,12 @@ class _EventDetailPageState extends State<EventDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (_canManageEvents && (_canUpdateEvents || _canDeleteEvents))
-                      _buildActions(),
-                    if (_canManageEvents && (_canUpdateEvents || _canDeleteEvents))
-                      const SizedBox(height: 12),
                     _buildInfoGrid(),
                     const SizedBox(height: 12),
                     if ((_event.linkAccess ?? '').isNotEmpty) _buildLinkCard(),
                     if ((_event.linkAccess ?? '').isNotEmpty)
                       const SizedBox(height: 12),
                     _buildDescription(),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Itinerario',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: VcomColors.blancoCrema,
-                          ),
-                        ),
-                        Text(
-                          '${_event.itinerary?.items.length ?? 0} actividades',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.55),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 12),
                     if (groupedItems.isEmpty)
                       Text(
@@ -128,10 +103,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
                     else
                       ...groupedItems.entries.map(
                         (entry) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.only(bottom: 20),
                           child: _buildDayBlock(entry.key, entry.value),
                         ),
                       ),
+                    if (_canManageEvents) ...[
+                      const SizedBox(height: 24),
+                      _buildActions(),
+                    ],
                   ],
                 ),
               ),
@@ -206,15 +185,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
   Widget _buildActions() {
     return Row(
       children: [
-        if (_canUpdateEvents)
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _editEvent,
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('Editar'),
-            ),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _editEvent,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Editar'),
           ),
-        if (_canUpdateEvents && _canDeleteEvents) const SizedBox(width: 12),
+        ),
+        if (_canDeleteEvents) const SizedBox(width: 12),
         if (_canDeleteEvents)
           Expanded(
             child: OutlinedButton.icon(
@@ -337,41 +315,87 @@ class _EventDetailPageState extends State<EventDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Horario ${_formatLongDate(date)}',
-          style: const TextStyle(
-            color: VcomColors.blancoCrema,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...items.map(
-          (item) => _glassCard(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_formatTime(item.startTime)} - ${_formatTime(item.endTime)}',
-                  style: const TextStyle(
-                    color: VcomColors.oroLujoso,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    color: VcomColors.blancoCrema,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Horario ${_formatItineraryDate(date)}',
+              style: const TextStyle(
+                color: VcomColors.blancoCrema,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
+            Text(
+              'Itinerario',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          clipBehavior: Clip.none,
+          decoration: const BoxDecoration(
+            border: Border(
+              left: BorderSide(color: VcomColors.oroLujoso, width: 2),
+            ),
+          ),
+          padding: const EdgeInsets.only(left: 16),
+          child: Column(
+            children: items.asMap().entries.map((entry) {
+              final item = entry.value;
+              final isLast = entry.key == items.length - 1;
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Transform.translate(
+                      offset: const Offset(-21, 0),
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: VcomColors.oroLujoso,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _glassCard(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_formatTime24(item.startTime)} — ${_formatTime24(item.endTime)}',
+                              style: const TextStyle(
+                                color: VcomColors.oroLujoso,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              item.title,
+                              style: const TextStyle(
+                                color: VcomColors.blancoCrema,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         ),
       ],
@@ -591,5 +615,19 @@ class _EventDetailPageState extends State<EventDetailPage> {
       int.parse(parts[1]),
     );
     return DateFormat('hh:mm a').format(parsed);
+  }
+
+  String _formatItineraryDate(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    return DateFormat('EEEE MMM d', 'es').format(parsed);
+  }
+
+  String _formatTime24(String raw) {
+    final parts = raw.split(':');
+    if (parts.length < 2) return raw;
+    final h = int.tryParse(parts[0]) ?? 0;
+    final m = int.tryParse(parts[1]) ?? 0;
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
   }
 }

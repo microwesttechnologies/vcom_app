@@ -59,7 +59,13 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _onComponentChanged() {
-    setState(() {});
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    }
   }
 
   @override

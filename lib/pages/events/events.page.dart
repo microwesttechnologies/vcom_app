@@ -63,6 +63,7 @@ class _EventsPageState extends State<EventsPage> {
               onPressed: _openCreateEvent,
               backgroundColor: VcomColors.oroLujoso,
               foregroundColor: VcomColors.azulMedianocheTexto,
+              shape: const CircleBorder(),
               child: const Icon(Icons.add),
             )
           : null,
