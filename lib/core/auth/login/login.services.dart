@@ -44,6 +44,14 @@ class LoginGatewayImpl implements LoginGateway {
         final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
         return LoginResponse.fromJson(jsonResponse);
       }
+      final inactiveAccountMessage = _buildInactiveAccountMessage(
+        response.body,
+        request.email,
+      );
+      if (inactiveAccountMessage != null) {
+        throw Exception(inactiveAccountMessage);
+      }
+
       throw Exception(
         _buildServerResponseMessage(
           response,
@@ -142,6 +150,51 @@ class LoginGatewayImpl implements LoginGateway {
     return '$defaultMessage [HTTP ${response.statusCode}]';
   }
 
+  String? _buildInactiveAccountMessage(
+    String responseBody,
+    String fallbackIdentifier,
+  ) {
+    try {
+      final decoded = jsonDecode(responseBody);
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final message = (decoded['message'] ?? '').toString().toLowerCase();
+      final account = decoded['account'];
+      if (!message.contains('no esta activa') &&
+          !message.contains('no está activa')) {
+        return null;
+      }
+      if (account is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final name = _readString(account['name']);
+      final email = _readString(account['email']).isNotEmpty
+          ? _readString(account['email'])
+          : fallbackIdentifier;
+      final username = _resolveUsername(
+        account['username'],
+        fallbackIdentifier: fallbackIdentifier,
+        fallbackEmail: email,
+      );
+
+      final displayName = name.isNotEmpty ? name : 'Modelo';
+      final displayEmail = email.isNotEmpty ? email : 'No disponible';
+      final displayUsername = username.isNotEmpty ? username : 'No disponible';
+
+      return 'Hola, $displayName.\n\n'
+          'Nos agrada tu interes en pertenecer a nuestra comunidad; nuestros expertos estan evaluando tu cuenta identificada con esta informacion.\n\n'
+          'Nombre: $displayName\n'
+          'Correo: $displayEmail\n'
+          'Username: $displayUsername\n\n'
+          'En breve uno de nuestros expertos activara tu cuenta. Si hay inconsistencias, comunicate por medio del correo Admin@vcom.com.';
+    } catch (_) {
+      return null;
+    }
+  }
+
   String _extractErrorMessage(String responseBody) {
     if (responseBody.trim().isEmpty) {
       return '';
@@ -175,6 +228,34 @@ class LoginGatewayImpl implements LoginGateway {
     }
 
     return responseBody.trim();
+  }
+
+  String _readString(dynamic value) {
+    if (value == null) {
+      return '';
+    }
+    return value.toString().trim();
+  }
+
+  String _resolveUsername(
+    dynamic value, {
+    required String fallbackIdentifier,
+    required String fallbackEmail,
+  }) {
+    final directValue = _readString(value);
+    if (directValue.isNotEmpty) {
+      return directValue;
+    }
+
+    if (fallbackIdentifier.isNotEmpty && !fallbackIdentifier.contains('@')) {
+      return fallbackIdentifier;
+    }
+
+    if (fallbackEmail.contains('@')) {
+      return fallbackEmail.split('@').first;
+    }
+
+    return '';
   }
 }
 

@@ -101,11 +101,11 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
-        final msg = e.toString().replaceFirst('Exception: ', '');
+        final msg = _cleanErrorMessage(e);
         _showServerResponseDialog(
-          title: 'Respuesta del servidor',
+          title: _resolveDialogTitle(msg),
           message: msg,
-          icon: Icons.fingerprint,
+          icon: _resolveDialogIcon(msg, fallback: Icons.fingerprint),
         );
       }
     }
@@ -140,13 +140,42 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
-        String errorMessage = e.toString().replaceFirst('Exception: ', '');
+        final errorMessage = _cleanErrorMessage(e);
         _showServerResponseDialog(
-          title: 'Respuesta del servidor',
+          title: _resolveDialogTitle(errorMessage),
           message: errorMessage,
+          icon: _resolveDialogIcon(errorMessage),
         );
       }
     }
+  }
+
+  String _resolveDialogTitle(String message) {
+    if (_isPendingAccountMessage(message)) {
+      return 'Cuenta en revision';
+    }
+    return 'Respuesta del servidor';
+  }
+
+  IconData _resolveDialogIcon(String message, {IconData fallback = Icons.error_outline}) {
+    if (_isPendingAccountMessage(message)) {
+      return Icons.verified_user_outlined;
+    }
+    return fallback;
+  }
+
+  bool _isPendingAccountMessage(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('nuestros expertos estan evaluando tu cuenta');
+  }
+
+  String _cleanErrorMessage(Object error) {
+    var message = error.toString().trim();
+    const prefix = 'Exception: ';
+    while (message.startsWith(prefix)) {
+      message = message.substring(prefix.length).trimLeft();
+    }
+    return message;
   }
 
   Future<void> _showServerResponseDialog({
@@ -156,59 +185,338 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   }) async {
     await showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.78),
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF111827),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
-          ),
-          titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          title: Row(
-            children: [
-              Icon(icon, color: VcomColors.oroPrimario),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+        final isPendingAccount = _isPendingAccountMessage(message);
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: VcomColors.oroBrillante.withValues(alpha: 0.24),
+                    width: 1,
                   ),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF19152B),
+                      Color(0xFF121224),
+                      Color(0xFF0A0E17),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      blurRadius: 30,
+                      offset: const Offset(0, 18),
+                    ),
+                    BoxShadow(
+                      color: VcomColors.oroLujoso.withValues(alpha: 0.08),
+                      blurRadius: 28,
+                      spreadRadius: -8,
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 360),
-            child: SingleChildScrollView(
-              child: SelectableText(
-                message,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 14,
-                  height: 1.45,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: -48,
+                      right: -28,
+                      child: IgnorePointer(
+                        child: Container(
+                          width: 132,
+                          height: 132,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                VcomColors.oroBrillante.withValues(alpha: 0.12),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: 420,
+                          maxHeight: MediaQuery.of(context).size.height * 0.72,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 1,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    VcomColors.oroBrillante.withValues(alpha: 0.0),
+                                    VcomColors.oroBrillante.withValues(alpha: 0.72),
+                                    VcomColors.bronceDorado.withValues(alpha: 0.18),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: VcomColors.oroBrillante.withValues(alpha: 0.22),
+                                    ),
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        VcomColors.oroBrillante.withValues(alpha: 0.16),
+                                        VcomColors.bronceDorado.withValues(alpha: 0.08),
+                                      ],
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    icon,
+                                    color: VcomColors.oroPrimario,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        isPendingAccount
+                                            ? 'VERIFICACION DE MEMBRESIA'
+                                            : 'RESPUESTA DEL SERVIDOR',
+                                        style: TextStyle(
+                                          color: VcomColors.oroBrillante.withValues(alpha: 0.86),
+                                          fontSize: 10,
+                                          letterSpacing: 2.2,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        title,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.05,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+                            Container(
+                              height: 1,
+                              color: Colors.white.withValues(alpha: 0.07),
+                            ),
+                            const SizedBox(height: 18),
+                            Flexible(
+                              child: SingleChildScrollView(
+                                child: isPendingAccount
+                                    ? _buildLuxuryPendingAccountContent(message)
+                                    : _buildLuxuryGenericDialogContent(message),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 12,
+                                  ),
+                                  backgroundColor: VcomColors.oroPrimario.withValues(alpha: 0.08),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(
+                                      color: VcomColors.oroPrimario.withValues(alpha: 0.28),
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Cerrar',
+                                  style: TextStyle(
+                                    color: VcomColors.oroPrimario,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cerrar',
-                style: TextStyle(color: VcomColors.oroPrimario),
-              ),
-            ),
-          ],
         );
       },
     );
+  }
+
+  Widget _buildLuxuryPendingAccountContent(String message) {
+    final name = _extractLabeledValue(message, 'Nombre:');
+    final email = _extractLabeledValue(message, 'Correo:');
+    final username = _extractLabeledValue(message, 'Username:');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Hola, ${name.isNotEmpty ? name : 'Modelo'}.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.98),
+            fontSize: 19,
+            fontWeight: FontWeight.w500,
+            height: 1.2,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Nos agrada tu interes en pertenecer a nuestra comunidad. Nuestros expertos estan evaluando tu cuenta identificada con esta informacion.',
+          style: TextStyle(
+            color: VcomColors.blancoCrema.withValues(alpha: 0.88),
+            fontSize: 15,
+            height: 1.55,
+          ),
+        ),
+        const SizedBox(height: 22),
+        Text(
+          'CUENTA IDENTIFICADA',
+          style: TextStyle(
+            color: VcomColors.oroBrillante.withValues(alpha: 0.9),
+            fontSize: 11,
+            letterSpacing: 2,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: VcomColors.oroBrillante.withValues(alpha: 0.16),
+            ),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.035),
+                VcomColors.oroBrillante.withValues(alpha: 0.02),
+              ],
+            ),
+          ),
+          child: Column(
+            children: [
+              _buildLuxuryInfoRow('Nombre', name),
+              const SizedBox(height: 12),
+              _buildLuxuryInfoRow('Correo', email),
+              const SizedBox(height: 12),
+              _buildLuxuryInfoRow('Username', username),
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+        Text(
+          'En breve uno de nuestros expertos activara tu cuenta. Si hay inconsistencias, comunicate por medio del correo Admin@vcom.com.',
+          style: TextStyle(
+            color: VcomColors.blancoCrema.withValues(alpha: 0.82),
+            fontSize: 15,
+            height: 1.6,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLuxuryGenericDialogContent(String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
+        color: Colors.white.withValues(alpha: 0.025),
+      ),
+      child: SelectableText(
+        message,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.9),
+          fontSize: 14,
+          height: 1.52,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLuxuryInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 92,
+          child: Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              color: VcomColors.oroBrillante.withValues(alpha: 0.78),
+              fontSize: 10,
+              letterSpacing: 1.8,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value.isNotEmpty ? value : 'No disponible',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.96),
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _extractLabeledValue(String message, String label) {
+    final match = RegExp(
+      '^${RegExp.escape(label)}\\s*(.+)\$',
+      multiLine: true,
+    ).firstMatch(message);
+    return match?.group(1)?.trim() ?? '';
   }
 
   @override

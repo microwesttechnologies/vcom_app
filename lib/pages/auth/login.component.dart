@@ -168,37 +168,33 @@ class LoginComponent extends ChangeNotifier {
     final email = getEmail();
     final password = getPassword();
 
-    try {
-      // 1. Realizar login y obtener token
-      final loginResponse = await _loginService.executeLogin(email, password);
+    // 1. Realizar login y obtener token
+    final loginResponse = await _loginService.executeLogin(email, password);
 
-      await _sessionCache.clearSession();
-      _sessionStateRegistry.clearAll();
+    await _sessionCache.clearSession();
+    _sessionStateRegistry.clearAll();
 
-      // Guardar token
-      _tokenService.setToken(loginResponse.token);
+    // Guardar token
+    _tokenService.setToken(loginResponse.token);
 
-      // 2. Obtener permisos y datos del usuario usando el token
-      final permissionsResponse = await _loginService.getPermissions(
-        loginResponse.token,
-      );
+    // 2. Obtener permisos y datos del usuario usando el token
+    final permissionsResponse = await _loginService.getPermissions(
+      loginResponse.token,
+    );
 
-      // Guardar permisos del backend y datos de usuario fallback.
-      _tokenService.setPermissions(permissionsResponse);
-      _tokenService.setUserName(permissionsResponse.user.name);
-      _tokenService.setUserId(permissionsResponse.user.id);
+    // Guardar permisos del backend y datos de usuario fallback.
+    _tokenService.setPermissions(permissionsResponse);
+    _tokenService.setUserName(permissionsResponse.user.name);
+    _tokenService.setUserId(permissionsResponse.user.id);
 
-      // Guardar credenciales si el usuario marcó "Recordar credenciales"
-      await _credentialsService.saveCredentials(
-        remember: _rememberCredentials,
-        email: email,
-        password: password,
-      );
+    // Guardar credenciales si el usuario marcó "Recordar credenciales"
+    await _credentialsService.saveCredentials(
+      remember: _rememberCredentials,
+      email: email,
+      password: password,
+    );
 
-      // NOTA: El estado online/offline se maneja en el módulo de chat
-    } catch (e) {
-      throw Exception(e.toString());
-    }
+    // NOTA: El estado online/offline se maneja en el módulo de chat
   }
 
   /// Libera los recursos
