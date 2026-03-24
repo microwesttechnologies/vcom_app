@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vcom_app/pages/training/training.component.dart';
-import 'package:vcom_app/pages/training/video_player.page.dart' show VideoPlayerBody;
+import 'package:vcom_app/pages/training/video_player.page.dart'
+    show VideoPlayerBody;
 import 'package:vcom_app/core/models/video.model.dart';
 import 'package:vcom_app/components/shared/video_thumbnail.widget.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
@@ -72,10 +73,8 @@ class _TrainingPageState extends State<TrainingPage> {
         bottomNavigationBar: const ModeloMenuBar(activeRoute: 'training'),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 280),
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
           child: inDetail
               ? VideoPlayerBody(
                   key: ValueKey(_currentVideo!.idVideo),
@@ -104,15 +103,29 @@ class _TrainingPageState extends State<TrainingPage> {
                       children: [
                         _buildSearchBar(),
                         _buildCategoryFilters(),
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(16, 20, 16, 12),
-                          child: Text(
-                            'Entrenamientos siguientes',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Sigue entrenando a tu ritmo',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Encuentra guias, tecnicas y contenido para mantener tu nivel en forma.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         Expanded(child: _buildContent()),
@@ -137,7 +150,7 @@ class _TrainingPageState extends State<TrainingPage> {
         controller: _searchController,
         style: const TextStyle(color: Colors.white, fontSize: 15),
         decoration: InputDecoration(
-          hintText: 'Buscar artículos de lujo...',
+          hintText: 'Busca una guia, tecnica o tema...',
           hintStyle: TextStyle(
             color: Colors.white.withValues(alpha: 0.5),
             fontSize: 14,
@@ -148,7 +161,10 @@ class _TrainingPageState extends State<TrainingPage> {
             size: 22,
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
         ),
       ),
     );
@@ -278,7 +294,7 @@ class _TrainingPageState extends State<TrainingPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No hay videos disponibles',
+              'Todavia no hay contenido para ti',
               style: TextStyle(
                 fontSize: 16,
                 color: VcomColors.blancoCrema.withValues(alpha: 0.7),

@@ -86,6 +86,38 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
 
   String _formatNumber(int n) => n.toString().padLeft(2, '0');
 
+  String _resolveFirstName(DashboardModeloComponent comp) {
+    final rawName = (comp.userName ?? '').trim();
+    if (rawName.isEmpty) {
+      return 'bienvenida';
+    }
+
+    return rawName.split(RegExp(r'\s+')).first;
+  }
+
+  String _resolveGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Buen dia';
+    }
+    if (hour < 19) {
+      return 'Buenas tardes';
+    }
+    return 'Buenas noches';
+  }
+
+  String _resolveHeaderCopy(DashboardModeloComponent comp) {
+    if (comp.nextEvent != null) {
+      return 'Tu espacio de hoy ya tiene movimiento. Revisa tu agenda, tus pagos y lo nuevo del estudio.';
+    }
+
+    if (comp.liquidatedAmountCop != null) {
+      return 'Todo lo importante de tu ritmo de trabajo esta aqui: agenda, pagos y novedades del estudio.';
+    }
+
+    return 'Este es tu espacio personal para seguir tu agenda, tus pagos y lo que viene en VCOM.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final comp = widget.component;
@@ -108,6 +140,8 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildPersonalHeader(comp),
+            const SizedBox(height: 20),
             _buildBalanceCard(comp),
             const SizedBox(height: 24),
             _buildNextEventSection(comp),
@@ -115,6 +149,144 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
             _buildNovedadesSection(comp),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPersonalHeader(DashboardModeloComponent comp) {
+    final firstName = _resolveFirstName(comp);
+    final greeting = _resolveGreeting();
+    final today = DateFormat(
+      "EEEE d 'de' MMMM",
+      'es_CO',
+    ).format(DateTime.now());
+    final chips = <Widget>[
+      _buildHeaderChip(
+        Icons.favorite_border,
+        comp.nextEvent != null ? 'Agenda activa' : 'Sin agenda cercana',
+      ),
+      _buildHeaderChip(
+        Icons.account_balance_wallet_outlined,
+        comp.liquidatedAmountCop != null
+            ? 'Saldo actualizado'
+            : 'Pago pendiente',
+      ),
+      _buildHeaderChip(
+        Icons.shopping_bag_outlined,
+        comp.latestProducts.isNotEmpty
+            ? '${comp.latestProducts.length} novedades'
+            : 'Tienda disponible',
+      ),
+    ];
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                VcomColors.secondaryBlue.withValues(alpha: 0.18),
+                Colors.black.withValues(alpha: 0.24),
+              ],
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: VcomColors.oroLujoso.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: VcomColors.oroLujoso.withValues(alpha: 0.28),
+                  ),
+                ),
+                child: Text(
+                  'TU HUB VCOM',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                    color: VcomColors.oroLujoso,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '$greeting, $firstName',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: VcomColors.blancoCrema,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _resolveHeaderCopy(comp),
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.45,
+                  color: VcomColors.blancoCrema.withValues(alpha: 0.78),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                today,
+                style: TextStyle(
+                  fontSize: 12,
+                  letterSpacing: 0.2,
+                  color: VcomColors.blancoCrema.withValues(alpha: 0.55),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(spacing: 8, runSpacing: 8, children: chips),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: VcomColors.oroLujoso.withValues(alpha: 0.9),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: VcomColors.blancoCrema.withValues(alpha: 0.85),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -147,7 +319,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'SALDO LIQUIDADO',
+                    'TU SALDO LIQUIDADO',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -189,7 +361,16 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                   if (!hasAmount) ...[
                     const SizedBox(height: 10),
                     Text(
-                      'Sin pagos liquidados registrados',
+                      'Aun no vemos pagos liquidados para ti',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: VcomColors.blancoCrema.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Este valor refleja tu liquidacion mas reciente.',
                       style: TextStyle(
                         fontSize: 12,
                         color: VcomColors.blancoCrema.withValues(alpha: 0.55),
@@ -229,7 +410,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Próximo Evento',
+                'Tu agenda',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -243,7 +424,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                 MaterialPageRoute(builder: (_) => const EventsPage()),
               ),
               child: Text(
-                'VER TODO',
+                'VER CALENDARIO',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -259,10 +440,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
           ],
         ),
         const SizedBox(height: 16),
-        if (next != null)
-          _buildEventCard(next)
-        else
-          _buildEmptyEventCard(),
+        if (next != null) _buildEventCard(next) else _buildEmptyEventCard(),
       ],
     );
   }
@@ -304,7 +482,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                           ? Image.network(
                               imageUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
+                              errorBuilder: (context, error, stackTrace) =>
                                   _buildPlaceholderImage(),
                             )
                           : _buildPlaceholderImage(),
@@ -427,7 +605,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                       SizedBox(
                         width: double.infinity,
                         child: Text(
-                          'DETALLES DEL EVENTO',
+                          'VER DETALLES',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
@@ -492,7 +670,9 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
         decoration: BoxDecoration(
           color: VcomColors.azulNocheSombra,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: VcomColors.oroLujoso.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: VcomColors.oroLujoso.withValues(alpha: 0.2),
+          ),
         ),
         child: Column(
           children: [
@@ -525,7 +705,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Novedades',
+          'Lo nuevo para ti',
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -548,18 +728,25 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.store, color: VcomColors.oroLujoso.withValues(alpha: 0.5), size: 32),
+                  Icon(
+                    Icons.store,
+                    color: VcomColors.oroLujoso.withValues(alpha: 0.5),
+                    size: 32,
+                  ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
-                      'No hay productos en la tienda',
+                      'Todavia no hay novedades en la tienda para ti',
                       style: TextStyle(
                         fontSize: 14,
                         color: VcomColors.blancoCrema.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
-                  Icon(Icons.chevron_right, color: VcomColors.blancoCrema.withValues(alpha: 0.5)),
+                  Icon(
+                    Icons.chevron_right,
+                    color: VcomColors.blancoCrema.withValues(alpha: 0.5),
+                  ),
                 ],
               ),
             ),
@@ -577,10 +764,12 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
 
   Widget _buildNovedadCard(ProductModel product) {
     final imageUrl = product.images.isNotEmpty
-        ? (product.images.firstWhere(
-            (img) => img.isPrimary,
-            orElse: () => product.images.first,
-          ).imageUrl)
+        ? (product.images
+              .firstWhere(
+                (img) => img.isPrimary,
+                orElse: () => product.images.first,
+              )
+              .imageUrl)
         : null;
     final subtitle = product.category?.nameCategory ?? 'Tienda';
 
@@ -618,7 +807,8 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
                                 width: 48,
                                 height: 48,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _productPlaceholder(),
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _productPlaceholder(),
                               )
                             : _productPlaceholder(),
                       ),
@@ -681,43 +871,55 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
       width: double.infinity,
       child: Container(
         padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: VcomColors.azulZafiroProfundo,
-        border: Border.all(color: VcomColors.oroLujoso.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.event_busy,
-            size: 48,
-            color: VcomColors.oroLujoso.withValues(alpha: 0.5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: VcomColors.azulZafiroProfundo,
+          border: Border.all(
+            color: VcomColors.oroLujoso.withValues(alpha: 0.2),
           ),
-          const SizedBox(height: 16),
-          Text(
-            'No hay eventos programados',
-            style: TextStyle(
-              fontSize: 16,
-              color: VcomColors.blancoCrema.withValues(alpha: 0.7),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.event_busy,
+              size: 48,
+              color: VcomColors.oroLujoso.withValues(alpha: 0.5),
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          TextButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const EventsPage()),
-            ),
-            child: Text(
-              'Ver eventos disponibles',
+            const SizedBox(height: 16),
+            Text(
+              'Por ahora no tienes eventos programados',
               style: TextStyle(
-                color: VcomColors.oroLujoso,
-                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Cuando se asigne algo nuevo, lo veras aqui primero.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: VcomColors.blancoCrema.withValues(alpha: 0.52),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const EventsPage()),
+              ),
+              child: Text(
+                'Ir a mi calendario',
+                style: TextStyle(
+                  color: VcomColors.oroLujoso,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -725,9 +927,7 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
   void _openEventDetails(EventModel event) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => EventDetailPage(event: event),
-      ),
+      MaterialPageRoute(builder: (_) => EventDetailPage(event: event)),
     );
   }
 }

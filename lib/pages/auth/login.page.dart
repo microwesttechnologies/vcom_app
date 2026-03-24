@@ -5,6 +5,7 @@ import 'login.component.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 import '../dahsboard/dashboard.page.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
+import 'register_model.page.dart';
 
 /// Página de login - Diseño según imagen de referencia
 class LoginPage extends StatefulWidget {
@@ -101,20 +102,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       if (mounted) {
         Navigator.of(context).pop();
         final msg = e.toString().replaceFirst('Exception: ', '');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.fingerprint, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(child: Text(msg, style: const TextStyle(fontSize: 13))),
-              ],
-            ),
-            backgroundColor: const Color(0xFF6B3D2E),
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            duration: const Duration(seconds: 5),
-          ),
+        _showServerResponseDialog(
+          title: 'Respuesta del servidor',
+          message: msg,
+          icon: Icons.fingerprint,
         );
       }
     }
@@ -150,24 +141,74 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       if (mounted) {
         Navigator.of(context).pop();
         String errorMessage = e.toString().replaceFirst('Exception: ', '');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(child: Text(errorMessage, style: const TextStyle(fontSize: 14))),
-              ],
-            ),
-            backgroundColor: Colors.red[700],
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(16),
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(label: 'OK', textColor: Colors.white, onPressed: () {}),
-          ),
+        _showServerResponseDialog(
+          title: 'Respuesta del servidor',
+          message: errorMessage,
         );
       }
     }
+  }
+
+  Future<void> _showServerResponseDialog({
+    required String title,
+    required String message,
+    IconData icon = Icons.error_outline,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF111827),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: 0.12),
+            ),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Row(
+            children: [
+              Icon(icon, color: VcomColors.oroPrimario),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                message,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontSize: 14,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cerrar',
+                style: TextStyle(color: VcomColors.oroPrimario),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -491,7 +532,13 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                             ),
                             const SizedBox(height: 4),
                             GestureDetector(
-                              onTap: () {},
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const RegisterModelPage(),
+                                  ),
+                                );
+                              },
                               child: Text(
                                 'Solicitar membresía',
                                 style: TextStyle(

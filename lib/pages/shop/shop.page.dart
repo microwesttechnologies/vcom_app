@@ -402,6 +402,33 @@ class _ShopPageState extends State<ShopPage> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Explora algo pensado para ti',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Encuentra productos, detalles y apoyos utiles para tu espacio de trabajo.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: Colors.white.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           // Barra de búsqueda
           SliverToBoxAdapter(
             child: Container(
@@ -439,7 +466,7 @@ class _ShopPageState extends State<ShopPage> {
         controller: _searchController,
         style: const TextStyle(color: Colors.white, fontSize: 15),
         decoration: InputDecoration(
-          hintText: 'Buscar artículos...',
+          hintText: 'Busca algo para tu espacio...',
           hintStyle: TextStyle(
             color: Colors.white.withValues(alpha: 0.38),
             fontSize: 15,
@@ -556,7 +583,7 @@ class _ShopPageState extends State<ShopPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                'No se encontraron productos',
+                'No encontramos productos para esa busqueda',
                 style: TextStyle(
                   fontSize: 16,
                   color: VcomColors.blancoCrema.withValues(alpha: 0.7),
@@ -627,7 +654,8 @@ class _ShopPageState extends State<ShopPage> {
                         ? Image.network(
                             primaryImage.imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _imagePlaceholder(),
+                            errorBuilder: (context, error, stackTrace) =>
+                                _imagePlaceholder(),
                           )
                         : _imagePlaceholder(),
                   ),

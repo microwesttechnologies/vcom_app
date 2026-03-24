@@ -1,11 +1,21 @@
 /// Configuración de ambiente de desarrollo
 class EnvironmentDev {
   /// URL base del API local
-  static const String baseUrl = 'https://vcamb.microwesttechnologies.com';
+  static const String baseUrl = 'http://10.0.2.2:8000';
   // static const String baseUrl = 'https://vcamb.microwesttechnologies.com'; // Producción
   // static const String baseUrl = 'http://192.168.1.2:8000'; // IP local (desarrollo)
   // static const String baseUrl = 'http://localhost:8000'; // Localhost (para web/desktop)
   // static const String baseUrl = 'http://10.0.2.2:8000'; // Emulador Android
+
+  // ============================================================================
+  // REGISTRO PÚBLICO (sin autenticación)
+  // ============================================================================
+
+  /// Registrar solicitud de membresía como modelo (público)
+  static const String modelsRegister = '/api/v1/register/model';
+
+  /// Listar plataformas disponibles para registro (público)
+  static const String platformsPublic = '/api/v1/register/platforms';
 
   // ============================================================================
   // AUTENTICACIÓN

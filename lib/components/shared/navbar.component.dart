@@ -19,10 +19,7 @@ class NavbarComponent extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      backgroundColor: VcomColors.azulZafiroProfundo,
-      elevation: 0,
-    );
+    return AppBar(backgroundColor: VcomColors.azulZafiroProfundo, elevation: 0);
   }
 }
 
@@ -69,8 +66,11 @@ class GlassNavbarComponent extends StatelessWidget
       automaticallyImplyLeading: false,
       leading: showBackButton
           ? IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new,
-                  color: Colors.white, size: 20),
+              icon: const Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+                size: 20,
+              ),
               onPressed: onHomeTap,
             )
           : null,
@@ -100,8 +100,9 @@ class GlassNavbarComponent extends StatelessWidget
             child: CircleAvatar(
               radius: 18,
               backgroundColor: VcomColors.azulNocheSombra,
-              backgroundImage:
-                  avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+              backgroundImage: avatarUrl != null
+                  ? NetworkImage(avatarUrl!)
+                  : null,
               child: avatarUrl == null
                   ? Text(
                       initial,
@@ -168,15 +169,12 @@ class GlassNavbarComponent extends StatelessWidget
 /// ```
 class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
   final bool showBackButton;
+
   /// Callback personalizado para el botón atrás.
   /// Si es null y showBackButton es true, usa Navigator.pop().
   final VoidCallback? onBackTap;
 
-  const ModeloNavbar({
-    super.key,
-    this.showBackButton = false,
-    this.onBackTap,
-  });
+  const ModeloNavbar({super.key, this.showBackButton = false, this.onBackTap});
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -186,7 +184,8 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
     final token = TokenService();
     final role = token.getRole();
     final normalizedRole = role?.toUpperCase() ?? '';
-    final usesModeloNavbar = normalizedRole == 'MODELO' ||
+    final usesModeloNavbar =
+        normalizedRole == 'MODELO' ||
         normalizedRole == 'MODAL' ||
         normalizedRole == 'MONITOR';
 
@@ -194,14 +193,17 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
       return const NavbarComponent();
     }
 
-    final roleLabel = normalizedRole == 'MONITOR' ? 'Monitor' : 'Modelo';
-    final name = token.getUserName() ?? roleLabel;
-    final firstName = name.trim().isNotEmpty ? name.split(' ').first : roleLabel;
+    final roleLabel = _buildRoleLabel(normalizedRole);
+    final fallbackName = normalizedRole == 'MONITOR' ? 'Monitor' : 'Modelo';
+    final name = token.getUserName() ?? fallbackName;
+    final firstName = name.trim().isNotEmpty
+        ? name.split(' ').first
+        : fallbackName;
     final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'M';
 
     return GlassNavbarComponent(
       rolLabel: roleLabel,
-      greeting: 'Hola, $firstName',
+      greeting: _buildGreeting(firstName),
       initial: initial,
       showBackButton: showBackButton,
       onPersonTap: () => _showUserMenu(context),
@@ -212,6 +214,24 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   // ── Menú emergente del icono persona ──────────────────────────────────────────
+
+  String _buildRoleLabel(String normalizedRole) {
+    if (normalizedRole == 'MONITOR') {
+      return 'ESPACIO MONITOR';
+    }
+
+    return 'ESPACIO MODELO';
+  }
+
+  String _buildGreeting(String firstName) {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Buen dia'
+        : hour < 19
+        ? 'Buenas tardes'
+        : 'Buenas noches';
+    return '$greeting, $firstName';
+  }
 
   void _showUserMenu(BuildContext context) {
     showModalBottomSheet(
@@ -297,7 +317,10 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
                     padding: const EdgeInsets.all(2),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [VcomColors.primaryPurple, VcomColors.oroLujoso],
+                        colors: [
+                          VcomColors.primaryPurple,
+                          VcomColors.oroLujoso,
+                        ],
                       ),
                       shape: BoxShape.circle,
                     ),
@@ -404,7 +427,8 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                     side: BorderSide(
-                        color: Colors.redAccent.withValues(alpha: 0.5)),
+                      color: Colors.redAccent.withValues(alpha: 0.5),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -484,8 +508,10 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
             fontSize: 14,
           ),
         ),
-        actionsPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         actions: [
           OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -493,9 +519,9 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
               foregroundColor: Colors.white70,
               side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             ),
             child: const Text('Cancelar'),
           ),
@@ -517,12 +543,14 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             ),
-            child: const Text('Desactivar',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Desactivar',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -562,8 +590,10 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
             fontSize: 14,
           ),
         ),
-        actionsPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         actions: [
           OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -571,9 +601,9 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
               foregroundColor: Colors.white70,
               side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             ),
             child: const Text('No'),
           ),
@@ -583,12 +613,14 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
               backgroundColor: Colors.redAccent,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             ),
-            child: const Text('Sí, salir',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Sí, salir',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -601,12 +633,18 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
     final userStatusService = UserStatusService();
     try {
       final url = Uri.parse(
-          '${EnvironmentDev.baseUrl}${EnvironmentDev.authLogout}');
-      await http.post(url, headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer ${tokenService.getToken()}',
-      }).timeout(const Duration(seconds: 3));
+        '${EnvironmentDev.baseUrl}${EnvironmentDev.authLogout}',
+      );
+      await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer ${tokenService.getToken()}',
+            },
+          )
+          .timeout(const Duration(seconds: 3));
     } catch (_) {}
     await userStatusService.setOffline();
     tokenService.clear();
@@ -655,8 +693,7 @@ class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
           padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + bottom),
           decoration: BoxDecoration(
             color: const Color(0xFF0d1525).withValues(alpha: 0.95),
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border(
               top: BorderSide(
                 color: VcomColors.oroLujoso.withValues(alpha: 0.4),
@@ -723,7 +760,7 @@ class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
               // Campo ID / Correo
               _buildField(
                 controller: _idController,
-                  hint: 'example@email.com',
+                hint: 'example@email.com',
                 icon: Icons.badge_outlined,
               ),
               const SizedBox(height: 12),
@@ -751,18 +788,23 @@ class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
               if (_errorMsg != null) ...[
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.redAccent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: Colors.redAccent.withValues(alpha: 0.3)),
+                      color: Colors.redAccent.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Text(
                     _errorMsg!,
-                    style:
-                        const TextStyle(color: Colors.redAccent, fontSize: 13),
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -776,8 +818,9 @@ class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: VcomColors.oroLujoso,
                     foregroundColor: Colors.black,
-                    disabledBackgroundColor:
-                        VcomColors.oroLujoso.withValues(alpha: 0.4),
+                    disabledBackgroundColor: VcomColors.oroLujoso.withValues(
+                      alpha: 0.4,
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -796,7 +839,9 @@ class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
                   label: Text(
                     _loading ? 'Verificando...' : 'Activar con huella',
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.bold),
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -829,14 +874,21 @@ class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
         style: const TextStyle(color: Colors.white, fontSize: 15),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle:
-              TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 14),
-          prefixIcon: Icon(icon,
-              color: VcomColors.oroLujoso.withValues(alpha: 0.5), size: 20),
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.25),
+            fontSize: 14,
+          ),
+          prefixIcon: Icon(
+            icon,
+            color: VcomColors.oroLujoso.withValues(alpha: 0.5),
+            size: 20,
+          ),
           suffixIcon: suffix,
           border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
         ),
       ),
     );
@@ -847,8 +899,10 @@ class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
     final pass = _passController.text;
 
     if (id.isEmpty || pass.length < 6) {
-      setState(() => _errorMsg =
-          'Completa el ID de usuario y una contraseña válida (mín. 6 caracteres)');
+      setState(
+        () => _errorMsg =
+            'Completa el ID de usuario y una contraseña válida (mín. 6 caracteres)',
+      );
       return;
     }
 
@@ -872,7 +926,10 @@ class _BiometricSetupSheetState extends State<_BiometricSetupSheet> {
       }
 
       // 2. Guardar credenciales exclusivas de huella (no se sobrescriben con "Recordar credenciales")
-      await CredentialsService().saveBiometricCredentials(email: id, password: pass);
+      await CredentialsService().saveBiometricCredentials(
+        email: id,
+        password: pass,
+      );
       await CredentialsService().setBiometricEnabled(true);
 
       if (mounted) {

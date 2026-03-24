@@ -44,14 +44,12 @@ class LoginGatewayImpl implements LoginGateway {
         final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
         return LoginResponse.fromJson(jsonResponse);
       }
-      if (response.statusCode == 401) {
-        throw Exception('Credenciales invalidas');
-      }
-      if (response.statusCode == 422) {
-        throw Exception('Error de validacion');
-      }
-
-      throw Exception('Error al realizar el login: ${response.statusCode}');
+      throw Exception(
+        _buildServerResponseMessage(
+          response,
+          defaultMessage: 'Error al realizar el login',
+        ),
+      );
     } on SocketException catch (e) {
       throw Exception(
         'Error de red en login: ${e.message}. '
@@ -104,14 +102,12 @@ class LoginGatewayImpl implements LoginGateway {
         final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
         return PermissionsResponse.fromJson(jsonResponse);
       }
-      if (response.statusCode == 401) {
-        throw Exception('No autenticado');
-      }
-      if (response.statusCode == 404) {
-        throw Exception('Usuario no encontrado');
-      }
-
-      throw Exception('Error al obtener permisos: ${response.statusCode}');
+      throw Exception(
+        _buildServerResponseMessage(
+          response,
+          defaultMessage: 'Error al obtener permisos',
+        ),
+      );
     } on SocketException catch (e) {
       throw Exception(
         'Error de red al consultar permisos: ${e.message}. '
@@ -132,6 +128,53 @@ class LoginGatewayImpl implements LoginGateway {
     } catch (e) {
       throw Exception('Error inesperado al consultar permisos: $e');
     }
+  }
+
+  String _buildServerResponseMessage(
+    http.Response response, {
+    required String defaultMessage,
+  }) {
+    final serverMessage = _extractErrorMessage(response.body);
+    if (serverMessage.isNotEmpty) {
+      return '$defaultMessage [HTTP ${response.statusCode}]\n$serverMessage';
+    }
+
+    return '$defaultMessage [HTTP ${response.statusCode}]';
+  }
+
+  String _extractErrorMessage(String responseBody) {
+    if (responseBody.trim().isEmpty) {
+      return '';
+    }
+
+    try {
+      final decoded = jsonDecode(responseBody);
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message'] ?? decoded['error'];
+        if (message is String && message.trim().isNotEmpty) {
+          return message.trim();
+        }
+
+        final errors = decoded['errors'];
+        if (errors is Map<String, dynamic>) {
+          for (final value in errors.values) {
+            if (value is List && value.isNotEmpty) {
+              final first = value.first;
+              if (first is String && first.trim().isNotEmpty) {
+                return first.trim();
+              }
+            }
+            if (value is String && value.trim().isNotEmpty) {
+              return value.trim();
+            }
+          }
+        }
+      }
+    } catch (_) {
+      return responseBody.trim();
+    }
+
+    return responseBody.trim();
   }
 }
 
