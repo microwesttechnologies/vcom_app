@@ -71,69 +71,64 @@ class _TrainingPageState extends State<TrainingPage> {
         extendBodyBehindAppBar: true,
         extendBody: true,
         bottomNavigationBar: const ModeloMenuBar(activeRoute: 'training'),
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 280),
-          transitionBuilder: (child, animation) =>
-              FadeTransition(opacity: animation, child: child),
-          child: inDetail
-              ? VideoPlayerBody(
-                  key: ValueKey(_currentVideo!.idVideo),
-                  video: _currentVideo!,
-                )
-              : Container(
-                  key: const ValueKey('training-list'),
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: const BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment(0.0, -0.8),
-                      radius: 1.2,
-                      colors: [
-                        Color(0xFF273C67),
-                        Color(0xFF1a2847),
-                        Color(0xFF0d1525),
-                        Color(0xFF000000),
-                      ],
-                      stops: [0.0, 0.35, 0.7, 1.0],
-                    ),
-                  ),
-                  child: SafeArea(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSearchBar(),
-                        _buildCategoryFilters(),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Sigue entrenando a tu ritmo',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Encuentra guias, tecnicas y contenido para mantener tu nivel en forma.',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  height: 1.4,
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(child: _buildContent()),
-                      ],
-                    ),
+        body: inDetail
+            ? VideoPlayerBody(
+                key: ValueKey(_currentVideo!.idVideo),
+                video: _currentVideo!,
+              )
+            : Container(
+                key: const ValueKey('training-list'),
+                width: double.infinity,
+                height: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0.0, -0.8),
+                    radius: 1.2,
+                    colors: [
+                      Color(0xFF273C67),
+                      Color(0xFF1a2847),
+                      Color(0xFF0d1525),
+                      Color(0xFF000000),
+                    ],
+                    stops: [0.0, 0.35, 0.7, 1.0],
                   ),
                 ),
-        ),
+                child: SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSearchBar(),
+                      _buildCategoryFilters(),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Sigue entrenando a tu ritmo',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Encuentra guias, tecnicas y contenido para mantener tu nivel en forma.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.4,
+                                color: Colors.white.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(child: _buildContent()),
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -347,6 +342,9 @@ class _TrainingPageState extends State<TrainingPage> {
                     width: 80,
                     height: 80,
                     child: VideoThumbnail(
+                      key: ValueKey(
+                        'thumb-${_trainingComponent.thumbnailVersion}-${video.idVideo}',
+                      ),
                       videoUrl: video.urlSource,
                       width: 80,
                       height: 80,

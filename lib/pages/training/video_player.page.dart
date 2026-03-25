@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
@@ -43,7 +45,7 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
   bool _disposed = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
-  
+
   @override
   void initState() {
     super.initState();
@@ -51,7 +53,7 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
     // Ocultar controles después de 3 segundos
     _hideControlsAfterDelay();
   }
-  
+
   void _hideControlsAfterDelay() {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted && _isPlaying) {
@@ -61,7 +63,7 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
       }
     });
   }
-  
+
   void _toggleControls() {
     setState(() {
       _showControls = !_showControls;
@@ -82,39 +84,42 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
       final ctrl = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
       _controller = ctrl;
 
-      ctrl.initialize().then((_) {
-        if (_disposed || !mounted || _controller != ctrl) {
-          ctrl.dispose();
-          return;
-        }
-        if (!ctrl.value.isInitialized) return;
-        setState(() {
-          _isInitialized = true;
-          _duration = ctrl.value.duration;
-        });
-        ctrl.addListener(_videoListener);
-        ctrl.play();
-        _isPlaying = true;
-      }).catchError((error) {
-        if (_disposed || !mounted) return;
-        ctrl.dispose();
-        if (_controller == ctrl) _controller = null;
-        if (mounted) {
-          setState(() => _isInitialized = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Error al cargar el video. Verifica que la URL sea válida.',
-                style: TextStyle(color: VcomColors.blancoCrema),
-              ),
-              backgroundColor: VcomColors.error,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      });
+      ctrl
+          .initialize()
+          .then((_) {
+            if (_disposed || !mounted || _controller != ctrl) {
+              ctrl.dispose();
+              return;
+            }
+            if (!ctrl.value.isInitialized) return;
+            setState(() {
+              _isInitialized = true;
+              _duration = ctrl.value.duration;
+            });
+            ctrl.addListener(_videoListener);
+            ctrl.play();
+            _isPlaying = true;
+          })
+          .catchError((error) {
+            if (_disposed || !mounted) return;
+            ctrl.dispose();
+            if (_controller == ctrl) _controller = null;
+            if (mounted) {
+              setState(() => _isInitialized = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Error al cargar el video. Verifica que la URL sea válida.',
+                    style: TextStyle(color: VcomColors.blancoCrema),
+                  ),
+                  backgroundColor: VcomColors.error,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          });
     } catch (e) {
-      print('Error: $e');
+      debugPrint('Error: $e');
       if (mounted) {
         setState(() {
           _isInitialized = false;
@@ -148,7 +153,6 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
       }
     } catch (_) {}
   }
-
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -281,10 +285,7 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
             const SizedBox(height: 16),
             Text(
               'Cargando video...',
-              style: TextStyle(
-                color: VcomColors.blancoCrema,
-                fontSize: 16,
-              ),
+              style: TextStyle(color: VcomColors.blancoCrema, fontSize: 16),
             ),
           ],
         ),
@@ -314,44 +315,21 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
             Positioned(
               top: 12,
               right: 12,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_isInitialized)
-                    Material(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(8),
-                      child: InkWell(
-                        onTap: _enterFullscreen,
-                        borderRadius: BorderRadius.circular(8),
-                        child: const Padding(
-                          padding: EdgeInsets.all(10),
-                          child: Icon(
-                            Icons.fullscreen,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (_isInitialized) const SizedBox(width: 8),
-                  Material(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(8),
-                    child: InkWell(
-                      onTap: _hideControlsAfterDelay,
-                      borderRadius: BorderRadius.circular(8),
-                      child: const Padding(
-                        padding: EdgeInsets.all(10),
-                        child: Icon(
-                          Icons.more_vert,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
+              child: Material(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  onTap: _enterFullscreen,
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Icon(
+                      Icons.fullscreen,
+                      color: Colors.white,
+                      size: 22,
                     ),
                   ),
-                ],
+                ),
               ),
             ),
 
@@ -401,7 +379,9 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
                     // Timestamp (burbuja blanca)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.95),
                         borderRadius: BorderRadius.circular(6),
@@ -424,16 +404,18 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
                           inactiveTrackColor: const Color(0xFF505050),
                           thumbColor: Colors.white,
                           thumbShape: const RoundSliderThumbShape(
-                              enabledThumbRadius: 6),
+                            enabledThumbRadius: 6,
+                          ),
                           overlayShape: const RoundSliderOverlayShape(
-                              overlayRadius: 14),
+                            overlayRadius: 14,
+                          ),
                           trackHeight: 4,
                         ),
                         child: Slider(
                           value: _duration.inSeconds > 0
                               ? _position.inSeconds
-                                  .clamp(0, _duration.inSeconds)
-                                  .toDouble()
+                                    .clamp(0, _duration.inSeconds)
+                                    .toDouble()
                               : 0,
                           min: 0,
                           max: _duration.inSeconds > 0
@@ -544,7 +526,7 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
 }
 
 /// Overlay de pantalla completa para el video (landscape)
-class _FullscreenVideoOverlay extends StatelessWidget {
+class _FullscreenVideoOverlay extends StatefulWidget {
   final VideoPlayerController controller;
   final VideoModel video;
   final VoidCallback onPop;
@@ -556,58 +538,301 @@ class _FullscreenVideoOverlay extends StatelessWidget {
   });
 
   @override
+  State<_FullscreenVideoOverlay> createState() =>
+      _FullscreenVideoOverlayState();
+}
+
+class _FullscreenVideoOverlayState extends State<_FullscreenVideoOverlay> {
+  Timer? _hideControlsTimer;
+  bool _showControls = true;
+  bool _isPlaying = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+
+  VideoPlayerController get _controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncFromController();
+    _controller.addListener(_handleControllerUpdate);
+    _restartHideTimer();
+  }
+
+  @override
+  void dispose() {
+    _hideControlsTimer?.cancel();
+    _controller.removeListener(_handleControllerUpdate);
+    super.dispose();
+  }
+
+  void _handleControllerUpdate() {
+    if (!mounted) return;
+    _syncFromController();
+  }
+
+  void _syncFromController() {
+    final value = _controller.value;
+    if (!value.isInitialized) return;
+
+    final isPlaying = value.isPlaying;
+    final duration = value.duration;
+    final position = value.position;
+
+    if (mounted) {
+      setState(() {
+        _isPlaying = isPlaying;
+        _duration = duration;
+        _position = position;
+      });
+    }
+
+    if (!_isPlaying) {
+      _hideControlsTimer?.cancel();
+      if (!_showControls && mounted) {
+        setState(() => _showControls = true);
+      }
+    }
+  }
+
+  void _restartHideTimer() {
+    _hideControlsTimer?.cancel();
+    if (!_isPlaying || !_showControls) return;
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted || !_isPlaying) return;
+      setState(() => _showControls = false);
+    });
+  }
+
+  void _toggleControls() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) {
+      _restartHideTimer();
+    } else {
+      _hideControlsTimer?.cancel();
+    }
+  }
+
+  void _togglePlayback() {
+    if (!_controller.value.isInitialized) return;
+    if (_isPlaying) {
+      _controller.pause();
+    } else {
+      _controller.play();
+    }
+    setState(() => _showControls = true);
+    _restartHideTimer();
+  }
+
+  void _seekRelative(int seconds) {
+    if (!_controller.value.isInitialized) return;
+    final target = _position + Duration(seconds: seconds);
+    final safeTarget = Duration(
+      milliseconds: target.inMilliseconds.clamp(0, _duration.inMilliseconds),
+    );
+    _controller.seekTo(safeTarget);
+    setState(() => _showControls = true);
+    _restartHideTimer();
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = duration.inHours;
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    if (hours > 0) {
+      return '${twoDigits(hours)}:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
+  }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    double size = 54,
+    double iconSize = 28,
+  }) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.55),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Icon(icon, color: Colors.white, size: iconSize),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop) onPop();
+        if (didPop) widget.onPop();
       },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
           fit: StackFit.expand,
           children: [
-            Center(
-              child: controller.value.isInitialized
-                  ? AspectRatio(
-                      aspectRatio: controller.value.aspectRatio > 0 &&
-                              controller.value.aspectRatio.isFinite
-                          ? controller.value.aspectRatio
-                          : 16 / 9,
-                      child: VideoPlayer(controller),
-                    )
-                  : const SizedBox.shrink(),
+            GestureDetector(
+              onTap: _toggleControls,
+              child: Center(
+                child: _controller.value.isInitialized
+                    ? AspectRatio(
+                        aspectRatio:
+                            _controller.value.aspectRatio > 0 &&
+                                _controller.value.aspectRatio.isFinite
+                            ? _controller.value.aspectRatio
+                            : 16 / 9,
+                        child: VideoPlayer(_controller),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.fullscreen_exit, color: VcomColors.oroLujoso),
-                      onPressed: () {
-                        onPop();
-                        Navigator.pop(context);
-                      },
+            if (_showControls) ...[
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.45),
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.6),
+                      ],
+                      stops: const [0.0, 0.22, 0.62, 1.0],
                     ),
-                    Expanded(
-                      child: Text(
-                        video.titleVideo,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: VcomColors.oroLujoso,
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(8),
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Icon(
+                            Icons.fullscreen_exit,
+                            color: VcomColors.oroLujoso,
+                            size: 22,
+                          ),
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 48),
+                  ),
+                ),
+              ),
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildControlButton(
+                      icon: Icons.replay_10,
+                      onTap: () => _seekRelative(-10),
+                    ),
+                    const SizedBox(width: 20),
+                    _buildControlButton(
+                      icon: _isPlaying ? Icons.pause : Icons.play_arrow,
+                      onTap: _togglePlayback,
+                      size: 72,
+                      iconSize: 38,
+                    ),
+                    const SizedBox(width: 20),
+                    _buildControlButton(
+                      icon: Icons.forward_10,
+                      onTap: () => _seekRelative(10),
+                    ),
                   ],
                 ),
               ),
-            ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  top: false,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            activeTrackColor: VcomColors.oroLujoso,
+                            inactiveTrackColor: Colors.white24,
+                            thumbColor: Colors.white,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6,
+                            ),
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 14,
+                            ),
+                            trackHeight: 4,
+                          ),
+                          child: Slider(
+                            value: _duration.inMilliseconds > 0
+                                ? _position.inMilliseconds
+                                      .clamp(0, _duration.inMilliseconds)
+                                      .toDouble()
+                                : 0,
+                            min: 0,
+                            max: _duration.inMilliseconds > 0
+                                ? _duration.inMilliseconds.toDouble()
+                                : 1,
+                            onChanged: (value) {
+                              if (!_controller.value.isInitialized) return;
+                              final target = Duration(
+                                milliseconds: value.round(),
+                              );
+                              _controller.seekTo(target);
+                              setState(() {
+                                _position = target;
+                                _showControls = true;
+                              });
+                              _restartHideTimer();
+                            },
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              _formatDuration(_position),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              _formatDuration(_duration),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

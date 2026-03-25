@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
@@ -26,10 +27,14 @@ class VideoThumbnail extends StatefulWidget {
   State<VideoThumbnail> createState() => _VideoThumbnailState();
 }
 
-class _VideoThumbnailState extends State<VideoThumbnail> {
+class _VideoThumbnailState extends State<VideoThumbnail>
+    with AutomaticKeepAliveClientMixin {
   VideoPlayerController? _controller;
   bool _isLoading = true;
   bool _hasError = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -37,29 +42,44 @@ class _VideoThumbnailState extends State<VideoThumbnail> {
     _loadThumbnail();
   }
 
+  @override
+  void didUpdateWidget(covariant VideoThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      _disposeController();
+      _isLoading = true;
+      _hasError = false;
+      _loadThumbnail();
+    }
+  }
+
   Future<void> _loadThumbnail() async {
     try {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
-      
-      await _controller!.initialize().timeout(
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+      );
+      _controller = controller;
+
+      await controller.initialize().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
           throw Exception('Tiempo de espera agotado');
         },
       );
-      
-      if (!mounted) return;
-      
-      // Pausar el video en el primer frame
-      await _controller!.seekTo(Duration.zero);
-      await _controller!.pause();
-      
-      // Esperar un momento para que el frame se renderice
+
+      if (!mounted || _controller != controller) {
+        await controller.dispose();
+        return;
+      }
+
+      await controller.seekTo(Duration.zero);
+      await controller.pause();
       await Future.delayed(const Duration(milliseconds: 300));
-      
-      if (mounted) {
+
+      if (mounted && _controller == controller) {
         setState(() {
           _isLoading = false;
+          _hasError = false;
         });
       }
     } catch (e) {
@@ -73,14 +93,26 @@ class _VideoThumbnailState extends State<VideoThumbnail> {
     }
   }
 
+  Future<void> _disposeController() async {
+    final controller = _controller;
+    _controller = null;
+    if (controller != null) {
+      try {
+        await controller.dispose();
+      } catch (_) {}
+    }
+  }
+
   @override
   void dispose() {
-    _controller?.dispose();
+    unawaited(_disposeController());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     if (_isLoading) {
       return widget.placeholder ??
           Container(
