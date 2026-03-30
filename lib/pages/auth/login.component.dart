@@ -194,7 +194,7 @@ class LoginComponent extends ChangeNotifier {
       password: password,
     );
 
-    // NOTA: El estado online/offline se maneja en el módulo de chat
+    // NOTA: El estado online/offline se gestiona con UserStatusService.
   }
 
   /// Libera los recursos

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Configuración de ambiente de desarrollo
 class EnvironmentDev {
   /// URL base del API local
@@ -144,72 +146,30 @@ class EnvironmentDev {
       '/api/v1/product-inquiries/$id/read';
 
   // ============================================================================
-  // CHAT
-  // Endpoints para gestión de chat entre Modelo y Monitor
+  // CHAT (Node WebSocket Service)
   // ============================================================================
+  static const String chatApiBaseUrl = String.fromEnvironment(
+    'CHAT_API_BASE_URL',
+    defaultValue: 'http://localhost:8081',
+  );
 
-  /// Listar conversaciones (solo para Monitor)
-  static const String chatConversations = '/api/v1/chat/conversations';
+  static String get resolvedChatApiBaseUrl {
+    final base = chatApiBaseUrl;
+    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    if (!isAndroid) return base;
 
-  /// Crear nueva conversación (solo para Monitor)
-  static const String chatCreateConversation = '/api/v1/chat/conversations';
+    return base
+        .replaceFirst('://localhost', '://10.0.2.2')
+        .replaceFirst('://127.0.0.1', '://10.0.2.2');
+  }
 
-  /// Obtener conversación específica
-  static String chatConversation(int id) => '/api/v1/chat/conversations/$id';
+  static const String chatApiPath = '/api/chat';
 
-  /// Buscar conversación con otro usuario
-  static const String chatSearchConversation =
-      '/api/v1/chat/search-conversation';
-
-  /// Crear o obtener conversación con otro usuario
-  static const String chatCreateOrGetConversation =
-      '/api/v1/chat/create-or-get-conversation';
-
-  /// Obtener ID de usuario por nombre
-  static const String chatGetUserByName = '/api/v1/chat/get-user-by-name';
-
-  /// Obtener monitor asignado (solo para Modelo)
-  static const String chatMonitor = '/api/v1/chat/monitor';
-
-  /// Listar modelos activas (solo para Monitor)
-  static const String chatModels = '/api/v1/chat/models';
-
-  /// Obtener mensajes de una conversación
-  static String chatMessages(int conversationId) =>
-      '/api/v1/chat/messages/$conversationId';
-
-  /// Enviar mensaje
-  static const String chatSendMessage = '/api/v1/chat/messages';
-
-  /// Marcar mensajes como leídos
-  static String chatMarkAsRead(int conversationId) =>
-      '/api/v1/chat/conversations/$conversationId/read';
-
-  /// Marcar usuario como online
-  static const String chatStatusOnline = '/api/v1/chat/status/online';
-
-  /// Marcar usuario como offline
-  static const String chatStatusOffline = '/api/v1/chat/status/offline';
-
-  /// Obtener estado de usuario
-  static String chatUserStatus(String userId) =>
-      '/api/v1/chat/users/$userId/status';
-
-  /// Obtener estado de múltiples usuarios (batch)
-  static const String chatUsersStatus = '/api/v1/chat/users/status';
-
-  /// Subir imagen en chat
-  static const String chatUploadImage = '/api/v1/chat/upload-image';
-
-  /// Subir archivos multimedia (imágenes y videos)
-  static const String chatUploadMedia = '/api/v1/chat/upload-media';
-
-  /// WebSocket URL para chat en tiempo real
   static String get chatWebSocketUrl {
-    final url = baseUrl
+    final base = resolvedChatApiBaseUrl
         .replaceFirst('https://', 'wss://')
         .replaceFirst('http://', 'ws://');
-    return '$url/ws/chat';
+    return '$base/ws';
   }
 
   // ============================================================================

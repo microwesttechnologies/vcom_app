@@ -1,765 +1,425 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-import 'package:vcom_app/core/common/envirotment.dev.dart';
-import 'package:vcom_app/core/common/session_cache.service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:vcom_app/core/chat/chat_api.service.dart';
+import 'package:vcom_app/core/chat/chat_socket.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
-import 'package:vcom_app/core/models/chat/conversation.model.dart';
-import 'package:vcom_app/core/models/chat/message.model.dart';
-import 'package:vcom_app/core/realtime/pusher_direct.service.dart';
-import 'package:vcom_app/core/realtime/presence.service.dart';
+import 'package:vcom_app/core/models/chat/chat_contact.model.dart';
+import 'package:vcom_app/core/models/chat/chat_conversation.model.dart';
+import 'package:vcom_app/core/models/chat/chat_message.model.dart';
 
-/// ChatComponent usando Pusher directo
-/// Basado en la app de prueba que funciona
 class ChatComponent extends ChangeNotifier {
+  final ChatApiService _api = ChatApiService();
+  final ChatSocketService _socket = ChatSocketService();
   final TokenService _tokenService = TokenService();
-  final SessionCacheService _cache = SessionCacheService();
-  final PusherDirectService _pusher = PusherDirectService();
-  final PresenceService _presence = PresenceService();
 
-  // Estado
-  List<ConversationModel> _conversations = [];
-  List<MessageModel> _messages = [];
-  ConversationModel? _selectedConversation;
-
-  bool _loading = false;
-  bool _loadingMessages = false;
-  bool _isOtherUserTyping = false;
+  bool _isLoading = false;
   String? _error;
-  String? _currentUserId;
-  String? _userName;
 
-  // Getters
-  List<ConversationModel> get conversations => _conversations;
-  List<MessageModel> get messages => _messages;
-  ConversationModel? get selectedConversation => _selectedConversation;
-  bool get isLoading => _loading;
-  bool get isLoadingMessages => _loadingMessages;
-  bool get isOtherUserTyping => _isOtherUserTyping;
+  String _currentUserId = '';
+  String _currentUserName = '';
+  String _currentRole = '';
+
+  List<ChatContactModel> _contacts = const [];
+  List<ChatConversationModel> _conversations = const [];
+  List<ChatMessageModel> _messages = const [];
+
+  ChatConversationModel? _selectedConversation;
+  ChatContactModel? _selectedContact;
+  bool _isOtherTyping = false;
+
+  StreamSubscription<Map<String, dynamic>>? _wsSubscription;
+  Map<String, String> _presenceNameById = const {};
+  Timer? _typingInactivityTimer;
+  bool _typingEmitted = false;
+
+  bool get isLoading => _isLoading;
   String? get error => _error;
+  String get currentUserId => _currentUserId;
+  String get currentUserName => _currentUserName;
+  String get currentRole => _currentRole;
+  List<ChatContactModel> get contacts => _contacts;
+  List<ChatConversationModel> get conversations => _conversations;
+  List<ChatMessageModel> get messages => _messages;
+  ChatConversationModel? get selectedConversation => _selectedConversation;
+  ChatContactModel? get selectedContact => _selectedContact;
+  bool get isOtherTyping => _isOtherTyping;
 
-  String _cacheKey(String namespace, [String suffix = '']) {
-    return _cache.scopedKey(
-      namespace,
-      role: _tokenService.getRole() ?? 'guest',
-      userId: _tokenService.getUserId() ?? 'guest',
-      suffix: suffix,
-    );
-  }
-
-  // Headers para el backend
-  Map<String, String> _headers() {
-    final token = _tokenService.getToken();
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token?.isNotEmpty == true) 'Authorization': 'Bearer $token',
-    };
-  }
-
-  /// Inicializa el componente
-  Future<void> initialize(String role, {bool forceRefresh = false}) async {
-    _loading = true;
+  Future<void> initialize() async {
+    _isLoading = true;
     _error = null;
-    _currentUserId = _tokenService.getUserId();
-    _userName = _tokenService.getUserName();
     notifyListeners();
 
     try {
-      print('🚀 ========================================');
-      print('🚀 INICIALIZANDO CHAT SIMPLIFICADO');
-      print('🚀 Usuario: $_userName ($_currentUserId)');
-      print('🚀 Rol: $role');
-      print('🚀 ========================================');
+      final me = await _api.fetchMe();
+      _currentUserId = (me['id_user'] ?? '').toString().trim();
+      _currentUserName = (me['name_user'] ?? '').toString().trim();
+      _currentRole = (me['role_user'] ?? '').toString().trim();
 
-      // 1. Inicializar Pusher con callback unificado
-      await _pusher.init(onMessage: _handleUnifiedPusherMessage);
+      if (_currentUserId.isEmpty) {
+        _currentUserId = (_tokenService.getUserId() ?? '').trim();
+      }
+      if (_currentUserName.isEmpty) {
+        _currentUserName = (_tokenService.getUserName() ?? '').trim();
+      }
+      if (_currentRole.isEmpty) {
+        _currentRole = (_tokenService.getRole() ?? '').trim();
+      }
 
-      // 2. Inicializar y activar el servicio de presencia (usa el mismo Pusher)
-      await _presence.initialize();
-      await _presence.activate();
+      _contacts = await _api.fetchContacts(
+        currentRole: _currentRole,
+        currentUserId: _currentUserId,
+      );
+      _conversations = await _api.fetchConversations();
 
-      // 3. Escuchar cambios de estado de presencia
-      _presence.addListener(_onPresenceChanged);
+      final token = _tokenService.getToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Sesion invalida para chat');
+      }
 
-      // 4. Cargar conversaciones desde el backend
-      await fetchConversations(forceRefresh: forceRefresh);
-
-      print('✅ Chat inicializado correctamente');
+      await _socket.connect(token);
+      _wsSubscription?.cancel();
+      _wsSubscription = _socket.events.listen(_handleSocketEvent);
     } catch (e) {
       _error = e.toString();
-      print('❌ Error inicializando chat: $_error');
     } finally {
-      _loading = false;
+      _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Callback unificado para todos los mensajes de Pusher
-  /// Distribuye eventos al handler local
-  void _handleUnifiedPusherMessage(Map<String, dynamic> data) {
-    print('📨 ========================================');
-    print('📨 [UNIFIED] MENSAJE RECIBIDO DE PUSHER');
-    print('📨 Data: $data');
-    print('📨 ========================================');
-
-    _onPusherMessage(data);
-  }
-
-  /// Maneja cambios de estado de presencia
-  void _onPresenceChanged() {
-    print('🔄 ========================================');
-    print('🔄 _onPresenceChanged() LLAMADO');
-    print('🔄 Actualizando ${_conversations.length} conversaciones');
-    print('🔄 ========================================');
-
-    // Actualizar el estado de las conversaciones
-    _conversations = _conversations.map((conv) {
-      print('👤 Procesando conversación:');
-      print('   📝 Nombre: ${conv.otherUserName}');
-      print('   🔑 ID: ${conv.idOtherUser}');
-      print('   📊 Estado anterior: ${conv.userStatus}');
-
-      final isOnline = _presence.isUserOnline(conv.idOtherUser);
-      final newStatus = isOnline ? 'online' : 'offline';
-
-      print('   ✨ Estado nuevo: $newStatus');
-      print('   ---');
-
-      return conv.copyWith(userStatus: newStatus);
-    }).toList();
-
-    // Si hay una conversación seleccionada, actualizarla también
-    if (_selectedConversation != null) {
-      print('💬 Actualizando conversación seleccionada:');
-      print('   📝 Nombre: ${_selectedConversation!.otherUserName}');
-      print('   🔑 ID: ${_selectedConversation!.idOtherUser}');
-
-      final isOnline = _presence.isUserOnline(
-        _selectedConversation!.idOtherUser,
-      );
-      _selectedConversation = _selectedConversation!.copyWith(
-        userStatus: isOnline ? 'online' : 'offline',
-      );
-
-      print('   ✨ Estado: ${isOnline ? "ONLINE" : "OFFLINE"}');
-    }
-
-    print('✅ ========================================');
-    print('✅ Llamando notifyListeners()');
-    print('✅ ========================================');
-    notifyListeners();
-  }
-
-  /// Obtiene las conversaciones desde el backend
-  Future<void> fetchConversations({bool forceRefresh = false}) async {
+  Future<void> refresh() async {
     try {
-      print('📥 Obteniendo conversaciones desde el backend...');
-
-      final cacheKey = _cacheKey('chat::conversations');
-      if (!forceRefresh) {
-        final cachedBody = await _cache.read(cacheKey);
-        if (cachedBody != null) {
-          final data = jsonDecode(cachedBody);
-          final list = data is List ? data : (data['data'] ?? []);
-
-          _conversations = [];
-          for (final e in list) {
-            try {
-              final conv = ConversationModel.fromJson(e);
-              _conversations.add(conv);
-            } catch (e) {
-              print('⚠️ Error parseando conversación: $e');
-            }
-          }
-
-          _conversations = _conversations.map((conv) {
-            final isOnline = _presence.isUserOnline(conv.idOtherUser);
-            return conv.copyWith(userStatus: isOnline ? 'online' : 'offline');
-          }).toList();
-
-          _error = null;
-          notifyListeners();
-          return;
-        }
-      }
-
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatConversations}',
+      _contacts = await _api.fetchContacts(
+        currentRole: _currentRole,
+        currentUserId: _currentUserId,
       );
-      final response = await http
-          .get(url, headers: _headers())
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw Exception('Timeout al obtener conversaciones');
-            },
-          );
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
+      _conversations = await _api.fetchConversations();
+      notifyListeners();
+    } catch (_) {}
+  }
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final list = data is List ? data : (data['data'] ?? []);
+  Future<void> openConversation(ChatContactModel contact) async {
+    _error = null;
+    _isLoading = true;
+    notifyListeners();
 
-        print('📋 Lista de conversaciones raw: ${list.length} items');
+    try {
+      ChatConversationModel? conversation = _conversations.firstWhere(
+        (item) => item.otherUserId == contact.idUser,
+        orElse: () => ChatConversationModel(
+          idConversation: 0,
+          otherUserId: contact.idUser,
+          createdAt: DateTime.now(),
+          unreadCount: 0,
+        ),
+      );
 
-        _conversations = [];
-        for (var e in list) {
-          try {
-            final conv = ConversationModel.fromJson(e);
-            _conversations.add(conv);
-          } catch (e) {
-            print('⚠️ Error parseando conversación: $e');
-          }
-        }
-
-        // Actualizar estados de conversaciones con datos de presencia
-        _conversations = _conversations.map((conv) {
-          final isOnline = _presence.isUserOnline(conv.idOtherUser);
-          return conv.copyWith(userStatus: isOnline ? 'online' : 'offline');
-        }).toList();
-
-        print('✅ Conversaciones obtenidas: ${_conversations.length}');
-        _error = null;
-        await _cache.write(cacheKey, response.body);
-      } else {
-        throw Exception(
-          'Error al obtener conversaciones: ${response.statusCode}',
-        );
+      if (conversation.idConversation == 0) {
+        conversation = await _api.createOrGetConversation(contact.idUser);
+        _conversations = [conversation, ..._conversations];
       }
+
+      _selectedContact = contact;
+      _selectedConversation = conversation;
+
+      _socket.emit('conversation.join', {
+        'conversation_id': conversation.idConversation,
+      });
+
+      _messages = await _api.fetchMessages(conversation.idConversation);
+      await _api.markConversationRead(conversation.idConversation);
+      _conversations = _conversations
+          .map((item) => item.idConversation == conversation!.idConversation
+              ? item.copyWith(unreadCount: 0)
+              : item)
+          .toList(growable: false);
+      _socket.emit('message.seen', {
+        'conversation_id': conversation.idConversation,
+      });
+      _isOtherTyping = false;
     } catch (e) {
       _error = e.toString();
-      _conversations = [];
-      print('❌ Error: $_error');
-    }
-
-    notifyListeners();
-  }
-
-  /// Selecciona una conversación
-  Future<void> selectConversation(ConversationModel conversation) async {
-    print('📱 Seleccionando conversación: ${conversation.otherUserName}');
-    print('📱 idConversation: ${conversation.idConversation}');
-    print('📱 idOtherUser: "${conversation.idOtherUser}"');
-    print('📱 ¿Está vacío?: ${conversation.idOtherUser.isEmpty}');
-
-    // Si la conversación no tiene ID válido, crearla primero
-    if (conversation.idConversation == null ||
-        conversation.idConversation == 0) {
-      print('⚠️ Conversación sin ID, creando nueva conversación...');
-
-      String otherUserId = conversation.idOtherUser;
-
-      // Si idOtherUser está vacío, buscarlo por nombre
-      if (otherUserId.isEmpty) {
-        print(
-          '⚠️ idOtherUser está vacío, buscando por nombre: "${conversation.otherUserName}"',
-        );
-        try {
-          otherUserId = await _getUserIdByName(conversation.otherUserName);
-          print('✅ ID encontrado: $otherUserId');
-        } catch (e) {
-          _error =
-              'No se pudo encontrar el usuario: ${conversation.otherUserName}';
-          notifyListeners();
-          return;
-        }
-      }
-
-      await _createOrGetConversation(otherUserId);
-
-      // Buscar la conversación recién creada en la lista
-      await fetchConversations(forceRefresh: true);
-
-      // Encontrar la conversación con el usuario
-      final newConversation = _conversations.firstWhere(
-        (c) =>
-            c.idOtherUser == otherUserId ||
-            c.otherUserName == conversation.otherUserName,
-        orElse: () => conversation,
-      );
-
-      _selectedConversation = newConversation;
-    } else {
-      _selectedConversation = conversation;
-    }
-
-    notifyListeners();
-
-    // Suscribirse al canal de Pusher solo si hay ID válido
-    if (_selectedConversation!.idConversation != null &&
-        _selectedConversation!.idConversation! > 0) {
-      final channelName = 'chat-${_selectedConversation!.idConversation}';
-      await _pusher.subscribe(channelName);
-
-      // Cargar mensajes existentes desde el backend
-      await fetchMessages(_selectedConversation!.idConversation!);
-    } else {
-      print('⚠️ No se pudo crear o encontrar la conversación');
-      _messages = [];
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Obtiene el ID de un usuario por su nombre
-  Future<String> _getUserIdByName(String userName) async {
-    try {
-      print('🔍 Buscando ID de usuario por nombre: "$userName"');
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatGetUserByName}',
-      );
-      print('🔍 URL: $url');
-
-      final response = await http
-          .post(
-            url,
-            headers: _headers(),
-            body: jsonEncode({'user_name': userName}),
-          )
-          .timeout(const Duration(seconds: 10));
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
-
-      print('🔍 Status Code: ${response.statusCode}');
-      print('🔍 Response Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final userId = data['user']['id_user'] as String;
-        print('✅ Usuario encontrado: $userId');
-        return userId;
-      } else {
-        final errorData = jsonDecode(response.body);
-        print('❌ Error Response: $errorData');
-        throw Exception('Usuario no encontrado: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Error al buscar usuario por nombre: $e');
-      rethrow;
+  Future<void> backToList() async {
+    emitTypingStop();
+    final conversationId = _selectedConversation?.idConversation;
+    if (conversationId != null) {
+      _socket.emit('conversation.leave', {'conversation_id': conversationId});
     }
-  }
-
-  /// Crea o obtiene una conversación con otro usuario
-  Future<void> _createOrGetConversation(String? otherUserId) async {
-    if (otherUserId == null) {
-      throw Exception('ID de usuario no válido');
-    }
-
-    try {
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatCreateOrGetConversation}',
-      );
-
-      print('🔵 Creando/obteniendo conversación');
-      print('🔵 URL: $url');
-      print('🔵 other_user_id: $otherUserId');
-
-      final response = await http
-          .post(
-            url,
-            headers: _headers(),
-            body: jsonEncode({'other_user_id': otherUserId}),
-          )
-          .timeout(const Duration(seconds: 10));
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
-
-      print('🔵 Status Code: ${response.statusCode}');
-      print('🔵 Response Body: ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        print(
-          '✅ Conversación creada/obtenida: ${data['conversation']['id_conversation']}',
-        );
-      } else {
-        print('❌ Error Response: ${response.body}');
-        throw Exception('Error al crear conversación: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Error al crear/obtener conversación: $e');
-      rethrow;
-    }
-  }
-
-  /// Limpia la conversación seleccionada
-  void clearSelectedConversation() {
     _selectedConversation = null;
-    _messages = [];
+    _selectedContact = null;
+    _messages = const [];
+    _isOtherTyping = false;
     notifyListeners();
   }
 
-  /// Obtiene los mensajes desde el backend
-  Future<void> fetchMessages(
-    int conversationId, {
-    bool forceRefresh = false,
-  }) async {
-    if (conversationId == 0) {
-      _messages = [];
+  void emitTypingStart() {
+    final id = _selectedConversation?.idConversation;
+    if (id == null) return;
+
+    if (!_typingEmitted) {
+      _socket.emit('typing.start', {'conversation_id': id});
+      _typingEmitted = true;
+    }
+
+    _typingInactivityTimer?.cancel();
+    _typingInactivityTimer = Timer(const Duration(seconds: 2), () {
+      emitTypingStop();
+    });
+  }
+
+  void emitTypingStop() {
+    final id = _selectedConversation?.idConversation;
+    if (id == null) return;
+    _typingInactivityTimer?.cancel();
+    _typingInactivityTimer = null;
+
+    if (!_typingEmitted) return;
+    _socket.emit('typing.stop', {'conversation_id': id});
+    _typingEmitted = false;
+  }
+
+  void sendText(String text) {
+    final id = _selectedConversation?.idConversation;
+    if (id == null || text.trim().isEmpty) return;
+    emitTypingStop();
+
+    _socket.emit('message.send', {
+      'conversation_id': id,
+      'content': text.trim(),
+      'message_type': 'text',
+    });
+  }
+
+  void sendImageUrl(String imageUrl) {
+    final id = _selectedConversation?.idConversation;
+    if (id == null || imageUrl.trim().isEmpty) return;
+    emitTypingStop();
+
+    _socket.emit('message.send', {
+      'conversation_id': id,
+      'content': imageUrl.trim(),
+      'message_type': 'image',
+    });
+  }
+
+  void _handleSocketEvent(Map<String, dynamic> payload) {
+    final event = (payload['event'] ?? '').toString();
+    final data = payload['data'];
+
+    if (event == 'presence.snapshot' && data is Map<String, dynamic>) {
+      _applyPresenceSnapshot(data);
+      return;
+    }
+
+    if (event == 'presence.update' && data is Map<String, dynamic>) {
+      final userId = (data['user_id'] ?? '').toString().trim();
+      final isOnline = data['is_online'] == true;
+      _applyPresenceUpdate(userId, isOnline);
+      return;
+    }
+
+    if (event == 'typing.update' && data is Map<String, dynamic>) {
+      final conversationId = _toInt(data['conversation_id']);
+      final userId = (data['user_id'] ?? '').toString();
+      final isTyping = data['is_typing'] == true;
+      if (_selectedConversation?.idConversation == conversationId && userId != _currentUserId) {
+        _isOtherTyping = isTyping;
+        notifyListeners();
+      }
+      return;
+    }
+
+    if (event == 'message.new' && data is Map<String, dynamic>) {
+      final msg = ChatMessageModel.fromJson(data);
+
+      if (_selectedConversation?.idConversation == msg.idConversation) {
+        final exists = _messages.any((m) => m.idMessage == msg.idMessage);
+        if (!exists) {
+          _messages = [..._messages, msg];
+          _isOtherTyping = false;
+          if (msg.recipientId == _currentUserId) {
+            _socket.emit('message.seen', {'conversation_id': msg.idConversation});
+          }
+          notifyListeners();
+        }
+      }
+
+      unawaited(refresh());
+      return;
+    }
+
+    if (event == 'message.status' && data is Map<String, dynamic>) {
+      final messageId = _toInt(data['id_message']);
+      final status = (data['status'] ?? 'unseen').toString();
+      final receivedAt = DateTime.tryParse((data['received_at'] ?? '').toString());
+      final seenAt = DateTime.tryParse((data['seen_at'] ?? '').toString());
+
+      _messages = _messages
+          .map(
+            (m) => m.idMessage == messageId
+                ? m.copyWith(status: status, receivedAt: receivedAt, seenAt: seenAt)
+                : m,
+          )
+          .toList(growable: false);
       notifyListeners();
       return;
     }
 
-    _loadingMessages = true;
-    notifyListeners();
-
-    try {
-      print('📥 Obteniendo mensajes de conversación: $conversationId');
-
-      final cacheKey = _cacheKey('chat::messages', '$conversationId');
-      if (!forceRefresh) {
-        final cachedBody = await _cache.read(cacheKey);
-        if (cachedBody != null) {
-          final data = jsonDecode(cachedBody);
-          final list = data is List ? data : (data['data'] ?? []);
-          _messages = list
-              .map<MessageModel>(
-                (e) => MessageModel.fromJson(e, currentUserId: _currentUserId),
-              )
-              .toList();
-          _error = null;
-          return;
-        }
-      }
-
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatMessages(conversationId)}',
-      );
-      final response = await http
-          .get(url, headers: _headers())
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw Exception('Timeout al obtener mensajes');
-            },
-          );
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final list = data is List ? data : (data['data'] ?? []);
-
-        _messages = list
-            .map<MessageModel>(
-              (e) => MessageModel.fromJson(e, currentUserId: _currentUserId),
-            )
-            .toList();
-
-        print('✅ Mensajes obtenidos: ${_messages.length}');
-        _error = null;
-        await _cache.write(cacheKey, response.body);
-      } else {
-        throw Exception('Error al obtener mensajes: ${response.statusCode}');
-      }
-    } catch (e) {
-      _error = e.toString();
-      _messages = [];
-      print('❌ Error: $_error');
-    } finally {
-      _loadingMessages = false;
+    if (event == 'error' && data is Map<String, dynamic>) {
+      _error = (data['message'] ?? 'Error de websocket').toString();
       notifyListeners();
     }
   }
 
-  /// Envía un mensaje directamente a Pusher
-  /// Usa actualización optimista: muestra el mensaje de inmediato antes de la red
-  Future<void> sendMessage(
-    String content, {
-    String messageType = 'text',
-  }) async {
-    if (_selectedConversation == null) {
-      throw Exception('No hay conversación seleccionada');
-    }
-
-    final now = DateTime.now();
-    final tempId = now.millisecondsSinceEpoch;
-
-    // Crear el mensaje para actualización optimista
-    final messageData = {
-      'id_message': tempId,
-      'id_conversation': _selectedConversation!.idConversation,
-      'id_sender': _currentUserId,
-      'sender_name': _userName ?? 'Usuario',
-      'sender_avatar': null,
-      'content': content,
-      'message_type': messageType,
-      'created_at': now.toIso8601String(),
-      'is_read': false,
-    };
-
-    // Actualización optimista: mostrar mensaje de inmediato
-    final optimisticMessage = MessageModel.fromJson(
-      messageData,
-      currentUserId: _currentUserId,
-    );
-    _messages.add(optimisticMessage);
-    await _invalidateChatCache();
-    notifyListeners();
-
-    try {
-      // Enviar a Pusher y backend en segundo plano
-      final channelName = 'chat-${_selectedConversation!.idConversation}';
-      await _pusher.sendMessage(
-        channelName: channelName,
-        eventName: 'message.sent',
-        data: messageData,
-      );
-      await _saveMessageToBackend(content, messageType: messageType);
-    } catch (e) {
-      // Revertir en caso de error
-      _messages.removeWhere((m) => m.idMessage == tempId);
-      notifyListeners();
-      rethrow;
-    }
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is num) return value.toInt();
+    return 0;
   }
 
-  /// Guarda el mensaje en el backend (opcional, para persistencia)
-  Future<void> _saveMessageToBackend(
-    String content, {
-    String messageType = 'text',
-  }) async {
-    if (_selectedConversation?.idConversation == null) return;
+  void _applyPresenceSnapshot(Map<String, dynamic> data) {
+    if (_contacts.isEmpty) return;
 
-    try {
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatSendMessage}',
-      );
-      final body = {
-        'conversation_id': _selectedConversation!.idConversation,
-        'content': content,
-        'message_type': messageType, // 'text', 'image', o 'video'
-      };
+    final rawContacts = data['contacts'];
+    if (rawContacts is! List) return;
 
-      final response = await http
-          .post(url, headers: _headers(), body: jsonEncode(body))
-          .timeout(const Duration(seconds: 5));
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
+    final byId = <String, Map<String, dynamic>>{};
+    final byRoleAndName = <String, Map<String, dynamic>>{};
+    final nameById = <String, String>{};
 
-      print('✅ Mensaje guardado en el backend');
-    } catch (e) {
-      print('⚠️ Error guardando mensaje en backend (no crítico): $e');
-      // No lanzar error, no es crítico
+    for (final raw in rawContacts.whereType<Map<String, dynamic>>()) {
+      final id = (raw['user_id'] ?? '').toString().trim();
+      final name = (raw['name_user'] ?? raw['name'] ?? '').toString().trim();
+      final role = (raw['role_user'] ?? raw['role'] ?? '').toString().trim();
+      final key = _roleAndNameKey(role, name);
+
+      if (id.isNotEmpty) {
+        byId[id] = raw;
+        nameById[id] = _normalizeName(name);
+      }
+      if (key.isNotEmpty) {
+        byRoleAndName[key] = raw;
+      }
     }
-  }
 
-  /// Procesa mensajes entrantes de Pusher
-  void _onPusherMessage(Map<String, dynamic> data) {
-    print('📨 ========================================');
-    print('📨 MENSAJE RECIBIDO DE PUSHER');
-    print('📨 Datos: $data');
+    _presenceNameById = nameById;
 
-    try {
-      final type = data['type'] as String?;
+    _contacts = _contacts
+        .map((c) {
+          Map<String, dynamic>? match = byId[c.idUser.trim()];
+          match ??= byRoleAndName[_roleAndNameKey(c.roleUser, c.nameUser)];
+          if (match == null) return c;
 
-      // Manejar eventos de typing
-      if (type == 'typing.start') {
-        final userId = data['user_id'] as String?;
+          final mergedId = (match['user_id'] ?? '').toString().trim();
+          final isOnline = match['is_online'] == true;
+          final nextId = mergedId.isNotEmpty ? mergedId : c.idUser;
 
-        // Solo mostrar typing si NO es el usuario actual
-        if (userId != null && userId != _currentUserId) {
-          print('⌨️ Usuario comenzó a escribir');
-          _isOtherUserTyping = true;
-          notifyListeners();
-        } else {
-          print('⌨️ Ignorando typing propio');
+          if (nextId == c.idUser && isOnline == c.isOnline) return c;
+
+          return ChatContactModel(
+            idUser: nextId,
+            nameUser: c.nameUser,
+            roleUser: c.roleUser,
+            isOnline: isOnline,
+          );
+        })
+        .toList(growable: false);
+
+    if (_selectedContact != null) {
+      for (final contact in _contacts) {
+        if (_sameContact(contact, _selectedContact!)) {
+          _selectedContact = contact;
+          break;
         }
-        return;
       }
-
-      if (type == 'typing.stop') {
-        final userId = data['user_id'] as String?;
-
-        // Solo detener typing si NO es el usuario actual
-        if (userId != null && userId != _currentUserId) {
-          print('⌨️ Usuario dejó de escribir');
-          _isOtherUserTyping = false;
-          notifyListeners();
-        }
-        return;
-      }
-
-      // Nota: Los eventos de estado ya fueron filtrados en _handleUnifiedPusherMessage
-
-      // Parsear el mensaje
-      final message = MessageModel.fromJson(
-        data,
-        currentUserId: _currentUserId,
-      );
-
-      print('📨 De: ${message.senderName}');
-      print('📨 Tipo: ${message.messageType}');
-      print('📨 Contenido: ${message.content}');
-      print('📨 URL completa: ${message.content}');
-      print('📨 Conversación: ${message.idConversation}');
-      print('📨 Es mío?: ${message.isFromCurrentUser}');
-
-      // Detener indicador de typing cuando llega un mensaje
-      _isOtherUserTyping = false;
-
-      // Si el mensaje es de la conversación actual, agregarlo
-      if (_selectedConversation?.idConversation == message.idConversation) {
-        // Evitar duplicados
-        final exists = _messages.any((m) => m.idMessage == message.idMessage);
-        if (!exists) {
-          _messages.add(message);
-          print('✅ Mensaje agregado a la lista (${_messages.length} mensajes)');
-          unawaited(_invalidateChatCache());
-          notifyListeners();
-        } else {
-          print('⚠️ Mensaje duplicado, ignorando');
-        }
-      } else {
-        print('ℹ️ Mensaje de otra conversación, actualizando lista');
-      }
-
-      // Actualizar última conversación en la lista
-      _updateConversationLastMessage(message);
-
-      print('✅ ========================================');
-    } catch (e, stackTrace) {
-      print('❌ Error procesando mensaje de Pusher: $e');
-      print('❌ Stack: $stackTrace');
     }
-  }
 
-  /// Actualiza el último mensaje de una conversación
-  void _updateConversationLastMessage(MessageModel message) {
-    _conversations = _conversations.map((c) {
-      if (c.idConversation == message.idConversation) {
-        return c.copyWith(
-          lastMessage: message.content,
-          lastMessageAt: message.createdAt,
-          unreadCount: message.isFromCurrentUser
-              ? c.unreadCount
-              : (c.unreadCount + 1),
-        );
-      }
-      return c;
-    }).toList();
-
-    unawaited(_invalidateChatCache());
     notifyListeners();
   }
 
-  /// Recarga las conversaciones
-  Future<void> refresh() async {
-    await fetchConversations(forceRefresh: true);
-  }
+  void _applyPresenceUpdate(String userId, bool isOnline) {
+    if (userId.isEmpty || _contacts.isEmpty) return;
 
-  /// Recarga los mensajes de la conversación actual
-  Future<void> reloadMessages() async {
-    if (_selectedConversation?.idConversation != null) {
-      await fetchMessages(
-        _selectedConversation!.idConversation!,
-        forceRefresh: true,
-      );
-    }
-  }
+    final normalizedFromPresence = _presenceNameById[userId] ?? '';
 
-  /// Marca los mensajes de una conversación como leídos
-  Future<void> markMessagesAsRead(int conversationId) async {
-    try {
-      print('📖 Marcando mensajes como leídos: conversación $conversationId');
+    var changed = false;
+    _contacts = _contacts
+        .map((c) {
+          final matchesById = c.idUser.trim() == userId;
+          final matchesByName = normalizedFromPresence.isNotEmpty &&
+              _normalizeName(c.nameUser) == normalizedFromPresence;
 
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.chatMarkAsRead(conversationId)}',
-      );
+          if (!matchesById && !matchesByName) return c;
+          if (c.isOnline == isOnline) return c;
 
-      final response = await http
-          .post(url, headers: _headers())
-          .timeout(const Duration(seconds: 5));
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
+          changed = true;
+          return ChatContactModel(
+            idUser: c.idUser,
+            nameUser: c.nameUser,
+            roleUser: c.roleUser,
+            isOnline: isOnline,
+          );
+        })
+        .toList(growable: false);
 
-      if (response.statusCode == 200) {
-        print('✅ Mensajes marcados como leídos');
-
-        // Actualizar el contador local de no leídos
-        _conversations = _conversations.map((conv) {
-          if (conv.idConversation == conversationId) {
-            return conv.copyWith(unreadCount: 0);
-          }
-          return conv;
-        }).toList();
-
-        // Si es la conversación seleccionada, actualizarla también
-        if (_selectedConversation?.idConversation == conversationId) {
-          _selectedConversation = _selectedConversation!.copyWith(
-            unreadCount: 0,
+    if (changed) {
+      if (_selectedContact != null) {
+        final selectedId = _selectedContact!.idUser.trim();
+        final selectedName = _normalizeName(_selectedContact!.nameUser);
+        final selectedById = selectedId == userId;
+        final selectedByName = normalizedFromPresence.isNotEmpty &&
+            selectedName == normalizedFromPresence;
+        if (selectedById || selectedByName) {
+          _selectedContact = ChatContactModel(
+            idUser: _selectedContact!.idUser,
+            nameUser: _selectedContact!.nameUser,
+            roleUser: _selectedContact!.roleUser,
+            isOnline: isOnline,
           );
         }
-
-        await _invalidateChatCache();
-        notifyListeners();
-      } else {
-        print('⚠️ Error marcando mensajes como leídos: ${response.statusCode}');
       }
-    } catch (e) {
-      print('❌ Error marcando mensajes como leídos: $e');
-      // No es crítico, continuar
+      notifyListeners();
     }
   }
 
-  /// Emitir evento de typing start
-  void emitTypingStart() {
-    if (_selectedConversation?.idConversation == null) return;
-
-    final channelName = 'chat-${_selectedConversation!.idConversation}';
-    _pusher
-        .sendMessage(
-          channelName: channelName,
-          eventName: 'client-typing',
-          data: {
-            'type': 'typing.start',
-            'user_id': _currentUserId,
-            'user_name': _userName,
-          },
-        )
-        .catchError((e) {
-          print('⚠️ Error enviando typing start: $e');
-        });
+  static String _normalizeName(String value) {
+    return value.trim().toLowerCase();
   }
 
-  /// Emitir evento de typing stop
-  void emitTypingStop() {
-    if (_selectedConversation?.idConversation == null) return;
+  static String _normalizeRole(String value) {
+    final role = value.trim().toUpperCase();
+    if (role == 'MODEL' || role == 'MODELO' || role == 'MODAL') return 'MODELO';
+    if (role == 'MONITOR') return 'MONITOR';
+    return role;
+  }
 
-    final channelName = 'chat-${_selectedConversation!.idConversation}';
-    _pusher
-        .sendMessage(
-          channelName: channelName,
-          eventName: 'client-typing',
-          data: {
-            'type': 'typing.stop',
-            'user_id': _currentUserId,
-            'user_name': _userName,
-          },
-        )
-        .catchError((e) {
-          print('⚠️ Error enviando typing stop: $e');
-        });
+  static String _roleAndNameKey(String role, String name) {
+    final normalizedName = _normalizeName(name);
+    if (normalizedName.isEmpty) return '';
+    return '${_normalizeRole(role)}|$normalizedName';
+  }
+
+  bool _sameContact(ChatContactModel a, ChatContactModel b) {
+    if (a.idUser.trim() == b.idUser.trim()) return true;
+    return _roleAndNameKey(a.roleUser, a.nameUser) ==
+        _roleAndNameKey(b.roleUser, b.nameUser);
   }
 
   @override
   void dispose() {
-    // Remover listener de presencia
-    _presence.removeListener(_onPresenceChanged);
-
-    // Desactivar presencia (marca como offline)
-    _presence.deactivate().catchError((e) {
-      print('⚠️ Error en dispose al desactivar presencia: $e');
-    });
-
+    emitTypingStop();
+    _typingInactivityTimer?.cancel();
+    _typingInactivityTimer = null;
+    _wsSubscription?.cancel();
+    _socket.dispose();
     super.dispose();
-  }
-
-  /// Método público para desconectar explícitamente
-  Future<void> disconnect() async {
-    // Desactivar presencia y desconectar
-    await _presence.deactivate();
-  }
-
-  Future<void> _invalidateChatCache() async {
-    await _cache.removeByPrefix(_cacheKey('chat::conversations'));
-    await _cache.removeByPrefix(_cacheKey('chat::messages'));
   }
 }
