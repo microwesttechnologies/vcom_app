@@ -8,7 +8,6 @@ import 'package:vcom_app/components/commons/add_button.component.dart';
 import 'package:vcom_app/pages/brands/managerBrand.component.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
-import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/core/models/brand.model.dart';
 import 'package:vcom_app/core/models/category.model.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
@@ -623,20 +622,6 @@ class _ManagerBrandPageState extends State<ManagerBrandPage> {
               isSelected: _selectedIndex == 2,
               onTap: () {
                 Navigator.pop(context);
-              },
-            ),
-            SidebarItem(
-              label: 'Productos',
-              icon: Icons.inventory,
-              isSelected: _selectedIndex == 3,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ManagerProductPage(),
-                  ),
-                );
               },
             ),
           ],

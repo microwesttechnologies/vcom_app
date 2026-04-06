@@ -8,7 +8,6 @@ import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/pages/events/events.page.dart';
-import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/pages/wallet/wallet.page.dart';
@@ -124,6 +123,11 @@ class _DynamicSidebarDrawerState extends State<DynamicSidebarDrawer> {
       ),
       ..._modules
           .where((module) => module.state && module.permissions.read)
+          .where(
+            (module) =>
+                !_normalize(module.route).contains('product') &&
+                !_normalize(module.route).contains('producto'),
+          )
           .map(
             (module) => SidebarItem(
               label: module.nameModule,
@@ -210,10 +214,6 @@ class _DynamicSidebarDrawerState extends State<DynamicSidebarDrawer> {
     if (normalizedRoute.contains('brand') ||
         normalizedRoute.contains('marca')) {
       return const ManagerBrandPage();
-    }
-    if (normalizedRoute.contains('product') ||
-        normalizedRoute.contains('producto')) {
-      return const ManagerProductPage();
     }
     if (normalizedRoute.contains('shop') ||
         normalizedRoute.contains('tienda') ||

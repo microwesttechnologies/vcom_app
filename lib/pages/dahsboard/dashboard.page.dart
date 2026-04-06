@@ -12,7 +12,6 @@ import 'package:vcom_app/pages/dahsboard/dashboard.component.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard_modelo.component.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard_modelo.view.dart';
 import 'package:vcom_app/pages/events/events.page.dart';
-import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
@@ -123,9 +122,6 @@ class _DashboardPageState extends State<DashboardPage> {
       targetPage = const ManagerCategoryPage();
     } else if (routeLower.contains('brand') || routeLower.contains('marca')) {
       targetPage = const ManagerBrandPage();
-    } else if (routeLower.contains('product') ||
-        routeLower.contains('producto')) {
-      targetPage = const ManagerProductPage();
     } else if (routeLower.contains('shop') ||
         routeLower.contains('tienda') ||
         routeLower.contains('store')) {
@@ -249,7 +245,12 @@ class _DashboardPageState extends State<DashboardPage> {
       );
     }
 
-    if (_dashboardComponent.modules.isEmpty) {
+    final visibleModules = _dashboardComponent.modules.where((module) {
+      final route = module.route.toLowerCase();
+      return !route.contains('product') && !route.contains('producto');
+    }).toList(growable: false);
+
+    if (visibleModules.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -270,9 +271,9 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     return ListView.builder(
-      itemCount: _dashboardComponent.modules.length,
+      itemCount: visibleModules.length,
       itemBuilder: (context, index) {
-        final module = _dashboardComponent.modules[index];
+        final module = visibleModules[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
           child: CardComponent(

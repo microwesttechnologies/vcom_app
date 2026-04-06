@@ -11,7 +11,6 @@ import 'package:vcom_app/pages/app_launch/app_intro.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
-import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/pages/wallet/wallet.page.dart';
@@ -89,7 +88,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       home: const AppIntroPage(),
       routes: {
         '/dashboard': (context) => const DashboardPage(),
-        '/products': (context) => const ManagerProductPage(),
         '/categories': (context) => const ManagerCategoryPage(),
         '/brands': (context) => const ManagerBrandPage(),
         '/shop': (context) => const ShopPage(),

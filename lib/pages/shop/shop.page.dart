@@ -5,11 +5,11 @@ import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/button.dart';
 import 'package:vcom_app/pages/shop/shop.component.dart';
 import 'package:vcom_app/pages/shop/product_detail.page.dart';
+import 'package:vcom_app/pages/shop/shop_product_form.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.component.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
-import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
 import 'package:vcom_app/pages/events/events.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
@@ -209,8 +209,6 @@ class _ShopPageState extends State<ShopPage> {
       targetPage = const ManagerCategoryPage();
     } else if (route.contains('brand') || route.contains('marca')) {
       targetPage = const ManagerBrandPage();
-    } else if (route.contains('product') || route.contains('producto')) {
-      targetPage = const ManagerProductPage();
     } else if (route.contains('shop') ||
         route.contains('tienda') ||
         route.contains('store')) {
@@ -281,6 +279,87 @@ class _ShopPageState extends State<ShopPage> {
     setState(() => _currentProduct = null);
   }
 
+  Future<void> _openCreateProductForm() async {
+    final created = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ShopProductFormPage(component: _shopComponent),
+      ),
+    );
+    if (created == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Producto publicado correctamente')),
+      );
+    }
+  }
+
+  Future<void> _openEditProductForm(ProductModel product) async {
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ShopProductFormPage(
+          component: _shopComponent,
+          initialProduct: product,
+        ),
+      ),
+    );
+    if (updated == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Producto actualizado correctamente')),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteProduct(ProductModel product) async {
+    if (product.idProduct == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF101C31),
+        title: const Text(
+          'Eliminar producto',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          'Se eliminara "${product.nameProduct}". Esta accion no se puede deshacer.',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.85)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final deleted = await _shopComponent.deleteOrDeactivateProduct(product);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            deleted
+                ? 'Producto eliminado correctamente'
+                : 'El backend no permitió borrar, se desactivó el producto',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final inDetail = _currentProduct != null;
@@ -299,6 +378,15 @@ class _ShopPageState extends State<ShopPage> {
         extendBodyBehindAppBar: true,
         extendBody: true,
         drawer: inDetail ? null : Drawer(child: _buildSidebar()),
+        floatingActionButton: !inDetail && _shopComponent.canManageProducts
+            ? FloatingActionButton(
+                heroTag: 'shop_create_product',
+                backgroundColor: VcomColors.oroLujoso,
+                foregroundColor: Colors.black,
+                onPressed: _openCreateProductForm,
+                child: const Icon(Icons.add),
+              )
+            : null,
         bottomNavigationBar: const ModeloMenuBar(activeRoute: 'shop'),
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 280),
@@ -712,6 +800,66 @@ class _ShopPageState extends State<ShopPage> {
                       ),
                     ),
                   ),
+                  if (_shopComponent.canManageProducts)
+                    Positioned(
+                      left: 10,
+                      top: 10,
+                      child: PopupMenuButton<String>(
+                        tooltip: 'Acciones del producto',
+                        color: const Color(0xFF101C31),
+                        icon: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: VcomColors.oroLujoso.withValues(
+                                alpha: 0.35,
+                              ),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.more_vert,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            _openEditProductForm(product);
+                            return;
+                          }
+                          if (value == 'delete') {
+                            _confirmDeleteProduct(product);
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined),
+                                SizedBox(width: 10),
+                                Text('Editar'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline, color: Colors.red),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Eliminar',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
