@@ -35,6 +35,7 @@ class ChatComponent extends ChangeNotifier {
   Map<String, bool> _presenceOnlineById = const {};
   Map<String, bool> _presenceOnlineByRoleAndName = const {};
   Timer? _typingInactivityTimer;
+  Timer? _socketWatchdogTimer;
   bool _typingEmitted = false;
 
   bool get isLoading => _isLoading;
@@ -89,6 +90,7 @@ class ChatComponent extends ChangeNotifier {
       _socket.emit('chat.screen.open', {});
       _wsSubscription?.cancel();
       _wsSubscription = _socket.events.listen(_handleSocketEvent);
+      _startSocketWatchdog();
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -139,6 +141,7 @@ class ChatComponent extends ChangeNotifier {
       _selectedContact = contact;
       _selectedConversation = conversation;
 
+      await _ensureSocketConnected();
       _socket.emit('conversation.join', {
         'conversation_id': conversation.idConversation,
       });
@@ -545,9 +548,38 @@ class ChatComponent extends ChangeNotifier {
   void dispose() {
     emitTypingStop();
     _socket.emit('chat.screen.close', {});
+    _socketWatchdogTimer?.cancel();
+    _socketWatchdogTimer = null;
     _typingInactivityTimer?.cancel();
     _typingInactivityTimer = null;
     _wsSubscription?.cancel();
     super.dispose();
+  }
+
+  void _startSocketWatchdog() {
+    _socketWatchdogTimer?.cancel();
+    _socketWatchdogTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      unawaited(_ensureSocketConnected());
+    });
+  }
+
+  Future<void> _ensureSocketConnected() async {
+    final token = _tokenService.getToken();
+    if (token == null || token.isEmpty) return;
+    if (_socket.isConnected) return;
+
+    try {
+      await _socket.connect(token);
+      _socket.emit('chat.screen.open', {});
+
+      final activeConversationId = _selectedConversation?.idConversation;
+      if (activeConversationId != null) {
+        _socket.emit('conversation.join', {
+          'conversation_id': activeConversationId,
+        });
+      }
+    } catch (_) {
+      // noop: reintento en siguiente ciclo del watchdog
+    }
   }
 }

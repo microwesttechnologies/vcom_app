@@ -171,9 +171,10 @@ class MediaUploadService {
       _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final resolvedUrl = _resolveUploadedFileUrl(data);
         return ChatUploadResult(
-          url: (data['url'] ?? '').toString(),
+          url: resolvedUrl,
           thumbnailUrl: (data['thumbnail_url'] ?? '').toString().trim().isEmpty
               ? null
               : (data['thumbnail_url'] ?? '').toString(),
@@ -214,11 +215,24 @@ class MediaUploadService {
         '(reduccion $reduction%)',
       );
 
-      final upload = await uploadFile(
-        file: compressedFile,
-        type: 'image',
-        conversationId: conversationId,
-      );
+      ChatUploadResult upload;
+      try {
+        upload = await uploadFile(
+          file: compressedFile,
+          type: 'image',
+          conversationId: conversationId,
+        );
+      } catch (e) {
+        final shouldRetryWithoutConversation =
+            conversationId != null && _shouldRetryWithoutConversationId(e.toString());
+        if (!shouldRetryWithoutConversation) rethrow;
+
+        upload = await uploadFile(
+          file: compressedFile,
+          type: 'image',
+          conversationId: null,
+        );
+      }
       return upload.url;
     } catch (e) {
       debugPrint('Error en selectAndUploadImage: $e');
@@ -235,15 +249,47 @@ class MediaUploadService {
       final file = await pickVideo(fromCamera: fromCamera);
       if (file == null) return null;
 
-      final upload = await uploadFile(
-        file: file,
-        type: 'video',
-        conversationId: conversationId,
-      );
+      ChatUploadResult upload;
+      try {
+        upload = await uploadFile(
+          file: file,
+          type: 'video',
+          conversationId: conversationId,
+        );
+      } catch (e) {
+        final shouldRetryWithoutConversation =
+            conversationId != null && _shouldRetryWithoutConversationId(e.toString());
+        if (!shouldRetryWithoutConversation) rethrow;
+
+        upload = await uploadFile(
+          file: file,
+          type: 'video',
+          conversationId: null,
+        );
+      }
       return upload;
     } catch (e) {
       debugPrint('Error en selectAndUploadVideo: $e');
       rethrow;
     }
+  }
+
+  String _resolveUploadedFileUrl(Map<String, dynamic> data) {
+    final rawUrl = (data['url'] ?? '').toString().trim();
+    if (rawUrl.isNotEmpty) return rawUrl;
+
+    final rawPath = (data['path'] ?? '').toString().trim();
+    if (rawPath.isEmpty) return '';
+
+    final normalizedPath = rawPath.startsWith('/') ? rawPath : '/$rawPath';
+    return '${EnvironmentDev.resolvedChatApiBaseUrl}/media/chat$normalizedPath';
+  }
+
+  bool _shouldRetryWithoutConversationId(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('403') ||
+        normalized.contains('404') ||
+        normalized.contains('conversation_id') ||
+        normalized.contains('no tienes acceso');
   }
 }

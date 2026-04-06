@@ -27,12 +27,24 @@ class ChatSocketService {
 
     await disconnect();
 
-    final uri = Uri.parse(EnvironmentDev.chatWebSocketUrl).replace(
-      queryParameters: {'token': token},
-    );
+    final uri = _buildSocketUri(token);
 
     _connectedToken = token;
-    _channel = IOWebSocketChannel.connect(uri.toString());
+    try {
+      _channel = IOWebSocketChannel.connect(uri.toString());
+    } catch (e) {
+      _connectedToken = null;
+      _isConnected = false;
+      _eventsController.add({
+        'event': 'error',
+        'data': {
+          'code': 'WS_CONNECT_ERROR',
+          'message': e.toString(),
+        },
+      });
+      return;
+    }
+
     _subscription = _channel!.stream.listen(
       (dynamic raw) {
         try {
@@ -47,11 +59,43 @@ class ChatSocketService {
       },
       onDone: () {
         _isConnected = false;
+        _connectedToken = null;
       },
       onError: (_) {
         _isConnected = false;
+        _connectedToken = null;
       },
       cancelOnError: false,
+    );
+  }
+
+  Uri _buildSocketUri(String token) {
+    final rawBase = EnvironmentDev.chatWebSocketUrl.trim().replaceAll('#', '');
+    final parsed = Uri.parse(rawBase);
+    final scheme = parsed.scheme == 'wss'
+        ? 'wss'
+        : parsed.scheme == 'ws'
+            ? 'ws'
+            : parsed.scheme == 'https'
+                ? 'wss'
+                : 'ws';
+    final path = parsed.path.isEmpty ? '/ws' : parsed.path;
+
+    if (parsed.hasPort) {
+      return Uri(
+        scheme: scheme,
+        host: parsed.host,
+        port: parsed.port,
+        path: path,
+        queryParameters: {'token': token},
+      );
+    }
+
+    return Uri(
+      scheme: scheme,
+      host: parsed.host,
+      path: path,
+      queryParameters: {'token': token},
     );
   }
 

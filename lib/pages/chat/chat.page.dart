@@ -466,8 +466,17 @@ class _ChatPageState extends State<ChatPage> {
     final imageUrl = _resolveImageUrl(message);
     final videoUrl = _resolveVideoUrl(message);
     final videoThumbnailUrl = _resolveVideoThumbnailUrl(message);
-    final isVideo = message.messageType == 'video' || videoUrl != null;
-    final isImage = !isVideo && (message.messageType == 'image' || imageUrl != null);
+    final normalizedType = message.messageType.trim().toLowerCase();
+    final normalizedContentType = (message.mediaContentType ?? '').trim().toLowerCase();
+    final hasMediaUrl = (message.mediaUrl ?? '').trim().isNotEmpty;
+    final isVideo = normalizedType == 'video' ||
+        normalizedContentType.startsWith('video/') ||
+        videoUrl != null;
+    final isImage = !isVideo &&
+        (normalizedType == 'image' ||
+            normalizedContentType.startsWith('image/') ||
+            hasMediaUrl ||
+            imageUrl != null);
 
     if (isVideo) {
       return _videoMessage(
@@ -583,7 +592,14 @@ class _ChatPageState extends State<ChatPage> {
   String? _resolveImageUrl(ChatMessageModel message) {
     final raw = _resolveMediaUrl(message.mediaUrl ?? message.content);
     if (raw.isEmpty) return null;
-    if (!_looksLikeImagePath(raw)) return null;
+    final normalizedType = message.messageType.trim().toLowerCase();
+    final normalizedContentType = (message.mediaContentType ?? '').trim().toLowerCase();
+    final hasMediaUrl = (message.mediaUrl ?? '').trim().isNotEmpty;
+    final shouldTreatAsImage = normalizedType == 'image' ||
+        normalizedContentType.startsWith('image/') ||
+        hasMediaUrl ||
+        _looksLikeImagePath(raw);
+    if (!shouldTreatAsImage) return null;
 
     return _fixLocalhostForAndroid(raw);
   }
@@ -594,7 +610,12 @@ class _ChatPageState extends State<ChatPage> {
       message.mediaUrl ?? payload?['url']?.toString() ?? message.content,
     );
     if (raw.isEmpty) return null;
-    if (!_looksLikeVideoPath(raw)) return null;
+    final normalizedType = message.messageType.trim().toLowerCase();
+    final normalizedContentType = (message.mediaContentType ?? '').trim().toLowerCase();
+    final shouldTreatAsVideo = normalizedType == 'video' ||
+        normalizedContentType.startsWith('video/') ||
+        _looksLikeVideoPath(raw);
+    if (!shouldTreatAsVideo) return null;
 
     return _fixLocalhostForAndroid(raw);
   }
