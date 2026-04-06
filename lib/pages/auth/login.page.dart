@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:vcom_app/core/chat/chat_push.service.dart';
 import 'login.component.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 import '../dahsboard/dashboard.page.dart';
@@ -91,6 +92,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         Navigator.of(context).pop(); // Cierra loading
         if (!loggedIn) return; // Usuario canceló, no hacer nada
         await UserStatusService().setOnline();
+        await ChatPushService().initialize();
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -130,6 +132,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     try {
       await _loginComponent.performLogin();
       await UserStatusService().setOnline();
+      await ChatPushService().initialize();
       if (mounted) {
         Navigator.of(context).pop();
         Navigator.pushReplacement(

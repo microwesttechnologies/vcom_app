@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +11,18 @@ import 'package:video_player/video_player.dart';
 
 import 'envirotment.dev.dart';
 import 'token.service.dart';
+
+class ChatUploadResult {
+  final String url;
+  final String? thumbnailUrl;
+  final String? contentType;
+
+  const ChatUploadResult({
+    required this.url,
+    this.thumbnailUrl,
+    this.contentType,
+  });
+}
 
 /// Servicio para manejar la carga de archivos multimedia.
 class MediaUploadService {
@@ -39,7 +52,7 @@ class MediaUploadService {
 
       return file;
     } catch (e) {
-      print('Error al seleccionar imagen: $e');
+      debugPrint('Error al seleccionar imagen: $e');
       rethrow;
     }
   }
@@ -68,7 +81,7 @@ class MediaUploadService {
 
       return file;
     } catch (e) {
-      print('Error al seleccionar video: $e');
+      debugPrint('Error al seleccionar video: $e');
       rethrow;
     }
   }
@@ -119,12 +132,15 @@ class MediaUploadService {
   }
 
   /// Sube un archivo al servidor.
-  Future<String> uploadFile({
+  Future<ChatUploadResult> uploadFile({
     required File file,
     required String type, // image o video
+    int? conversationId,
   }) async {
     try {
-      final url = Uri.parse('${EnvironmentDev.baseUrl}/api/v1/chat/upload-media');
+      final url = Uri.parse(
+        '${EnvironmentDev.resolvedChatApiBaseUrl}${EnvironmentDev.chatApiPath}/media/upload',
+      );
       final request = http.MultipartRequest('POST', url);
 
       final token = _tokenService.getToken();
@@ -142,6 +158,9 @@ class MediaUploadService {
       );
 
       request.fields['type'] = type;
+      if (conversationId != null && conversationId > 0) {
+        request.fields['conversation_id'] = '$conversationId';
+      }
 
       final streamedResponse = await request.send().timeout(
         const Duration(seconds: 60),
@@ -153,19 +172,29 @@ class MediaUploadService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        final fileUrl = data['url'] as String;
-        return fileUrl;
+        return ChatUploadResult(
+          url: (data['url'] ?? '').toString(),
+          thumbnailUrl: (data['thumbnail_url'] ?? '').toString().trim().isEmpty
+              ? null
+              : (data['thumbnail_url'] ?? '').toString(),
+          contentType: (data['content_type'] ?? '').toString().trim().isEmpty
+              ? null
+              : (data['content_type'] ?? '').toString(),
+        );
       }
 
       throw Exception('Error al subir archivo: ${response.statusCode} - ${response.body}');
     } catch (e) {
-      print('Error en uploadFile: $e');
+      debugPrint('Error en uploadFile: $e');
       rethrow;
     }
   }
 
   /// Selecciona y sube una imagen comprimida al 50%.
-  Future<String?> selectAndUploadImage({bool fromCamera = false}) async {
+  Future<String?> selectAndUploadImage({
+    bool fromCamera = false,
+    int? conversationId,
+  }) async {
     try {
       final file = await pickImage(fromCamera: fromCamera);
       if (file == null) return null;
@@ -178,31 +207,42 @@ class MediaUploadService {
           ? max(0, 100 - ((compressedSize * 100) / originalSize)).toStringAsFixed(1)
           : '0.0';
 
-      print(
-        'Imagen chat comprimida (${_chatImageQuality}%): '
+      debugPrint(
+        'Imagen chat comprimida ($_chatImageQuality%): '
         '${(originalSize / 1024).toStringAsFixed(1)}KB -> '
         '${(compressedSize / 1024).toStringAsFixed(1)}KB '
         '(reduccion $reduction%)',
       );
 
-      final url = await uploadFile(file: compressedFile, type: 'image');
-      return url;
+      final upload = await uploadFile(
+        file: compressedFile,
+        type: 'image',
+        conversationId: conversationId,
+      );
+      return upload.url;
     } catch (e) {
-      print('Error en selectAndUploadImage: $e');
+      debugPrint('Error en selectAndUploadImage: $e');
       rethrow;
     }
   }
 
   /// Selecciona y sube un video.
-  Future<String?> selectAndUploadVideo({bool fromCamera = false}) async {
+  Future<ChatUploadResult?> selectAndUploadVideo({
+    bool fromCamera = false,
+    int? conversationId,
+  }) async {
     try {
       final file = await pickVideo(fromCamera: fromCamera);
       if (file == null) return null;
 
-      final url = await uploadFile(file: file, type: 'video');
-      return url;
+      final upload = await uploadFile(
+        file: file,
+        type: 'video',
+        conversationId: conversationId,
+      );
+      return upload;
     } catch (e) {
-      print('Error en selectAndUploadVideo: $e');
+      debugPrint('Error en selectAndUploadVideo: $e');
       rethrow;
     }
   }

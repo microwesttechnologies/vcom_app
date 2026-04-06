@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/session_state_registry.service.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
@@ -16,6 +17,10 @@ class TokenService {
   factory TokenService() => _instance;
   TokenService._internal();
 
+  static const String _prefsTokenKey = 'auth_token';
+  static const String _prefsUserNameKey = 'auth_user_name';
+  static const String _prefsUserIdKey = 'auth_user_id';
+
   String? _token;
   String? _userName;
   String? _userId;
@@ -24,12 +29,40 @@ class TokenService {
   List<ModuleModel> _modules = const [];
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   bool _handlingSessionExpiration = false;
+  bool _initialized = false;
+
+  Future<void> initialize() async {
+    if (_initialized) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final savedToken = prefs.getString(_prefsTokenKey);
+    final savedUserName = prefs.getString(_prefsUserNameKey);
+    final savedUserId = prefs.getString(_prefsUserIdKey);
+
+    if (savedToken != null && savedToken.trim().isNotEmpty) {
+      _token = savedToken.trim();
+      _jwtClaims = _decodeJwtPayload(_token!);
+      SessionCacheService().bindToken(_token!);
+    }
+
+    if (savedUserName != null && savedUserName.trim().isNotEmpty) {
+      _userName = savedUserName.trim();
+    }
+
+    if (savedUserId != null && savedUserId.trim().isNotEmpty) {
+      _userId = savedUserId.trim();
+    }
+
+    _initialized = true;
+  }
 
   /// Guarda el token de autenticación y decodifica sus claims.
   void setToken(String token) {
-    _token = token;
-    _jwtClaims = _decodeJwtPayload(token);
-    SessionCacheService().bindToken(token);
+    final normalizedToken = token.trim();
+    _token = normalizedToken;
+    _jwtClaims = _decodeJwtPayload(normalizedToken);
+    SessionCacheService().bindToken(normalizedToken);
+    unawaited(_persistSession());
   }
 
   /// Obtiene el token de autenticación.
@@ -54,6 +87,8 @@ class TokenService {
     if (response.user.id.trim().isNotEmpty) {
       _userId = response.user.id.trim();
     }
+
+    unawaited(_persistSession());
   }
 
   PermissionsResponse? getPermissionsResponse() {
@@ -89,6 +124,7 @@ class TokenService {
   /// Guarda el nombre del usuario como fallback para JWTs que no lo incluyan.
   void setUserName(String name) {
     _userName = name;
+    unawaited(_persistSession());
   }
 
   /// Obtiene el nombre del usuario; prioriza el JWT y usa el backend como fallback.
@@ -107,6 +143,7 @@ class TokenService {
   /// Guarda el ID del usuario como fallback para JWTs que no lo incluyan.
   void setUserId(String id) {
     _userId = id;
+    unawaited(_persistSession());
   }
 
   /// Obtiene el ID del modelo/usuario.
@@ -170,6 +207,8 @@ class TokenService {
     _jwtClaims = null;
     _permissionsResponse = null;
     _modules = const [];
+    _initialized = false;
+    unawaited(_clearPersistedSession());
   }
 
   /// Obtiene el header de autorización para las peticiones HTTP.
@@ -286,5 +325,34 @@ class TokenService {
       }
     }
     return null;
+  }
+
+  Future<void> _persistSession() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (_token != null && _token!.trim().isNotEmpty) {
+      await prefs.setString(_prefsTokenKey, _token!.trim());
+    } else {
+      await prefs.remove(_prefsTokenKey);
+    }
+
+    if (_userName != null && _userName!.trim().isNotEmpty) {
+      await prefs.setString(_prefsUserNameKey, _userName!.trim());
+    } else {
+      await prefs.remove(_prefsUserNameKey);
+    }
+
+    if (_userId != null && _userId!.trim().isNotEmpty) {
+      await prefs.setString(_prefsUserIdKey, _userId!.trim());
+    } else {
+      await prefs.remove(_prefsUserIdKey);
+    }
+  }
+
+  Future<void> _clearPersistedSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefsTokenKey);
+    await prefs.remove(_prefsUserNameKey);
+    await prefs.remove(_prefsUserIdKey);
   }
 }

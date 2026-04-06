@@ -48,9 +48,16 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id_user']?.toString() ?? json['id']?.toString() ?? '',
-      name: json['name_user'] as String? ?? json['name'] as String? ?? json['nombre'] as String? ?? '',
+      name:
+          json['name_user'] as String? ??
+          json['name'] as String? ??
+          json['nombre'] as String? ??
+          '',
       email: json['email_user'] as String? ?? json['email'] as String? ?? '',
-      role: json['role_user'] as String? ?? json['role'] as String? ?? json['rol'] as String?,
+      role:
+          json['role_user'] as String? ??
+          json['role'] as String? ??
+          json['rol'] as String?,
     );
   }
 }
@@ -61,20 +68,80 @@ class PermissionsResponse {
   final Map<String, dynamic>? role;
   final List<ModuleModel> modules;
 
-  PermissionsResponse({
-    required this.user,
-    this.role,
-    required this.modules,
-  });
+  PermissionsResponse({required this.user, this.role, required this.modules});
 
   factory PermissionsResponse.fromJson(Map<String, dynamic> json) {
+    final rawUser = json['user'];
+    final rawRole = json['role'];
+
     return PermissionsResponse(
-      user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
-      role: json['role'] as Map<String, dynamic>?,
-      modules: (json['modules'] as List<dynamic>?)
-          ?.map((e) => ModuleModel.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      user: UserModel.fromJson(
+        rawUser is Map<String, dynamic> ? rawUser : const {},
+      ),
+      role: rawRole is Map<String, dynamic> ? rawRole : null,
+      modules: _parseModules(json),
     );
+  }
+
+  static List<ModuleModel> _parseModules(Map<String, dynamic> json) {
+    final collected = <ModuleModel>[];
+    final visited = <Object>{};
+
+    void visit(dynamic node) {
+      if (node == null) return;
+      if (visited.contains(node)) return;
+      visited.add(node as Object);
+
+      if (node is List) {
+        for (final item in node) {
+          visit(item);
+        }
+        return;
+      }
+
+      if (node is! Map<String, dynamic>) return;
+
+      if (_looksLikeModulePayload(node)) {
+        collected.add(ModuleModel.fromJson(node));
+      }
+
+      const nestedKeys = [
+        'modules',
+        'data',
+        'module',
+        'children',
+        'items',
+        'menu',
+        'submodules',
+        'subModules',
+        'permissions',
+        'permissions_by_module',
+        'modules_by_module',
+      ];
+
+      for (final key in nestedKeys) {
+        if (node.containsKey(key)) {
+          visit(node[key]);
+        }
+      }
+    }
+
+    visit(json);
+
+    final uniqueByIdOrRoute = <String, ModuleModel>{};
+    for (final module in collected) {
+      final dedupeKey =
+          '${module.idModule}|${module.route.trim().toLowerCase()}|${module.nameModule.trim().toLowerCase()}';
+      uniqueByIdOrRoute[dedupeKey] = module;
+    }
+
+    return uniqueByIdOrRoute.values.toList(growable: false);
+  }
+
+  static bool _looksLikeModulePayload(Map<String, dynamic> json) {
+    return json.containsKey('id_module') ||
+        json.containsKey('name_module') ||
+        json.containsKey('permissions');
   }
 }
 
@@ -83,16 +150,9 @@ class LoginRequest {
   final String email;
   final String password;
 
-  LoginRequest({
-    required this.email,
-    required this.password,
-  });
+  LoginRequest({required this.email, required this.password});
 
   Map<String, dynamic> toJson() {
-    return {
-      'email': email,
-      'password': password,
-    };
+    return {'email': email, 'password': password};
   }
 }
-

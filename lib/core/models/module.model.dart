@@ -24,7 +24,7 @@ class ModuleModel {
       nameModule: json['name_module'] as String? ?? '',
       descriptionModule: json['description_module'] as String? ?? '',
       route: json['route'] as String? ?? '',
-      state: json['state'] as bool,
+      state: _parseBool(json['state']),
       icon: json['icon'] as String? ?? '',
       permissions: ModulePermissions.fromJson(
         (json['permissions'] as Map<String, dynamic>?) ?? const {},
@@ -36,6 +36,16 @@ class ModuleModel {
     if (value is int) return value;
     if (value is String) return int.tryParse(value) ?? 0;
     return 0;
+  }
+
+  static bool _parseBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      return normalized == 'true' || normalized == '1';
+    }
+    return false;
   }
 }
 
@@ -57,12 +67,21 @@ class ModulePermissions {
 
   factory ModulePermissions.fromJson(Map<String, dynamic> json) {
     return ModulePermissions(
-      create: json['create'] as bool? ?? false,
-      read: json['read'] as bool? ?? false,
-      update: json['update'] as bool? ?? false,
-      delete: json['delete'] as bool? ?? false,
-      statePermission: json['state_permission'] as bool? ?? false,
+      create: _parseBool(json['create']),
+      read: _parseBool(json['read']),
+      update: _parseBool(json['update']),
+      delete: _parseBool(json['delete']),
+      statePermission: _parseBool(json['state_permission']),
     );
   }
-}
 
+  static bool _parseBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      return normalized == 'true' || normalized == '1';
+    }
+    return false;
+  }
+}

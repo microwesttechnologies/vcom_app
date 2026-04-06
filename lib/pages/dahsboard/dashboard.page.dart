@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:vcom_app/components/shared/dynamic_sidebar_drawer.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
-import 'package:vcom_app/components/shared/sidebar.component.dart';
 import 'package:vcom_app/components/commons/card.component.dart';
 import 'package:vcom_app/core/common/icon.helper.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/pages/brands/managerBrand.page.dart';
+import 'package:vcom_app/pages/categories/managerCategory.page.dart';
+import 'package:vcom_app/pages/chat/chat.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.component.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard_modelo.component.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard_modelo.view.dart';
-import 'package:vcom_app/pages/shop/shop.page.dart';
-import 'package:vcom_app/pages/categories/managerCategory.page.dart';
-import 'package:vcom_app/pages/brands/managerBrand.page.dart';
-import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
-import 'package:vcom_app/pages/chat/chat.page.dart';
 import 'package:vcom_app/pages/events/events.page.dart';
+import 'package:vcom_app/pages/products/manage/managerProduct.page.dart';
+import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
-/// Página del dashboard
+/// PÃ¡gina del dashboard
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -26,7 +26,6 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  int _selectedIndex = 0;
   late DashboardComponent _dashboardComponent;
   late DashboardModeloComponent _dashboardModeloComponent;
   final TokenService _tokenService = TokenService();
@@ -75,73 +74,8 @@ class _DashboardPageState extends State<DashboardPage> {
       extendBodyBehindAppBar: _usesModeloDashboard,
       extendBody: _usesModeloDashboard,
       appBar: const ModeloNavbar(),
-      drawer: Drawer(
-        child: SidebarComponent(
-          items: [
-            SidebarItem(
-              label: 'Dashboard',
-              icon: Icons.dashboard,
-              isSelected: _selectedIndex == 0,
-              onTap: () {
-                // Si ya estás en el dashboard, solo cierra el drawer
-                Navigator.of(context).pop();
-              },
-            ),
-            SidebarItem(
-              label: 'Perfil',
-              icon: Icons.person,
-              isSelected: _selectedIndex == 1,
-              onTap: () {
-                setState(() => _selectedIndex = 1);
-                Navigator.pop(context);
-              },
-            ),
-            SidebarItem(
-              label: 'Configuración',
-              icon: Icons.settings,
-              isSelected: _selectedIndex == 2,
-              onTap: () {
-                setState(() => _selectedIndex = 2);
-                Navigator.pop(context);
-              },
-            ),
-            SidebarItem(
-              label: 'Notificaciones',
-              icon: Icons.notifications,
-              badge: '3',
-              isSelected: _selectedIndex == 3,
-              onTap: () {
-                setState(() => _selectedIndex = 3);
-                Navigator.pop(context);
-              },
-            ),
-            // SidebarItem(
-            //   label: 'Tienda',
-            //   icon: Icons.store,
-            //   isSelected: _selectedIndex == 4,
-            //   onTap: () {
-            //     Navigator.pop(context);
-            //     _navigateToModule('/shop');
-            //   },
-            // ),
-            SidebarItem(
-              label: 'Ayuda',
-              icon: Icons.help,
-              isSelected: _selectedIndex == 5,
-              onTap: () {
-                setState(() => _selectedIndex = 5);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-          selectedIndex: _selectedIndex,
-          onItemSelected: (index) {
-            // No actualizar el estado si ya estás en esa página
-            if (_selectedIndex != index) {
-              setState(() => _selectedIndex = index);
-            }
-          },
-        ),
+      drawer: const Drawer(
+        child: DynamicSidebarDrawer(selectedRouteHints: ['dashboard', 'inicio']),
       ),
       body: Container(
         width: double.infinity,
@@ -176,14 +110,13 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  /// Navega a la ruta del módulo
+  /// Navega a la ruta del mÃ³dulo
   void _navigateToModule(String route) {
     final routeLower = route.toLowerCase();
     Widget? targetPage;
 
-    // Mapear rutas a páginas
+    // Mapear rutas a pÃ¡ginas
     if (routeLower.contains('dashboard') || routeLower.contains('inicio')) {
-      // Ya estamos en el dashboard
       return;
     } else if (routeLower.contains('categories') ||
         routeLower.contains('categoria')) {
@@ -228,7 +161,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Módulo en desarrollo',
+                    'MÃ³dulo en desarrollo',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -286,7 +219,7 @@ class _DashboardPageState extends State<DashboardPage> {
             Icon(Icons.error_outline, size: 64, color: VcomColors.error),
             const SizedBox(height: 16),
             Text(
-              'Error al cargar módulos',
+              'Error al cargar mÃ³dulos',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -324,7 +257,7 @@ class _DashboardPageState extends State<DashboardPage> {
             Icon(Icons.folder_outlined, size: 64, color: VcomColors.oroLujoso),
             const SizedBox(height: 16),
             Text(
-              'No hay módulos disponibles',
+              'No hay mÃ³dulos disponibles',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,

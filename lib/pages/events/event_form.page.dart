@@ -706,10 +706,11 @@ class _EventFormPageState extends State<EventFormPage> {
     try {
       var imageUrl = _imageUrl?.trim().isEmpty == true ? null : _imageUrl;
       if (_pendingImageFile != null) {
-        imageUrl = await _mediaUploadService.uploadFile(
+        final upload = await _mediaUploadService.uploadFile(
           file: _pendingImageFile!,
           type: 'image',
         );
+        imageUrl = upload.url;
       }
 
       final event = EventModel(

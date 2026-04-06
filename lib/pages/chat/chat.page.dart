@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:video_player/video_player.dart';
+import 'package:vcom_app/components/shared/video_thumbnail.widget.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/media_upload.service.dart';
+import 'package:vcom_app/core/chat/chat_ui_state.service.dart';
 import 'package:vcom_app/core/models/chat/chat_contact.model.dart';
 import 'package:vcom_app/core/models/chat/chat_conversation.model.dart';
 import 'package:vcom_app/core/models/chat/chat_message.model.dart';
@@ -11,7 +16,16 @@ import 'package:vcom_app/pages/chat/chat.component.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  final String? initialOtherUserId;
+  final String? initialOtherUserName;
+  final String? initialOtherUserRole;
+
+  const ChatPage({
+    super.key,
+    this.initialOtherUserId,
+    this.initialOtherUserName,
+    this.initialOtherUserRole,
+  });
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -19,18 +33,21 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final ChatComponent _component = ChatComponent();
+  final ChatUiStateService _chatUiStateService = ChatUiStateService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _chatUiStateService.setInChatModule(true);
     _component.addListener(_onChanged);
-    _component.initialize();
+    _component.initialize().then((_) => _openInitialConversationIfNeeded());
   }
 
   @override
   void dispose() {
+    _chatUiStateService.setInChatModule(false);
     _component.removeListener(_onChanged);
     _component.dispose();
     _messageController.dispose();
@@ -52,6 +69,17 @@ class _ChatPageState extends State<ChatPage> {
         );
       });
     }
+  }
+
+  Future<void> _openInitialConversationIfNeeded() async {
+    final userId = widget.initialOtherUserId?.trim() ?? '';
+    if (userId.isEmpty || !mounted) return;
+
+    await _component.openConversationByUserId(
+      userId: userId,
+      userName: widget.initialOtherUserName,
+      userRole: widget.initialOtherUserRole,
+    );
   }
 
   @override
@@ -397,7 +425,7 @@ class _ChatPageState extends State<ChatPage> {
                     children: [
                       if (!isMe)
                         Text(
-                          '${_component.selectedContact?.nameUser ?? 'Usuario'} Â· ${_formatHour(message.createdAt)}',
+                          '${_component.selectedContact?.nameUser ?? 'Usuario'} - ${_formatHour(message.createdAt)}',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.82),
                             fontSize: 11,
@@ -412,7 +440,7 @@ class _ChatPageState extends State<ChatPage> {
                           child: Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
-                              'Tu Â· ${_formatHour(message.createdAt)} Â· ${_statusLabel(message.status)}',
+                              'Tu - ${_formatHour(message.createdAt)} - ${_statusLabel(message.status)}',
                               style: TextStyle(
                                 color: Colors.black.withValues(alpha: 0.75),
                                 fontSize: 11,
@@ -435,8 +463,18 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _messageContent(ChatMessageModel message, Color textColor) {
-    final imageUrl = _resolveImageUrl(message.content);
-    final isImage = message.messageType == 'image' || imageUrl != null;
+    final imageUrl = _resolveImageUrl(message);
+    final videoUrl = _resolveVideoUrl(message);
+    final videoThumbnailUrl = _resolveVideoThumbnailUrl(message);
+    final isVideo = message.messageType == 'video' || videoUrl != null;
+    final isImage = !isVideo && (message.messageType == 'image' || imageUrl != null);
+
+    if (isVideo) {
+      return _videoMessage(
+        videoUrl ?? message.content,
+        thumbnailUrl: videoThumbnailUrl,
+      );
+    }
 
     if (isImage) {
       return ClipRRect(
@@ -470,20 +508,139 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  String? _resolveImageUrl(String rawContent) {
-    final raw = rawContent.trim();
+  Widget _videoMessage(String videoUrl, {String? thumbnailUrl}) {
+    final resolvedUrl = _fixLocalhostForAndroid(videoUrl);
+    final resolvedThumbnailUrl = thumbnailUrl == null
+        ? null
+        : _fixLocalhostForAndroid(thumbnailUrl);
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => _ChatVideoPlayerPage(videoUrl: resolvedUrl),
+          ),
+        );
+      },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: resolvedThumbnailUrl != null
+                ? Image.network(
+                    resolvedThumbnailUrl,
+                    width: double.infinity,
+                    height: 200,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => VideoThumbnail(
+                      videoUrl: resolvedUrl,
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : VideoThumbnail(
+                    videoUrl: resolvedUrl,
+                    width: double.infinity,
+                    height: 200,
+                    fit: BoxFit.cover,
+                  ),
+          ),
+          Container(
+            width: double.infinity,
+            height: 200,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.18),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.62),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+            ),
+            child: const Icon(
+              Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 34,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _resolveImageUrl(ChatMessageModel message) {
+    final raw = _resolveMediaUrl(message.mediaUrl ?? message.content);
     if (raw.isEmpty) return null;
     if (!_looksLikeImagePath(raw)) return null;
 
+    return _fixLocalhostForAndroid(raw);
+  }
+
+  String? _resolveVideoUrl(ChatMessageModel message) {
+    final payload = _parseLegacyMediaPayload(message.content);
+    final raw = _resolveMediaUrl(
+      message.mediaUrl ?? payload?['url']?.toString() ?? message.content,
+    );
+    if (raw.isEmpty) return null;
+    if (!_looksLikeVideoPath(raw)) return null;
+
+    return _fixLocalhostForAndroid(raw);
+  }
+
+  String? _resolveVideoThumbnailUrl(ChatMessageModel message) {
+    final payload = _parseLegacyMediaPayload(message.content);
+    final thumbnailRaw = _resolveMediaUrl(
+      message.mediaThumbnailUrl ?? payload?['thumbnail_url']?.toString() ?? '',
+    );
+    if (thumbnailRaw.isEmpty) return null;
+    if (!_looksLikeImagePath(thumbnailRaw)) return null;
+
+    return _fixLocalhostForAndroid(thumbnailRaw);
+  }
+
+  String _resolveMediaUrl(String rawContent) {
+    final raw = rawContent.trim();
+    if (raw.isEmpty) return '';
+
     if (raw.startsWith('http://') || raw.startsWith('https://')) {
-      return _fixLocalhostForAndroid(raw);
+      return raw;
     }
 
     if (raw.startsWith('/')) {
-      return '${EnvironmentDev.baseUrl}$raw';
+      final base = EnvironmentDev.resolvedChatApiBaseUrl;
+      return '$base$raw';
     }
 
-    return '${EnvironmentDev.baseUrl}/$raw';
+    final base = EnvironmentDev.resolvedChatApiBaseUrl;
+    return '$base/$raw';
+  }
+
+  Map<String, dynamic>? _parseLegacyMediaPayload(String rawContent) {
+    final raw = rawContent.trim();
+    if (raw.isEmpty || !raw.startsWith('{')) return null;
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
   }
 
   bool _looksLikeImagePath(String value) {
@@ -495,6 +652,16 @@ class _ChatPageState extends State<ChatPage> {
         lower.contains('.gif') ||
         lower.contains('/image') ||
         lower.contains('/images/');
+  }
+
+  bool _looksLikeVideoPath(String value) {
+    final lower = value.toLowerCase();
+    return lower.contains('.mp4') ||
+        lower.contains('.mov') ||
+        lower.contains('.webm') ||
+        lower.contains('.mkv') ||
+        lower.contains('/video') ||
+        lower.contains('/videos/');
   }
 
   String _fixLocalhostForAndroid(String url) {
@@ -516,7 +683,7 @@ class _ChatPageState extends State<ChatPage> {
       child: Row(
         children: [
           IconButton(
-            onPressed: _uploadImage,
+            onPressed: _showAttachmentOptions,
             icon: const Icon(Icons.add_photo_alternate_outlined, color: VcomColors.oroLujoso),
           ),
           Expanded(
@@ -572,10 +739,13 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Future<void> _uploadImage() async {
+  Future<void> _uploadImage({bool fromCamera = false}) async {
     try {
       final uploader = MediaUploadService();
-      final url = await uploader.selectAndUploadImage();
+      final url = await uploader.selectAndUploadImage(
+        fromCamera: fromCamera,
+        conversationId: _component.selectedConversation?.idConversation,
+      );
       if (url == null) return;
       _component.sendImageUrl(url);
     } catch (e) {
@@ -584,6 +754,114 @@ class _ChatPageState extends State<ChatPage> {
         SnackBar(content: Text('No se pudo subir imagen: $e')),
       );
     }
+  }
+
+  Future<void> _uploadVideo({bool fromCamera = false}) async {
+    try {
+      final uploader = MediaUploadService();
+      final upload = await uploader.selectAndUploadVideo(
+        fromCamera: fromCamera,
+        conversationId: _component.selectedConversation?.idConversation,
+      );
+      if (upload == null) return;
+      _component.sendVideo(
+        videoUrl: upload.url,
+        thumbnailUrl: upload.thumbnailUrl,
+        contentType: upload.contentType,
+        metadata: {
+          if ((upload.thumbnailUrl ?? '').trim().isNotEmpty)
+            'thumbnail_url': upload.thumbnailUrl,
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo subir video: $e')),
+      );
+    }
+  }
+
+  Future<void> _showAttachmentOptions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0E1727),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                _attachmentTile(
+                  icon: Icons.photo_library_outlined,
+                  title: 'Imagen desde galeria',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _uploadImage();
+                  },
+                ),
+                _attachmentTile(
+                  icon: Icons.photo_camera_outlined,
+                  title: 'Imagen desde camara',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _uploadImage(fromCamera: true);
+                  },
+                ),
+                _attachmentTile(
+                  icon: Icons.video_library_outlined,
+                  title: 'Video desde galeria',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _uploadVideo();
+                  },
+                ),
+                _attachmentTile(
+                  icon: Icons.videocam_outlined,
+                  title: 'Video desde camara',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _uploadVideo(fromCamera: true);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _attachmentTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        tileColor: Colors.white.withValues(alpha: 0.04),
+        leading: Icon(icon, color: VcomColors.oroLujoso),
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
   }
 
   void _sendMessage() {
@@ -654,6 +932,100 @@ class _ChatPageState extends State<ChatPage> {
       child: Text(
         text,
         style: TextStyle(color: Colors.white.withValues(alpha: 0.78)),
+      ),
+    );
+  }
+}
+
+class _ChatVideoPlayerPage extends StatefulWidget {
+  final String videoUrl;
+
+  const _ChatVideoPlayerPage({required this.videoUrl});
+
+  @override
+  State<_ChatVideoPlayerPage> createState() => _ChatVideoPlayerPageState();
+}
+
+class _ChatVideoPlayerPageState extends State<_ChatVideoPlayerPage> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    _controller = controller;
+
+    try {
+      await controller.initialize();
+      await controller.play();
+      if (!mounted || _controller != controller) {
+        await controller.dispose();
+        return;
+      }
+
+      setState(() {
+        _isInitialized = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo reproducir el video')),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: !_isInitialized || controller == null
+            ? const CircularProgressIndicator(color: VcomColors.oroLujoso)
+            : AspectRatio(
+                aspectRatio: controller.value.aspectRatio > 0
+                    ? controller.value.aspectRatio
+                    : 16 / 9,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    VideoPlayer(controller),
+                    IconButton(
+                      onPressed: () {
+                        if (controller.value.isPlaying) {
+                          controller.pause();
+                        } else {
+                          controller.play();
+                        }
+                        setState(() {});
+                      },
+                      iconSize: 56,
+                      color: Colors.white,
+                      icon: Icon(
+                        controller.value.isPlaying
+                            ? Icons.pause_circle_filled
+                            : Icons.play_circle_fill,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
       ),
     );
   }

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:vcom_app/core/chat/chat_push.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/pages/app_launch/app_intro.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
@@ -20,6 +22,7 @@ Future<void> main() async {
   await initializeDateFormatting('es');
   await initializeDateFormatting('es_CO');
   Intl.defaultLocale = 'es_CO';
+  await TokenService().initialize();
   runApp(const MyApp());
 }
 
@@ -38,6 +41,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(TokenService().handleExpiredTokenIfNeeded());
+    unawaited(UserStatusService().initialize());
+    unawaited(ChatPushService().initialize());
     _sessionCheckTimer = Timer.periodic(
       const Duration(seconds: 15),
       (_) => unawaited(TokenService().handleExpiredTokenIfNeeded()),
@@ -55,6 +60,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(TokenService().handleExpiredTokenIfNeeded());
+      unawaited(UserStatusService().initialize());
+      unawaited(ChatPushService().initialize());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(UserStatusService().setOffline());
     }
   }
 

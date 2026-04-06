@@ -5,23 +5,33 @@ import 'package:web_socket_channel/io.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 
 class ChatSocketService {
+  static final ChatSocketService _instance = ChatSocketService._internal();
+  factory ChatSocketService() => _instance;
+  ChatSocketService._internal();
+
   IOWebSocketChannel? _channel;
   StreamSubscription? _subscription;
   final StreamController<Map<String, dynamic>> _eventsController =
       StreamController<Map<String, dynamic>>.broadcast();
 
   bool _isConnected = false;
+  String? _connectedToken;
 
   Stream<Map<String, dynamic>> get events => _eventsController.stream;
   bool get isConnected => _isConnected;
 
   Future<void> connect(String token) async {
+    if (_channel != null && _connectedToken == token) {
+      return;
+    }
+
     await disconnect();
 
     final uri = Uri.parse(EnvironmentDev.chatWebSocketUrl).replace(
       queryParameters: {'token': token},
     );
 
+    _connectedToken = token;
     _channel = IOWebSocketChannel.connect(uri.toString());
     _subscription = _channel!.stream.listen(
       (dynamic raw) {
@@ -54,6 +64,7 @@ class ChatSocketService {
 
   Future<void> disconnect() async {
     _isConnected = false;
+    _connectedToken = null;
     await _subscription?.cancel();
     _subscription = null;
     await _channel?.sink.close();
@@ -62,6 +73,5 @@ class ChatSocketService {
 
   Future<void> dispose() async {
     await disconnect();
-    await _eventsController.close();
   }
 }

@@ -1,10 +1,7 @@
-import 'package:flutter/foundation.dart';
-
 /// Configuración de ambiente de desarrollo
 class EnvironmentDev {
   /// URL base del API local
   static const String baseUrl = 'https://vcamb.microwesttechnologies.com';
-  // static const String baseUrl = 'https://vcamb.microwesttechnologies.com'; // Producción
   // static const String baseUrl = 'http://192.168.1.2:8000'; // IP local (desarrollo)
   // static const String baseUrl = 'http://localhost:8000'; // Localhost (para web/desktop)
   // static const String baseUrl = 'http://10.0.2.2:8000'; // Emulador Android
@@ -30,8 +27,8 @@ class EnvironmentDev {
   /// Obtener información del usuario autenticado
   static const String authMe = '/api/v1/auth/me';
 
-  /// Obtener módulos y permisos del usuario autenticado
-  static const String authPermissions = '/api/v1/auth/permissions';
+  /// Obtener permisos del módulo de grilla de permisos
+  static const String authPermissions = '/api/v1/permisionsByModule/3';
 
   /// Cerrar sesión y actualizar estado a offline
   static const String authLogout = '/api/v1/auth/logout';
@@ -150,26 +147,30 @@ class EnvironmentDev {
   // ============================================================================
   static const String chatApiBaseUrl = String.fromEnvironment(
     'CHAT_API_BASE_URL',
-    defaultValue: 'http://localhost:8081',
+    defaultValue: 'https://wschat.vcommunity.cloud',
   );
 
-  static String get resolvedChatApiBaseUrl {
-    final base = chatApiBaseUrl;
-    final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    if (!isAndroid) return base;
+  static const String chatWebSocketBaseUrl = String.fromEnvironment(
+    'CHAT_WS_BASE_URL',
+    defaultValue: 'https://wschat.vcommunity.cloud',
+  );
 
-    return base
-        .replaceFirst('://localhost', '://10.0.2.2')
-        .replaceFirst('://127.0.0.1', '://10.0.2.2');
+  static String get resolvedChatApiBaseUrl => chatApiBaseUrl;
+
+  static String get resolvedChatWebSocketBaseUrl {
+    return chatWebSocketBaseUrl;
   }
 
   static const String chatApiPath = '/api/chat';
+  static const String chatWebSocketPath = '/ws';
+
+  static const String chatPushTokensPath = '/devices/push-tokens';
 
   static String get chatWebSocketUrl {
-    final base = resolvedChatApiBaseUrl
+    final base = resolvedChatWebSocketBaseUrl
         .replaceFirst('https://', 'wss://')
         .replaceFirst('http://', 'ws://');
-    return '$base/ws';
+    return '$base$chatWebSocketPath';
   }
 
   // ============================================================================

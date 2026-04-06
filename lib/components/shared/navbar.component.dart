@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/chat/chat_push.service.dart';
 import 'package:vcom_app/core/common/biometric.service.dart';
 import 'package:vcom_app/core/common/credentials.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
@@ -646,6 +647,7 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
           )
           .timeout(const Duration(seconds: 3));
     } catch (_) {}
+    await ChatPushService().unregisterCurrentDevice();
     await userStatusService.setOffline();
     tokenService.clear();
     if (context.mounted) {

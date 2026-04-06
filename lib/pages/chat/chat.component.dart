@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:vcom_app/core/chat/chat_api.service.dart';
 import 'package:vcom_app/core/chat/chat_socket.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/core/models/chat/chat_contact.model.dart';
 import 'package:vcom_app/core/models/chat/chat_conversation.model.dart';
 import 'package:vcom_app/core/models/chat/chat_message.model.dart';
@@ -12,6 +13,7 @@ class ChatComponent extends ChangeNotifier {
   final ChatApiService _api = ChatApiService();
   final ChatSocketService _socket = ChatSocketService();
   final TokenService _tokenService = TokenService();
+  final UserStatusService _userStatusService = UserStatusService();
 
   bool _isLoading = false;
   String? _error;
@@ -30,6 +32,8 @@ class ChatComponent extends ChangeNotifier {
 
   StreamSubscription<Map<String, dynamic>>? _wsSubscription;
   Map<String, String> _presenceNameById = const {};
+  Map<String, bool> _presenceOnlineById = const {};
+  Map<String, bool> _presenceOnlineByRoleAndName = const {};
   Timer? _typingInactivityTimer;
   bool _typingEmitted = false;
 
@@ -51,6 +55,7 @@ class ChatComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await _tokenService.initialize();
       final me = await _api.fetchMe();
       _currentUserId = (me['id_user'] ?? '').toString().trim();
       _currentUserName = (me['name_user'] ?? '').toString().trim();
@@ -66,10 +71,13 @@ class ChatComponent extends ChangeNotifier {
         _currentRole = (_tokenService.getRole() ?? '').trim();
       }
 
-      _contacts = await _api.fetchContacts(
+      _hydratePresenceCache();
+
+      final fetchedContacts = await _api.fetchContacts(
         currentRole: _currentRole,
         currentUserId: _currentUserId,
       );
+      _contacts = _mergePresenceIntoContacts(fetchedContacts);
       _conversations = await _api.fetchConversations();
 
       final token = _tokenService.getToken();
@@ -78,6 +86,7 @@ class ChatComponent extends ChangeNotifier {
       }
 
       await _socket.connect(token);
+      _socket.emit('chat.screen.open', {});
       _wsSubscription?.cancel();
       _wsSubscription = _socket.events.listen(_handleSocketEvent);
     } catch (e) {
@@ -88,12 +97,19 @@ class ChatComponent extends ChangeNotifier {
     }
   }
 
+  void _hydratePresenceCache() {
+    _presenceNameById = _userStatusService.presenceNameById;
+    _presenceOnlineById = _userStatusService.presenceOnlineById;
+    _presenceOnlineByRoleAndName = _userStatusService.presenceOnlineByRoleAndName;
+  }
+
   Future<void> refresh() async {
     try {
-      _contacts = await _api.fetchContacts(
+      final fetchedContacts = await _api.fetchContacts(
         currentRole: _currentRole,
         currentUserId: _currentUserId,
       );
+      _contacts = _mergePresenceIntoContacts(fetchedContacts);
       _conversations = await _api.fetchConversations();
       notifyListeners();
     } catch (_) {}
@@ -144,6 +160,36 @@ class ChatComponent extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> openConversationByUserId({
+    required String userId,
+    String? userName,
+    String? userRole,
+  }) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) return;
+
+    ChatContactModel? contact;
+    for (final item in _contacts) {
+      if (item.idUser.trim() == normalizedUserId) {
+        contact = item;
+        break;
+      }
+    }
+
+    contact ??= ChatContactModel(
+      idUser: normalizedUserId,
+      nameUser: (userName ?? '').trim().isNotEmpty ? userName!.trim() : 'Chat',
+      roleUser: (userRole ?? '').trim(),
+      isOnline: _resolveCachedOnline(
+        userId: normalizedUserId,
+        userName: userName,
+        userRole: userRole,
+      ),
+    );
+
+    await openConversation(contact);
   }
 
   Future<void> backToList() async {
@@ -206,6 +252,30 @@ class ChatComponent extends ChangeNotifier {
       'conversation_id': id,
       'content': imageUrl.trim(),
       'message_type': 'image',
+      'media_url': imageUrl.trim(),
+    });
+  }
+
+  void sendVideo({
+    required String videoUrl,
+    String? thumbnailUrl,
+    String? contentType,
+    Map<String, dynamic>? metadata,
+  }) {
+    final id = _selectedConversation?.idConversation;
+    if (id == null || videoUrl.trim().isEmpty) return;
+    emitTypingStop();
+
+    _socket.emit('message.send', {
+      'conversation_id': id,
+      'content': videoUrl.trim(),
+      'message_type': 'video',
+      'media_url': videoUrl.trim(),
+      if ((thumbnailUrl ?? '').trim().isNotEmpty)
+        'media_thumbnail_url': thumbnailUrl!.trim(),
+      if ((contentType ?? '').trim().isNotEmpty)
+        'media_content_type': contentType!.trim(),
+      if (metadata != null) 'media_metadata': metadata,
     });
   }
 
@@ -294,23 +364,30 @@ class ChatComponent extends ChangeNotifier {
     final byId = <String, Map<String, dynamic>>{};
     final byRoleAndName = <String, Map<String, dynamic>>{};
     final nameById = <String, String>{};
+    final onlineById = <String, bool>{};
+    final onlineByRoleAndName = <String, bool>{};
 
     for (final raw in rawContacts.whereType<Map<String, dynamic>>()) {
       final id = (raw['user_id'] ?? '').toString().trim();
       final name = (raw['name_user'] ?? raw['name'] ?? '').toString().trim();
       final role = (raw['role_user'] ?? raw['role'] ?? '').toString().trim();
       final key = _roleAndNameKey(role, name);
+      final isOnline = raw['is_online'] == true;
 
       if (id.isNotEmpty) {
         byId[id] = raw;
         nameById[id] = _normalizeName(name);
+        onlineById[id] = isOnline;
       }
       if (key.isNotEmpty) {
         byRoleAndName[key] = raw;
+        onlineByRoleAndName[key] = isOnline;
       }
     }
 
     _presenceNameById = nameById;
+    _presenceOnlineById = onlineById;
+    _presenceOnlineByRoleAndName = onlineByRoleAndName;
 
     _contacts = _contacts
         .map((c) {
@@ -349,6 +426,21 @@ class ChatComponent extends ChangeNotifier {
     if (userId.isEmpty || _contacts.isEmpty) return;
 
     final normalizedFromPresence = _presenceNameById[userId] ?? '';
+    final nextOnlineById = Map<String, bool>.from(_presenceOnlineById);
+    nextOnlineById[userId] = isOnline;
+    _presenceOnlineById = nextOnlineById;
+
+    if (normalizedFromPresence.isNotEmpty) {
+      final matchingKeys = _contacts
+          .where((c) => _normalizeName(c.nameUser) == normalizedFromPresence)
+          .map((c) => _roleAndNameKey(c.roleUser, c.nameUser))
+          .where((key) => key.isNotEmpty);
+      final nextOnlineByRoleAndName = Map<String, bool>.from(_presenceOnlineByRoleAndName);
+      for (final key in matchingKeys) {
+        nextOnlineByRoleAndName[key] = isOnline;
+      }
+      _presenceOnlineByRoleAndName = nextOnlineByRoleAndName;
+    }
 
     var changed = false;
     _contacts = _contacts
@@ -390,6 +482,42 @@ class ChatComponent extends ChangeNotifier {
     }
   }
 
+  List<ChatContactModel> _mergePresenceIntoContacts(List<ChatContactModel> contacts) {
+    if (contacts.isEmpty) return contacts;
+
+    return contacts
+        .map((c) {
+          final byId = _presenceOnlineById[c.idUser.trim()];
+          final byRoleAndName = _presenceOnlineByRoleAndName[_roleAndNameKey(
+            c.roleUser,
+            c.nameUser,
+          )];
+          final isOnline = byId ?? byRoleAndName ?? c.isOnline;
+
+          if (isOnline == c.isOnline) return c;
+          return ChatContactModel(
+            idUser: c.idUser,
+            nameUser: c.nameUser,
+            roleUser: c.roleUser,
+            isOnline: isOnline,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  bool _resolveCachedOnline({
+    required String userId,
+    String? userName,
+    String? userRole,
+  }) {
+    final byId = _presenceOnlineById[userId.trim()];
+    if (byId != null) return byId;
+
+    final roleAndName = _roleAndNameKey(userRole ?? '', userName ?? '');
+    if (roleAndName.isEmpty) return false;
+    return _presenceOnlineByRoleAndName[roleAndName] ?? false;
+  }
+
   static String _normalizeName(String value) {
     return value.trim().toLowerCase();
   }
@@ -416,10 +544,10 @@ class ChatComponent extends ChangeNotifier {
   @override
   void dispose() {
     emitTypingStop();
+    _socket.emit('chat.screen.close', {});
     _typingInactivityTimer?.cancel();
     _typingInactivityTimer = null;
     _wsSubscription?.cancel();
-    _socket.dispose();
     super.dispose();
   }
 }
