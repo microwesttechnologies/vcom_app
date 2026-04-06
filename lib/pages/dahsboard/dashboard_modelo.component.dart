@@ -393,6 +393,9 @@ class DashboardModeloComponent extends ChangeNotifier {
                 user['name'] as String? ??
                 user['name_user'] as String? ??
                 _userName;
+            if (_userName != null && _userName!.trim().isNotEmpty) {
+              _tokenService.setUserName(_userName!.trim());
+            }
             _userAvatarUrl =
                 user['avatar_url'] as String? ??
                 user['avatar'] as String? ??
@@ -421,6 +424,9 @@ class DashboardModeloComponent extends ChangeNotifier {
               user['name'] as String? ??
               user['name_user'] as String? ??
               _userName;
+          if (_userName != null && _userName!.trim().isNotEmpty) {
+            _tokenService.setUserName(_userName!.trim());
+          }
           _userAvatarUrl =
               user['avatar_url'] as String? ??
               user['avatar'] as String? ??

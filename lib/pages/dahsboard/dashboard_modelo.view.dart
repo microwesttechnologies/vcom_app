@@ -89,10 +89,12 @@ class _DashboardModeloViewState extends State<DashboardModeloView> {
   String _resolveFirstName(DashboardModeloComponent comp) {
     final rawName = (comp.userName ?? '').trim();
     if (rawName.isEmpty) {
-      return 'bienvenida';
+      return 'Modelo';
     }
-
-    return rawName.split(RegExp(r'\s+')).first;
+    final first = rawName.split(RegExp(r'\s+')).first.trim();
+    if (first.isEmpty) return 'Modelo';
+    if (first.length == 1) return first.toUpperCase();
+    return '${first[0].toUpperCase()}${first.substring(1).toLowerCase()}';
   }
 
   String _resolveGreeting() {

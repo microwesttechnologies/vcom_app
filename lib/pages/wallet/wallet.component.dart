@@ -97,6 +97,17 @@ class WalletComponent extends ChangeNotifier {
     );
   }
 
+  String _normalizeModelId(String? raw) {
+    if (raw == null) return '';
+    final value = raw.trim();
+    if (value.isEmpty) return '';
+    final parts = value.split(':');
+    if (parts.length == 2 && parts[1].trim().isNotEmpty) {
+      return parts[1].trim();
+    }
+    return value;
+  }
+
   // ── Inicializar ──────────────────────────────────────────────────────────────
   Future<void> initialize({bool forceRefresh = false}) async {
     if (forceRefresh) {
@@ -212,8 +223,16 @@ class WalletComponent extends ChangeNotifier {
         final data = body is Map ? (body['data'] ?? body) : body;
         _balance = ModelBalanceModel.fromJson(data as Map<String, dynamic>);
         await _cache.write(cacheKey, res.body);
+      } else {
+        // En algunos entornos legacy este endpoint no existe (404).
+        // No bloqueamos Wallet por saldo; se resuelve con liquidaciones.
+        if (res.statusCode != 404) {
+          _error = 'No fue posible cargar el saldo (${res.statusCode})';
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      _error ??= 'Error cargando saldo: $e';
+    }
   }
 
   // ── Fetch TRM ────────────────────────────────────────────────────────────────
@@ -253,8 +272,12 @@ class WalletComponent extends ChangeNotifier {
           _trmValue = (data['trm_value'] as num?)?.toDouble() ?? 0.0;
           await _cache.write(cacheKey, res.body);
         }
+      } else {
+        _error ??= 'No fue posible cargar la TRM (${res.statusCode})';
       }
-    } catch (_) {}
+    } catch (e) {
+      _error ??= 'Error cargando TRM: $e';
+    }
   }
 
   // ── Fetch producciones semanales ─────────────────────────────────────────────
@@ -282,8 +305,8 @@ class WalletComponent extends ChangeNotifier {
   }) async {
     try {
       final token = TokenService();
-      final modelId = token.getUserId();
-      if (modelId == null || modelId.isEmpty) return [];
+      final modelId = _normalizeModelId(token.getUserId());
+      if (modelId.isEmpty) return [];
 
       final cacheKey = _cacheKey('wallet::productions', '$startDate::$endDate');
       if (!forceRefresh) {
@@ -347,8 +370,11 @@ class WalletComponent extends ChangeNotifier {
             .toList();
         await _cache.write(cacheKey, res.body);
         return records;
+      } else {
+        _error ??= 'No fue posible cargar producciones (${res.statusCode})';
       }
     } catch (e) {
+      _error ??= 'Error cargando producciones: $e';
       debugPrint('[Wallet][Production] error=$e');
     }
     return [];
@@ -358,8 +384,8 @@ class WalletComponent extends ChangeNotifier {
   Future<void> _fetchLiquidations({bool forceRefresh = false}) async {
     try {
       final token = TokenService();
-      final modelId = token.getUserId();
-      if (modelId == null || modelId.isEmpty) return;
+      final modelId = _normalizeModelId(token.getUserId());
+      if (modelId.isEmpty) return;
 
       final cacheKey = _cacheKey('wallet::liquidations');
       if (!forceRefresh) {
@@ -423,8 +449,12 @@ class WalletComponent extends ChangeNotifier {
           (a, b) => b.liquidationDate.compareTo(a.liquidationDate),
         );
         await _cache.write(cacheKey, res.body);
+      } else {
+        _error ??= 'No fue posible cargar liquidaciones (${res.statusCode})';
       }
-    } catch (_) {}
+    } catch (e) {
+      _error ??= 'Error cargando liquidaciones: $e';
+    }
   }
 
   // ── Fetch producciones de la última liquidación ───────────────────────────────
@@ -507,8 +537,8 @@ class WalletComponent extends ChangeNotifier {
   }) async {
     try {
       final token = TokenService();
-      final modelId = token.getUserId();
-      if (modelId == null || modelId.isEmpty) return [];
+      final modelId = _normalizeModelId(token.getUserId());
+      if (modelId.isEmpty) return [];
 
       final cacheKey = _cacheKey('wallet::deductions', '$startDate::$endDate');
       if (!forceRefresh) {
@@ -565,8 +595,11 @@ class WalletComponent extends ChangeNotifier {
             .toList();
         await _cache.write(cacheKey, res.body);
         return records;
+      } else {
+        _error ??= 'No fue posible cargar deducciones (${res.statusCode})';
       }
     } catch (e) {
+      _error ??= 'Error cargando deducciones: $e';
       debugPrint('[Wallet] fetchDeductions error: $e');
     }
     return [];
@@ -580,8 +613,8 @@ class WalletComponent extends ChangeNotifier {
   }) async {
     try {
       final token = TokenService();
-      final modelId = token.getUserId();
-      if (modelId == null || modelId.isEmpty) return null;
+      final modelId = _normalizeModelId(token.getUserId());
+      if (modelId.isEmpty) return null;
 
       final cacheKey = _cacheKey(
         'wallet::desprendible',
@@ -620,8 +653,12 @@ class WalletComponent extends ChangeNotifier {
         final data = body is Map ? (body['data'] ?? body) : body;
         await _cache.write(cacheKey, res.body);
         return LiquidationDetail.fromJson(data as Map<String, dynamic>);
+      } else {
+        _error ??=
+            'No fue posible calcular desprendible para el período (${res.statusCode})';
       }
     } catch (e) {
+      _error ??= 'Error calculando desprendible: $e';
       debugPrint('fetchDesprendible error: $e');
     }
     return null;

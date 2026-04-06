@@ -43,9 +43,20 @@ class EventsComponent extends ChangeNotifier {
     return role == 'MONITOR' || role == 'ADMIN';
   }
 
-  bool get canReadEvents => _permissionService.canReadModule(
-    routeHints: const ['event', 'evento', 'calendar', 'calendario'],
-  );
+  bool get _canReadByRole {
+    final role = (_tokenService.getRole() ?? '').trim().toUpperCase();
+    return role == 'MONITOR' ||
+        role == 'ADMIN' ||
+        role == 'MODELO' ||
+        role == 'MODEL' ||
+        role == 'MODAL';
+  }
+
+  bool get canReadEvents =>
+      _canReadByRole ||
+      _permissionService.canReadModule(
+        routeHints: const ['event', 'evento', 'calendar', 'calendario'],
+      );
   bool get canCreateEvents =>
       _isMonitorOrAdmin ||
       _permissionService.canCreateModule(

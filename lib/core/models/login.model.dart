@@ -8,18 +8,24 @@ class LoginResponse {
   final String token;
   final String tokenType;
   final int expiresIn;
+  final UserModel? user;
 
   LoginResponse({
     required this.token,
     required this.tokenType,
     required this.expiresIn,
+    this.user,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
+    final rawUser = json['user'];
     return LoginResponse(
       token: json['token'] as String,
       tokenType: json['token_type'] as String? ?? 'bearer',
       expiresIn: _parseInt(json['expires_in']),
+      user: rawUser is Map<String, dynamic>
+          ? UserModel.fromJson(rawUser)
+          : null,
     );
   }
 

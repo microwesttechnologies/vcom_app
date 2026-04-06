@@ -196,10 +196,7 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
 
     final roleLabel = _buildRoleLabel(normalizedRole);
     final fallbackName = normalizedRole == 'MONITOR' ? 'Monitor' : 'Modelo';
-    final name = token.getUserName() ?? fallbackName;
-    final firstName = name.trim().isNotEmpty
-        ? name.split(' ').first
-        : fallbackName;
+    final firstName = _resolveFirstName(token.getUserName(), fallbackName);
     final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'M';
 
     return GlassNavbarComponent(
@@ -232,6 +229,16 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
         ? 'Buenas tardes'
         : 'Buenas noches';
     return '$greeting, $firstName';
+  }
+
+  String _resolveFirstName(String? rawName, String fallbackName) {
+    final raw = (rawName ?? '').trim();
+    if (raw.isEmpty) return fallbackName;
+
+    final first = raw.split(RegExp(r'\s+')).first.trim();
+    if (first.isEmpty) return fallbackName;
+    if (first.length == 1) return first.toUpperCase();
+    return '${first[0].toUpperCase()}${first.substring(1).toLowerCase()}';
   }
 
   void _showUserMenu(BuildContext context) {

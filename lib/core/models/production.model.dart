@@ -82,7 +82,7 @@ class ProductionRecord {
 
     return ProductionRecord(
       idProduction: _parseInt(json['id_production'] ?? json['id']),
-      idModel: json['id_model'] as String? ?? '',
+      idModel: (json['id_model'] ?? '').toString().trim(),
       idPlatform: _parseInt(json['id_platform']),
       earningsUsd: _parseDouble(
         json['earnings_usd'] ??
@@ -184,7 +184,7 @@ class LiquidationRecord {
     final parsedTrm = _parseDouble(json['trm_value'] ?? json['trm']);
     return LiquidationRecord(
       idLiquidation: _parseInt(json['id_liquidation'] ?? json['id']),
-      idModel: json['id_model'] as String? ?? '',
+      idModel: (json['id_model'] ?? '').toString().trim(),
       nameUser: json['name_user'] as String?,
       nickname: json['nickname'] as String?,
       startDate: (json['start_date'] ?? period['start_date'])?.toString() ?? '',
@@ -243,7 +243,7 @@ class DeductionRecord {
   factory DeductionRecord.fromJson(Map<String, dynamic> json) {
     return DeductionRecord(
       idDeduction: (json['id_deduction'] as num?)?.toInt() ?? 0,
-      idModel: json['id_model'] as String? ?? '',
+      idModel: (json['id_model'] ?? '').toString().trim(),
       deductionName: json['deduction_name'] as String? ?? '—',
       deductionDetail: json['deduction_detail'] as String? ?? '',
       deductionDate:

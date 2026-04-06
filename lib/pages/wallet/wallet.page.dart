@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
@@ -8,7 +8,7 @@ import 'package:vcom_app/pages/wallet/desprendible_detail.page.dart';
 import 'package:vcom_app/pages/wallet/wallet.component.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
-// ── Modelo de semana ──────────────────────────────────────────────────────────
+// â”€â”€ Modelo de semana â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _WeekOption {
   final int number; // SEM 1, SEM 2 ...
@@ -24,7 +24,7 @@ class _WeekOption {
   });
 }
 
-/// Genera semanas de domingo a sábado desde el 1 de enero del año actual
+/// Genera semanas de domingo a sÃ¡bado desde el 1 de enero del aÃ±o actual
 /// hasta la semana actual (inclusive).
 List<_WeekOption> _generateWeeks() {
   final now = DateTime.now();
@@ -32,9 +32,9 @@ List<_WeekOption> _generateWeeks() {
   String fmtIso(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  // Primer domingo ≥ 1 de enero del año actual
+  // Primer domingo â‰¥ 1 de enero del aÃ±o actual
   DateTime cursor = DateTime(now.year, 1, 1);
-  // weekday: 1=Lun...7=Dom → avanzar hasta el primer domingo
+  // weekday: 1=Lun...7=Dom â†’ avanzar hasta el primer domingo
   if (cursor.weekday != 7) {
     cursor = cursor.add(Duration(days: 7 - cursor.weekday));
   }
@@ -56,7 +56,7 @@ List<_WeekOption> _generateWeeks() {
     num++;
   }
 
-  // Más reciente primero
+  // MÃ¡s reciente primero
   return weeks.reversed.toList();
 }
 
@@ -86,6 +86,7 @@ class _WalletPageState extends State<WalletPage>
     locale: 'es_CO',
     symbol: '\$',
     decimalDigits: 0,
+    customPattern: '¤ #,##0',
   );
   final _fmtUsd = NumberFormat.currency(
     locale: 'es_CO',
@@ -111,7 +112,7 @@ class _WalletPageState extends State<WalletPage>
   }
 
   void _onData() {
-    // Al cargar, pre-seleccionar la semana de la última liquidación
+    // Al cargar, pre-seleccionar la semana de la Ãºltima liquidaciÃ³n
     if (_selectedWeek == null && _component.lastLiquidation != null) {
       final last = _component.lastLiquidation!;
       final match = _weeks.cast<_WeekOption?>().firstWhere(
@@ -125,12 +126,12 @@ class _WalletPageState extends State<WalletPage>
     setState(() {});
   }
 
-  // ── Helpers de formato ────────────────────────────────────────────────────────
+  // â”€â”€ Helpers de formato â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   String _copAmount(double v) => _fmtCop.format(v);
   String _usdAmount(double v) => _fmtUsd.format(v);
 
-  /// Formatea la fecha de producción: "03/Ene/2026"
+  /// Formatea la fecha de producciÃ³n: "03/Ene/2026"
   String _fmtDate(String raw) {
     try {
       final d = DateTime.parse(raw.length > 10 ? raw.substring(0, 10) : raw);
@@ -155,7 +156,7 @@ class _WalletPageState extends State<WalletPage>
     'dic',
   ];
 
-  /// Formatea fecha+hora ISO a "11/mar/2026 · 4:40 p.m."
+  /// Formatea fecha+hora ISO a "11/mar/2026 Â· 4:40 p.m."
   String _fmtDateTime(String raw) {
     try {
       final d = DateTime.parse(raw).toLocal();
@@ -165,7 +166,7 @@ class _WalletPageState extends State<WalletPage>
       final hour = d.hour % 12 == 0 ? 12 : d.hour % 12;
       final min = d.minute.toString().padLeft(2, '0');
       final period = d.hour < 12 ? 'a.m.' : 'p.m.';
-      return '$day/$month/$year · $hour:$min $period';
+      return '$day/$month/$year - $hour:$min $period';
     } catch (_) {
       return raw;
     }
@@ -175,7 +176,7 @@ class _WalletPageState extends State<WalletPage>
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  // ── Build ─────────────────────────────────────────────────────────────────────
+  // â”€â”€ Build â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +224,7 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  // ── Header ────────────────────────────────────────────────────────────────────
+  // â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildHeader() {
     return Padding(
@@ -253,7 +254,7 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  // ── TabBar ────────────────────────────────────────────────────────────────────
+  // â”€â”€ TabBar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildTabBar() {
     return Container(
@@ -284,9 +285,9 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // TAB GANANCIAS
-  // ══════════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   Widget _buildGananciasTab() {
     if (_component.isLoading) {
@@ -304,12 +305,16 @@ class _WalletPageState extends State<WalletPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_component.error != null) ...[
+              _buildErrorBanner(_component.error!),
+              const SizedBox(height: 12),
+            ],
             _buildBalanceCard(),
             const SizedBox(height: 20),
-            // ── Selector de semana ──────────────────────────────────────────
+            // â”€â”€ Selector de semana â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _buildWeekSelector(),
             const SizedBox(height: 16),
-            // ── Stats y transmisiones de la semana seleccionada ─────────────
+            // â”€â”€ Stats y transmisiones de la semana seleccionada â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _buildSelectedWeekContent(),
           ],
         ),
@@ -317,7 +322,7 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  // ── Tarjeta de saldo ──────────────────────────────────────────────────────────
+  // â”€â”€ Tarjeta de saldo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildBalanceCard() {
     final liq =
@@ -350,7 +355,7 @@ class _WalletPageState extends State<WalletPage>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Título
+                // TÃ­tulo
                 Text(
                   'SALDO LIQUIDADO',
                   style: TextStyle(
@@ -374,7 +379,7 @@ class _WalletPageState extends State<WalletPage>
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                // Etiqueta COP + período
+                // Etiqueta COP + perÃ­odo
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -388,7 +393,7 @@ class _WalletPageState extends State<WalletPage>
                     ),
                     if (liq != null) ...[
                       Text(
-                        '  ·  ${_fmtDate(liq.startDate)} – ${_fmtDate(liq.endDate)}',
+                        '  -  ${_fmtDate(liq.startDate)} - ${_fmtDate(liq.endDate)}',
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.white.withValues(alpha: 0.35),
@@ -428,7 +433,7 @@ class _WalletPageState extends State<WalletPage>
   }
 
   double _resolveLiquidatedCop(LiquidationRecord? liq) {
-    // 1) Valor pagado de liquidación (fuente principal)
+    // 1) Valor pagado de liquidaciÃ³n (fuente principal)
     if (liq != null && liq.totalCop > 0) {
       return liq.totalCop;
     }
@@ -455,7 +460,7 @@ class _WalletPageState extends State<WalletPage>
     return 0.0;
   }
 
-  // ── Selector de semana ────────────────────────────────────────────────────────
+  // â”€â”€ Selector de semana â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildWeekSelector() {
     final selected = _selectedWeek;
@@ -521,7 +526,7 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  // ── Contenido de la semana seleccionada ───────────────────────────────────────
+  // â”€â”€ Contenido de la semana seleccionada â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildSelectedWeekContent() {
     final week = _selectedWeek;
@@ -564,7 +569,7 @@ class _WalletPageState extends State<WalletPage>
           ),
           const SizedBox(width: 10),
           Text(
-            'Aún no hay liquidaciones registradas',
+            'Aun no hay liquidaciones registradas',
             style: TextStyle(
               fontSize: 13,
               color: Colors.white.withValues(alpha: 0.45),
@@ -575,17 +580,17 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  // ── Sección Transmisiones ─────────────────────────────────────────────────────
+  // â”€â”€ SecciÃ³n Transmisiones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildTransmisionesSection(LiquidationRecord? liq) {
     final all = _component.selectedWeekProductions;
 
-    // Solo registros con valor real (ocultar los que tendrían "—")
+    // Solo registros con valor real (ocultar los que tendrÃ­an "â€”")
     final withValue = all
         .where((r) => r.totalUsd > 0 || r.earningsUsd > 0)
         .toList();
 
-    // Opciones únicas para los filtros (solo de registros con valor)
+    // Opciones Ãºnicas para los filtros (solo de registros con valor)
     final platforms = withValue.map((r) => r.displayName).toSet().toList()
       ..sort();
     final dates =
@@ -597,7 +602,7 @@ class _WalletPageState extends State<WalletPage>
             )
             .toSet()
             .toList()
-          ..sort((a, b) => b.compareTo(a)); // más reciente primero
+          ..sort((a, b) => b.compareTo(a)); // mÃ¡s reciente primero
 
     // Aplicar filtros de plataforma y fecha sobre los que tienen valor
     final filtered = withValue.where((r) {
@@ -611,7 +616,7 @@ class _WalletPageState extends State<WalletPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Encabezado ────────────────────────────────────────────────────────
+        // â”€â”€ Encabezado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         Row(
           children: [
             const Text(
@@ -647,7 +652,7 @@ class _WalletPageState extends State<WalletPage>
         ),
         const SizedBox(height: 10),
 
-        // ── Filtros ───────────────────────────────────────────────────────────
+        // â”€â”€ Filtros â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (withValue.isNotEmpty)
           Row(
             children: [
@@ -677,7 +682,7 @@ class _WalletPageState extends State<WalletPage>
           ),
         const SizedBox(height: 12),
 
-        // ── Lista filtrada ────────────────────────────────────────────────────
+        // â”€â”€ Lista filtrada â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (filtered.isEmpty) ...[
           _buildEmptyState(_noValueMessage()),
         ] else
@@ -686,7 +691,7 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  /// Mensaje de estado vacío contextual según filtros y datos disponibles.
+  /// Mensaje de estado vacÃ­o contextual segÃºn filtros y datos disponibles.
   String _noValueMessage() {
     if (_filterDate != null && _filterPlatform != null) {
       return 'No hay saldos disponibles en $_filterPlatform para el ${_fmtDate(_filterDate!)}';
@@ -697,10 +702,10 @@ class _WalletPageState extends State<WalletPage>
     if (_filterPlatform != null) {
       return 'No hay saldos disponibles en $_filterPlatform';
     }
-    return 'No hay saldos disponibles para este período';
+    return 'No hay saldos disponibles para este periodo';
   }
 
-  /// Combobox genérico para los filtros de transmisiones.
+  /// Combobox genÃ©rico para los filtros de transmisiones.
   Widget _buildFilterDropdown({
     required IconData icon,
     required String hint,
@@ -864,7 +869,7 @@ class _WalletPageState extends State<WalletPage>
                     ? (amountCop > 0
                           ? _copAmount(amountCop)
                           : _usdAmount(usdAmount))
-                    : '—',
+                    : 'â€”',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -888,9 +893,9 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // TAB DEDUCCIONES
-  // ══════════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   Widget _buildDeduccionesTab() {
     if (_component.isLoading) {
@@ -908,7 +913,11 @@ class _WalletPageState extends State<WalletPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Selector de semana ──────────────────────────────────────────────
+          if (_component.error != null) ...[
+            _buildErrorBanner(_component.error!),
+            const SizedBox(height: 12),
+          ],
+          // â”€â”€ Selector de semana â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           GestureDetector(
             onTap: () => _openDeductionsWeekPicker(),
             child: Container(
@@ -950,7 +959,7 @@ class _WalletPageState extends State<WalletPage>
             ),
           ),
           const SizedBox(height: 16),
-          // ── Loader de deducciones ───────────────────────────────────────────
+          // â”€â”€ Loader de deducciones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           _DeduccionesLoader(
             key: ValueKey('$start-$end'),
             component: _component,
@@ -978,9 +987,9 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // TAB HISTORIAL
-  // ══════════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   Widget _buildHistorialTab() {
     if (_component.isLoading) {
@@ -989,6 +998,7 @@ class _WalletPageState extends State<WalletPage>
       );
     }
     final liquidations = _component.liquidations;
+    final hasError = _component.error != null && _component.error!.isNotEmpty;
     return RefreshIndicator(
       onRefresh: () => _component.refresh(),
       color: VcomColors.oroLujoso,
@@ -996,12 +1006,27 @@ class _WalletPageState extends State<WalletPage>
       child: liquidations.isEmpty
           ? ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-              children: [_buildEmptyState('Sin desprendibles registrados')],
+              children: [
+                if (hasError) ...[
+                  _buildErrorBanner(_component.error!),
+                  const SizedBox(height: 12),
+                ],
+                _buildEmptyState('Sin desprendibles registrados'),
+              ],
             )
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-              itemCount: liquidations.length,
-              itemBuilder: (ctx, i) => _buildLiquidationItem(liquidations[i]),
+              itemCount: liquidations.length + (hasError ? 1 : 0),
+              itemBuilder: (ctx, i) {
+                if (hasError && i == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildErrorBanner(_component.error!),
+                  );
+                }
+                final offset = hasError ? 1 : 0;
+                return _buildLiquidationItem(liquidations[i - offset]);
+              },
             ),
     );
   }
@@ -1041,7 +1066,7 @@ class _WalletPageState extends State<WalletPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Semana ${_fmtDate(liq.startDate)} – ${_fmtDate(liq.endDate)}',
+                    'Semana ${_fmtDate(liq.startDate)} - ${_fmtDate(liq.endDate)}',
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -1097,7 +1122,7 @@ class _WalletPageState extends State<WalletPage>
     );
   }
 
-  // ── Helpers compartidos ───────────────────────────────────────────────────────
+  // â”€â”€ Helpers compartidos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildEmptyState(String message) {
     return Center(
@@ -1123,9 +1148,37 @@ class _WalletPageState extends State<WalletPage>
       ),
     );
   }
+
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Colors.redAccent,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-// ── Widget interno: carga y muestra las deducciones de la semana actual ───────
+// â”€â”€ Widget interno: carga y muestra las deducciones de la semana actual â”€â”€â”€â”€â”€â”€â”€
 
 class _DeduccionesLoader extends StatefulWidget {
   final WalletComponent component;
@@ -1186,7 +1239,7 @@ class _DeduccionesLoaderState extends State<_DeduccionesLoader> {
     final hasEndpointDeductions = _deductions.isNotEmpty;
     final hasCalcDeductions = d != null && d.deductions.isNotEmpty;
 
-    // Si no hay ningún dato disponible
+    // Si no hay ningÃºn dato disponible
     if (d == null && !hasEndpointDeductions) {
       return Center(
         child: Column(
@@ -1199,7 +1252,7 @@ class _DeduccionesLoaderState extends State<_DeduccionesLoader> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Sin datos para este período',
+              'Sin datos para este periodo',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.35),
                 fontSize: 14,
@@ -1219,7 +1272,7 @@ class _DeduccionesLoaderState extends State<_DeduccionesLoader> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Deducciones del endpoint ──────────────────────────────────────────
+        // â”€â”€ Deducciones del endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (hasEndpointDeductions) ...[
           const Text(
             'Deducciones',
@@ -1269,11 +1322,11 @@ class _DeduccionesLoaderState extends State<_DeduccionesLoader> {
             ),
           ),
 
-        // ── Retención y cuota bancaria (del calculate-payment) ────────────────
+        // â”€â”€ RetenciÃ³n y cuota bancaria (del calculate-payment) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (d != null) ...[
           if (d.retentionApplied)
             _buildSummaryRow(
-              'Retención en la fuente (${d.retentionPercentage.toStringAsFixed(1)}%)',
+              'Retencion en la fuente (${d.retentionPercentage.toStringAsFixed(1)}%)',
               widget.fmtCop.format(d.retentionAmountCop),
               isNegative: true,
             ),
@@ -1357,7 +1410,7 @@ class _DeduccionesLoaderState extends State<_DeduccionesLoader> {
   }
 
   Widget _buildCalcDeductionRow(Map<String, dynamic> ded) {
-    final name = ded['concept'] as String? ?? ded['name'] as String? ?? '—';
+    final name = ded['concept'] as String? ?? ded['name'] as String? ?? 'â€”';
     final amount =
         (ded['amount_cop'] as num?)?.toDouble() ??
         (ded['amount'] as num?)?.toDouble() ??
@@ -1443,9 +1496,9 @@ class _DeduccionesLoaderState extends State<_DeduccionesLoader> {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Sheet buscador de semanas
-// ══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _WeekPickerSheet extends StatefulWidget {
   final List<_WeekOption> weeks;
@@ -1513,7 +1566,7 @@ class _WeekPickerSheetState extends State<_WeekPickerSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ── Drag handle ────────────────────────────────────────────────
+              // â”€â”€ Drag handle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               Padding(
                 padding: const EdgeInsets.only(top: 12, bottom: 8),
                 child: Container(
@@ -1526,7 +1579,7 @@ class _WeekPickerSheetState extends State<_WeekPickerSheet> {
                 ),
               ),
 
-              // ── Título ─────────────────────────────────────────────────────
+              // â”€â”€ TÃ­tulo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -1552,7 +1605,7 @@ class _WeekPickerSheetState extends State<_WeekPickerSheet> {
                 ),
               ),
 
-              // ── Buscador ───────────────────────────────────────────────────
+              // â”€â”€ Buscador â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -1596,7 +1649,7 @@ class _WeekPickerSheetState extends State<_WeekPickerSheet> {
                           ),
                         ),
                       ),
-                      // Botón limpiar
+                      // BotÃ³n limpiar
                       if (_searchCtrl.text.isNotEmpty)
                         IconButton(
                           icon: Icon(
@@ -1611,7 +1664,7 @@ class _WeekPickerSheetState extends State<_WeekPickerSheet> {
                 ),
               ),
 
-              // ── Lista de semanas ───────────────────────────────────────────
+              // â”€â”€ Lista de semanas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
               Flexible(
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(
@@ -1696,9 +1749,9 @@ class _WeekPickerSheetState extends State<_WeekPickerSheet> {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// Sheet genérico de filtro (plataforma / fecha)
-// ══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Sheet genÃ©rico de filtro (plataforma / fecha)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class _FilterSheet extends StatelessWidget {
   final String title;
@@ -1749,7 +1802,7 @@ class _FilterSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              // Título
+              // TÃ­tulo
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -1769,7 +1822,7 @@ class _FilterSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              // Opción "Todas"
+              // OpciÃ³n "Todas"
               _FilterItem(
                 label: 'Todas',
                 isSelected: value == null,

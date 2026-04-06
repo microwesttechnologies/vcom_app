@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/menubar.component.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
-import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/pages/events/events.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
@@ -45,15 +44,6 @@ class ModeloMenuBar extends StatelessWidget {
         hints: const ['wallet', 'cartera', 'billetera'],
         onTap: (context) =>
             _pushIfNotCurrent<WalletPage>(context, () => const WalletPage()),
-      ),
-      _ModeloMenuEntry(
-        label: 'HUB',
-        icon: Icons.grid_view,
-        hints: const ['hub', 'dashboard', 'inicio'],
-        onTap: (context) => _pushIfNotCurrent<DashboardPage>(
-          context,
-          () => const DashboardPage(),
-        ),
       ),
       _ModeloMenuEntry(
         label: 'CHAT',

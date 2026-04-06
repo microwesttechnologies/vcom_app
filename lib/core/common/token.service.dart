@@ -150,10 +150,14 @@ class TokenService {
   /// Prioriza claims explícitos tipo `id_user` y usa el backend como fuente principal
   /// antes de caer en claims genéricos como `sub`.
   String? getUserId() {
-    return _stringClaim(const [
+    final raw =
+        _stringClaim(const [
           ['id_user'],
+          ['user_id'],
           ['user', 'id_user'],
+          ['user', 'user_id'],
           ['data', 'id_user'],
+          ['data', 'user_id'],
         ]) ??
         _userId ??
         _stringClaim(const [
@@ -163,6 +167,22 @@ class TokenService {
           ['sub'],
         ]) ??
         _userId;
+
+    return _normalizeUserId(raw);
+  }
+
+  String? _normalizeUserId(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+
+    // JWT "sub" puede llegar como "model:9" o "employee:uuid".
+    final parts = trimmed.split(':');
+    if (parts.length == 2 && parts[1].trim().isNotEmpty) {
+      return parts[1].trim();
+    }
+
+    return trimmed;
   }
 
   /// Verifica si hay un token guardado.
