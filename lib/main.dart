@@ -5,14 +5,18 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:vcom_app/core/chat/chat_push.service.dart';
+import 'package:vcom_app/core/common/app_routes.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/pages/app_launch/app_intro.page.dart';
+import 'package:vcom_app/pages/auth/login.page.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
+import 'package:vcom_app/pages/chat/chat.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
+import 'package:vcom_app/pages/hub/hub.page.dart';
 import 'package:vcom_app/pages/wallet/wallet.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
@@ -87,12 +91,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       home: const AppIntroPage(),
       routes: {
-        '/dashboard': (context) => const DashboardPage(),
-        '/categories': (context) => const ManagerCategoryPage(),
-        '/brands': (context) => const ManagerBrandPage(),
-        '/shop': (context) => const ShopPage(),
-        '/training': (context) => const TrainingPage(),
-        '/wallet': (context) => const WalletPage(),
+        AppRoutes.login: (context) => const LoginPage(),
+        AppRoutes.dashboard: (context) => const DashboardPage(),
+        AppRoutes.categories: (context) => const ManagerCategoryPage(),
+        AppRoutes.brands: (context) => const ManagerBrandPage(),
+        AppRoutes.shop: (context) => const ShopPage(),
+        AppRoutes.training: (context) => const TrainingPage(),
+        AppRoutes.wallet: (context) => const WalletPage(),
+        AppRoutes.hub: (context) => const HubPage(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name != AppRoutes.chat) return null;
+
+        final args = settings.arguments as Map<String, String?>?;
+        return MaterialPageRoute(
+          builder: (_) => ChatPage(
+            initialOtherUserId: args?[AppRoutes.chatArgOtherUserId],
+            initialOtherUserName: args?[AppRoutes.chatArgOtherUserName],
+            initialOtherUserRole: args?[AppRoutes.chatArgOtherUserRole],
+          ),
+        );
       },
     );
   }

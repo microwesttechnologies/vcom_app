@@ -8,6 +8,7 @@ import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/pages/events/events.page.dart';
+import 'package:vcom_app/pages/hub/hub.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/pages/wallet/wallet.page.dart';
@@ -16,10 +17,7 @@ import 'package:vcom_app/style/vcom_colors.dart';
 class DynamicSidebarDrawer extends StatefulWidget {
   final List<String> selectedRouteHints;
 
-  const DynamicSidebarDrawer({
-    super.key,
-    required this.selectedRouteHints,
-  });
+  const DynamicSidebarDrawer({super.key, required this.selectedRouteHints});
 
   @override
   State<DynamicSidebarDrawer> createState() => _DynamicSidebarDrawerState();
@@ -174,9 +172,9 @@ class _DynamicSidebarDrawerState extends State<DynamicSidebarDrawer> {
     Navigator.of(context).pop();
     if (_isDashboardSelected) return;
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const DashboardPage()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const DashboardPage()));
   }
 
   void _navigateToModule(BuildContext context, ModuleModel module) {
@@ -194,17 +192,16 @@ class _DynamicSidebarDrawerState extends State<DynamicSidebarDrawer> {
       return;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => page),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => page));
   }
 
   Widget? _resolvePage(String route) {
     final normalizedRoute = _normalize(route);
 
     if (normalizedRoute.contains('dashboard') ||
-        normalizedRoute.contains('inicio') ||
-        normalizedRoute.contains('hub')) {
+        normalizedRoute.contains('inicio')) {
       return const DashboardPage();
     }
     if (normalizedRoute.contains('category') ||
@@ -237,6 +234,11 @@ class _DynamicSidebarDrawerState extends State<DynamicSidebarDrawer> {
     if (normalizedRoute.contains('wallet') ||
         normalizedRoute.contains('cartera')) {
       return const WalletPage();
+    }
+    if (normalizedRoute.contains('hub') ||
+        normalizedRoute.contains('feed') ||
+        normalizedRoute.contains('chisme')) {
+      return const HubPage();
     }
 
     return null;

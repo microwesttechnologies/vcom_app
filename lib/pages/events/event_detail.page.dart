@@ -39,9 +39,6 @@ class _EventDetailPageState extends State<EventDetailPage> {
     return role == 'MONITOR' || role == 'ADMIN';
   }
 
-  bool get _canUpdateEvents => _permissionService.canUpdateModule(
-    routeHints: const ['event', 'evento', 'calendar', 'calendario'],
-  );
   bool get _canDeleteEvents =>
       _canManageEvents ||
       _permissionService.canDeleteModule(
@@ -81,40 +78,41 @@ class _EventDetailPageState extends State<EventDetailPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Transform.translate(
-                offset: const Offset(0, -16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildInfoGrid(),
-                    const SizedBox(height: 12),
-                    if ((_event.linkAccess ?? '').isNotEmpty) _buildLinkCard(),
-                    if ((_event.linkAccess ?? '').isNotEmpty)
+                  offset: const Offset(0, -16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildInfoGrid(),
                       const SizedBox(height: 12),
-                    _buildDescription(),
-                    const SizedBox(height: 12),
-                    if (groupedItems.isEmpty)
-                      Text(
-                        'Este evento no tiene actividades cargadas.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          fontSize: 11,
+                      if ((_event.linkAccess ?? '').isNotEmpty)
+                        _buildLinkCard(),
+                      if ((_event.linkAccess ?? '').isNotEmpty)
+                        const SizedBox(height: 12),
+                      _buildDescription(),
+                      const SizedBox(height: 12),
+                      if (groupedItems.isEmpty)
+                        Text(
+                          'Este evento no tiene actividades cargadas.',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 11,
+                          ),
+                        )
+                      else
+                        ...groupedItems.entries.map(
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(bottom: 20),
+                            child: _buildDayBlock(entry.key, entry.value),
+                          ),
                         ),
-                      )
-                    else
-                      ...groupedItems.entries.map(
-                        (entry) => Padding(
-                          padding: const EdgeInsets.only(bottom: 20),
-                          child: _buildDayBlock(entry.key, entry.value),
-                        ),
-                      ),
-                    if (_canManageEvents) ...[
-                      const SizedBox(height: 24),
-                      _buildActions(),
+                      if (_canManageEvents) ...[
+                        const SizedBox(height: 24),
+                        _buildActions(),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
             ],
           ),
         ),
@@ -227,7 +225,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
             Expanded(
               child: _infoCard(
                 label: 'Hora',
-                value: '${_formatTime(_event.startTime)}',
+                value: _formatTime(_event.startTime),
                 icon: Icons.access_time,
               ),
             ),
@@ -260,7 +258,10 @@ class _EventDetailPageState extends State<EventDetailPage> {
             context,
           ).showSnackBar(const SnackBar(content: Text('Link copiado')));
         },
-        icon: const Icon(Icons.copy_rounded, color: Color.fromARGB(121, 255, 255, 255)),
+        icon: const Icon(
+          Icons.copy_rounded,
+          color: Color.fromARGB(121, 255, 255, 255),
+        ),
         iconSize: 18,
         style: IconButton.styleFrom(
           padding: EdgeInsets.zero,
@@ -420,7 +421,11 @@ class _EventDetailPageState extends State<EventDetailPage> {
                 Row(
                   children: [
                     if (icon != null) ...[
-                      Icon(icon, size: 12, color: Colors.white.withValues(alpha: 0.6)),
+                      Icon(
+                        icon,
+                        size: 12,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
                       const SizedBox(width: 6),
                     ],
                     Text(
@@ -511,15 +516,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return;
 
-    final hasValidScheme = trimmed.toLowerCase().startsWith('http://') ||
+    final hasValidScheme =
+        trimmed.toLowerCase().startsWith('http://') ||
         trimmed.toLowerCase().startsWith('https://');
     if (!hasValidScheme) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'El enlace debe comenzar con http:// o https://',
-          ),
+          content: Text('El enlace debe comenzar con http:// o https://'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -545,8 +549,19 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 
   Future<void> _editEvent() async {
+    var eventForEdit = _event;
+    if (_event.idEvent != null) {
+      final latestEvent = await _component.getEventById(_event.idEvent!);
+      if (latestEvent != null) {
+        eventForEdit = latestEvent;
+      }
+    }
+    if (!mounted) return;
+
     final updated = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => EventFormPage(initialEvent: _event)),
+      MaterialPageRoute(
+        builder: (_) => EventFormPage(initialEvent: eventForEdit),
+      ),
     );
 
     if (updated != true || !mounted || _event.idEvent == null) return;

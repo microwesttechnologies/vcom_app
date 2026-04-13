@@ -1,33 +1,31 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/permission.service.dart';
 import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
-import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/models/brand.model.dart';
 import 'package:vcom_app/core/models/category.model.dart';
 
-/// Componente de gestión de marcas
-/// Maneja toda la lógica, cálculos y estado relacionado con la gestión de marcas
+/// Componente de gestión de marcas.
+/// Orquesta estado, permisos y llamadas a infraestructura para el módulo brands.
 class ManagerBrandComponent extends ChangeNotifier {
   final TokenService _tokenService = TokenService();
   final PermissionService _permissionService = PermissionService();
   final SessionCacheService _cache = SessionCacheService();
 
-  // Estado
   List<BrandModel> _brands = [];
   List<CategoryModel> _categories = [];
   bool _isLoading = false;
   String? _error;
-  BrandModel? _selectedBrand;
 
-  // Getters
   List<BrandModel> get brands => _brands;
   List<CategoryModel> get categories => _categories;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  BrandModel? get selectedBrand => _selectedBrand;
+
   bool get canReadBrands =>
       _permissionService.canReadModule(routeHints: const ['brand', 'marca']);
   bool get canCreateBrands =>
@@ -46,12 +44,8 @@ class ManagerBrandComponent extends ChangeNotifier {
     );
   }
 
-  /// Obtiene el token de autenticación
-  String? _getToken() {
-    return _tokenService.getToken();
-  }
+  String? _getToken() => _tokenService.getToken();
 
-  /// Obtiene los headers con autenticación
   Map<String, String> _getHeaders() {
     final token = _getToken();
     return {
@@ -61,7 +55,64 @@ class ManagerBrandComponent extends ChangeNotifier {
     };
   }
 
-  /// Inicializa el componente cargando marcas y categorías
+  Uri _buildUri(String path) => Uri.parse('${EnvironmentDev.baseUrl}$path');
+
+  Future<List<dynamic>?> _readCachedList({
+    required String cacheKey,
+    required List<String> preferredKeys,
+    required String notFoundMessage,
+  }) async {
+    final cachedBody = await _cache.read(cacheKey);
+    if (cachedBody == null) return null;
+
+    final dynamic jsonResponse = jsonDecode(cachedBody);
+    return _extractListPayload(
+      jsonResponse,
+      preferredKeys: preferredKeys,
+      notFoundMessage: notFoundMessage,
+    );
+  }
+
+  List<dynamic> _extractListPayload(
+    dynamic jsonResponse, {
+    required List<String> preferredKeys,
+    required String notFoundMessage,
+  }) {
+    if (jsonResponse is List) {
+      return jsonResponse;
+    }
+
+    if (jsonResponse is! Map<String, dynamic>) {
+      throw Exception('Formato de respuesta no válido');
+    }
+
+    for (final key in preferredKeys) {
+      final value = jsonResponse[key];
+      if (value is List<dynamic>) {
+        return value;
+      }
+    }
+
+    final listValues = jsonResponse.values.whereType<List<dynamic>>().toList();
+    if (listValues.isNotEmpty) {
+      return listValues.first;
+    }
+
+    throw Exception(notFoundMessage);
+  }
+
+  Future<http.Response> _authorizedGet(String path) async {
+    final response = await http.get(_buildUri(path), headers: _getHeaders());
+    _tokenService.handleUnauthorizedStatus(response.statusCode);
+    return response;
+  }
+
+  Future<void> _invalidateBrandCaches() async {
+    await _cache.removeByPrefix(_cacheKey('brands::detail'));
+    await _cache.removeByPrefix(_cacheKey('brands::list'));
+    await _cache.removeByPrefix(_cacheKey('products::form::brands'));
+  }
+
   Future<void> initialize({bool forceRefresh = false}) async {
     _isLoading = true;
     _error = null;
@@ -71,6 +122,7 @@ class ManagerBrandComponent extends ChangeNotifier {
       if (!canReadBrands) {
         throw Exception('No tienes permiso para ver marcas');
       }
+
       await Future.wait([
         fetchCategories(forceRefresh: forceRefresh),
         fetchBrands(forceRefresh: forceRefresh),
@@ -83,42 +135,20 @@ class ManagerBrandComponent extends ChangeNotifier {
     }
   }
 
-  /// Obtiene todas las categorías
   Future<void> fetchCategories({bool forceRefresh = false}) async {
     try {
       final cacheKey = _cacheKey('brands::categories');
+
       if (!forceRefresh) {
-        final cachedBody = await _cache.read(cacheKey);
-        if (cachedBody != null) {
-          final dynamic jsonResponse = jsonDecode(cachedBody);
-          List<dynamic> jsonList;
+        final cachedList = await _readCachedList(
+          cacheKey: cacheKey,
+          preferredKeys: const ['data', 'categories', 'results'],
+          notFoundMessage:
+              'No se encontró la lista de categorías en la respuesta',
+        );
 
-          if (jsonResponse is List) {
-            jsonList = jsonResponse;
-          } else if (jsonResponse is Map<String, dynamic>) {
-            if (jsonResponse.containsKey('data')) {
-              jsonList = jsonResponse['data'] as List<dynamic>;
-            } else if (jsonResponse.containsKey('categories')) {
-              jsonList = jsonResponse['categories'] as List<dynamic>;
-            } else if (jsonResponse.containsKey('results')) {
-              jsonList = jsonResponse['results'] as List<dynamic>;
-            } else {
-              final listValues = jsonResponse.values
-                  .where((value) => value is List)
-                  .toList();
-              if (listValues.isNotEmpty) {
-                jsonList = listValues.first as List<dynamic>;
-              } else {
-                throw Exception(
-                  'No se encontró la lista de categorías en la respuesta',
-                );
-              }
-            }
-          } else {
-            throw Exception('Formato de respuesta no válido');
-          }
-
-          _categories = jsonList
+        if (cachedList != null) {
+          _categories = cachedList
               .map(
                 (json) => CategoryModel.fromJson(json as Map<String, dynamic>),
               )
@@ -129,40 +159,14 @@ class ManagerBrandComponent extends ChangeNotifier {
         }
       }
 
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.categoriesList}',
-      );
-      final response = await http.get(url, headers: _getHeaders());
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
-
+      final response = await _authorizedGet(EnvironmentDev.categoriesList);
       if (response.statusCode == 200) {
-        final dynamic jsonResponse = jsonDecode(response.body);
-        List<dynamic> jsonList;
-
-        if (jsonResponse is List) {
-          jsonList = jsonResponse;
-        } else if (jsonResponse is Map<String, dynamic>) {
-          if (jsonResponse.containsKey('data')) {
-            jsonList = jsonResponse['data'] as List<dynamic>;
-          } else if (jsonResponse.containsKey('categories')) {
-            jsonList = jsonResponse['categories'] as List<dynamic>;
-          } else if (jsonResponse.containsKey('results')) {
-            jsonList = jsonResponse['results'] as List<dynamic>;
-          } else {
-            final listValues = jsonResponse.values
-                .where((value) => value is List)
-                .toList();
-            if (listValues.isNotEmpty) {
-              jsonList = listValues.first as List<dynamic>;
-            } else {
-              throw Exception(
-                'No se encontró la lista de categorías en la respuesta',
-              );
-            }
-          }
-        } else {
-          throw Exception('Formato de respuesta no válido');
-        }
+        final jsonList = _extractListPayload(
+          jsonDecode(response.body),
+          preferredKeys: const ['data', 'categories', 'results'],
+          notFoundMessage:
+              'No se encontró la lista de categorías en la respuesta',
+        );
 
         _categories = jsonList
             .map((json) => CategoryModel.fromJson(json as Map<String, dynamic>))
@@ -183,7 +187,6 @@ class ManagerBrandComponent extends ChangeNotifier {
     }
   }
 
-  /// Obtiene todas las marcas
   Future<void> fetchBrands({bool forceRefresh = false}) async {
     _isLoading = true;
     _error = null;
@@ -196,37 +199,14 @@ class ManagerBrandComponent extends ChangeNotifier {
 
       final cacheKey = _cacheKey('brands::list');
       if (!forceRefresh) {
-        final cachedBody = await _cache.read(cacheKey);
-        if (cachedBody != null) {
-          final dynamic jsonResponse = jsonDecode(cachedBody);
-          List<dynamic> jsonList;
+        final cachedList = await _readCachedList(
+          cacheKey: cacheKey,
+          preferredKeys: const ['data', 'brands', 'results'],
+          notFoundMessage: 'No se encontró la lista de marcas en la respuesta',
+        );
 
-          if (jsonResponse is List) {
-            jsonList = jsonResponse;
-          } else if (jsonResponse is Map<String, dynamic>) {
-            if (jsonResponse.containsKey('data')) {
-              jsonList = jsonResponse['data'] as List<dynamic>;
-            } else if (jsonResponse.containsKey('brands')) {
-              jsonList = jsonResponse['brands'] as List<dynamic>;
-            } else if (jsonResponse.containsKey('results')) {
-              jsonList = jsonResponse['results'] as List<dynamic>;
-            } else {
-              final listValues = jsonResponse.values
-                  .where((value) => value is List)
-                  .toList();
-              if (listValues.isNotEmpty) {
-                jsonList = listValues.first as List<dynamic>;
-              } else {
-                throw Exception(
-                  'No se encontró la lista de marcas en la respuesta',
-                );
-              }
-            }
-          } else {
-            throw Exception('Formato de respuesta no válido');
-          }
-
-          _brands = jsonList
+        if (cachedList != null) {
+          _brands = cachedList
               .map((json) => BrandModel.fromJson(json as Map<String, dynamic>))
               .toList();
           _error = null;
@@ -234,40 +214,13 @@ class ManagerBrandComponent extends ChangeNotifier {
         }
       }
 
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.brandsList}',
-      );
-      final response = await http.get(url, headers: _getHeaders());
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
-
+      final response = await _authorizedGet(EnvironmentDev.brandsList);
       if (response.statusCode == 200) {
-        final dynamic jsonResponse = jsonDecode(response.body);
-        List<dynamic> jsonList;
-
-        if (jsonResponse is List) {
-          jsonList = jsonResponse;
-        } else if (jsonResponse is Map<String, dynamic>) {
-          if (jsonResponse.containsKey('data')) {
-            jsonList = jsonResponse['data'] as List<dynamic>;
-          } else if (jsonResponse.containsKey('brands')) {
-            jsonList = jsonResponse['brands'] as List<dynamic>;
-          } else if (jsonResponse.containsKey('results')) {
-            jsonList = jsonResponse['results'] as List<dynamic>;
-          } else {
-            final listValues = jsonResponse.values
-                .where((value) => value is List)
-                .toList();
-            if (listValues.isNotEmpty) {
-              jsonList = listValues.first as List<dynamic>;
-            } else {
-              throw Exception(
-                'No se encontró la lista de marcas en la respuesta',
-              );
-            }
-          }
-        } else {
-          throw Exception('Formato de respuesta no válido');
-        }
+        final jsonList = _extractListPayload(
+          jsonDecode(response.body),
+          preferredKeys: const ['data', 'brands', 'results'],
+          notFoundMessage: 'No se encontró la lista de marcas en la respuesta',
+        );
 
         _brands = jsonList
             .map((json) => BrandModel.fromJson(json as Map<String, dynamic>))
@@ -288,7 +241,6 @@ class ManagerBrandComponent extends ChangeNotifier {
     }
   }
 
-  /// Obtiene una marca por ID
   Future<BrandModel> fetchBrandById(int id) async {
     try {
       final cacheKey = _cacheKey('brands::detail', '$id');
@@ -298,30 +250,28 @@ class ManagerBrandComponent extends ChangeNotifier {
         return BrandModel.fromJson(json);
       }
 
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.brandsGet(id)}',
-      );
-      final response = await http.get(url, headers: _getHeaders());
-      _tokenService.handleUnauthorizedStatus(response.statusCode);
-
+      final response = await _authorizedGet(EnvironmentDev.brandsGet(id));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         await _cache.write(cacheKey, response.body);
         return BrandModel.fromJson(json);
-      } else if (response.statusCode == 401) {
-        throw Exception('No autenticado');
-      } else if (response.statusCode == 404) {
-        throw Exception('Marca no encontrada');
-      } else {
-        throw Exception('Error al obtener marca: ${response.statusCode}');
       }
+
+      if (response.statusCode == 401) {
+        throw Exception('No autenticado');
+      }
+
+      if (response.statusCode == 404) {
+        throw Exception('Marca no encontrada');
+      }
+
+      throw Exception('Error al obtener marca: ${response.statusCode}');
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
       rethrow;
     }
   }
 
-  /// Crea una nueva marca
   Future<void> createBrand(BrandModel brand) async {
     _isLoading = true;
     _error = null;
@@ -332,20 +282,15 @@ class ManagerBrandComponent extends ChangeNotifier {
         throw Exception('No tienes permiso para crear marcas');
       }
 
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.brandsCreate}',
-      );
       final response = await http.post(
-        url,
+        _buildUri(EnvironmentDev.brandsCreate),
         headers: _getHeaders(),
         body: jsonEncode(brand.toJson()),
       );
       _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 201) {
-        await _cache.removeByPrefix(_cacheKey('brands::detail'));
-        await _cache.removeByPrefix(_cacheKey('brands::list'));
-        await _cache.removeByPrefix(_cacheKey('products::form::brands'));
+        await _invalidateBrandCaches();
         await fetchBrands(forceRefresh: true);
         _error = null;
       } else if (response.statusCode == 401) {
@@ -367,7 +312,6 @@ class ManagerBrandComponent extends ChangeNotifier {
     }
   }
 
-  /// Actualiza una marca
   Future<void> updateBrand(BrandModel brand) async {
     _isLoading = true;
     _error = null;
@@ -378,20 +322,15 @@ class ManagerBrandComponent extends ChangeNotifier {
         throw Exception('No tienes permiso para actualizar marcas');
       }
 
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.brandsUpdate(brand.idBrand)}',
-      );
       final response = await http.put(
-        url,
+        _buildUri(EnvironmentDev.brandsUpdate(brand.idBrand)),
         headers: _getHeaders(),
         body: jsonEncode(brand.toJson()),
       );
       _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
-        await _cache.removeByPrefix(_cacheKey('brands::detail'));
-        await _cache.removeByPrefix(_cacheKey('brands::list'));
-        await _cache.removeByPrefix(_cacheKey('products::form::brands'));
+        await _invalidateBrandCaches();
         await fetchBrands(forceRefresh: true);
         _error = null;
       } else if (response.statusCode == 401) {
@@ -413,7 +352,6 @@ class ManagerBrandComponent extends ChangeNotifier {
     }
   }
 
-  /// Elimina una marca
   Future<void> deleteBrand(int id) async {
     _isLoading = true;
     _error = null;
@@ -424,16 +362,14 @@ class ManagerBrandComponent extends ChangeNotifier {
         throw Exception('No tienes permiso para eliminar marcas');
       }
 
-      final url = Uri.parse(
-        '${EnvironmentDev.baseUrl}${EnvironmentDev.brandsDelete(id)}',
+      final response = await http.delete(
+        _buildUri(EnvironmentDev.brandsDelete(id)),
+        headers: _getHeaders(),
       );
-      final response = await http.delete(url, headers: _getHeaders());
       _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 200) {
-        await _cache.removeByPrefix(_cacheKey('brands::detail'));
-        await _cache.removeByPrefix(_cacheKey('brands::list'));
-        await _cache.removeByPrefix(_cacheKey('products::form::brands'));
+        await _invalidateBrandCaches();
         await fetchBrands(forceRefresh: true);
         _error = null;
       } else if (response.statusCode == 401) {
@@ -452,19 +388,6 @@ class ManagerBrandComponent extends ChangeNotifier {
     }
   }
 
-  /// Establece la marca seleccionada para edición
-  void setSelectedBrand(BrandModel? brand) {
-    _selectedBrand = brand;
-    notifyListeners();
-  }
-
-  /// Limpia la marca seleccionada
-  void clearSelectedBrand() {
-    _selectedBrand = null;
-    notifyListeners();
-  }
-
-  /// Limpia el estado de error
   void clearError() {
     _error = null;
     notifyListeners();

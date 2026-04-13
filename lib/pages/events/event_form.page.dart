@@ -116,8 +116,8 @@ class _EventFormPageState extends State<EventFormPage> {
                         icon: Icons.event_note_outlined,
                         validator: (value) =>
                             value == null || value.trim().isEmpty
-                                ? 'Ingresa el nombre del evento'
-                                : null,
+                            ? 'Ingresa el nombre del evento'
+                            : null,
                       ),
                       const SizedBox(height: 10),
                       _buildField(
@@ -244,14 +244,14 @@ class _EventFormPageState extends State<EventFormPage> {
                         )
                       else
                         ..._items.asMap().entries.map(
-                              (entry) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _buildItineraryCard(
-                                  item: entry.value,
-                                  index: entry.key,
-                                ),
-                              ),
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildItineraryCard(
+                              item: entry.value,
+                              index: entry.key,
                             ),
+                          ),
+                        ),
                       const SizedBox(height: 10),
                       InkWell(
                         onTap: () => _openItineraryEditorRoute(),
@@ -299,7 +299,9 @@ class _EventFormPageState extends State<EventFormPage> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                          onPressed: _saving
+                              ? null
+                              : () => Navigator.of(context).pop(),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: VcomColors.blancoCrema,
                             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -334,8 +336,8 @@ class _EventFormPageState extends State<EventFormPage> {
                             _saving
                                 ? 'Guardando...'
                                 : _isEditing
-                                    ? 'Actualizar'
-                                    : 'Publicar',
+                                ? 'Actualizar'
+                                : 'Publicar',
                             style: const TextStyle(fontSize: 11),
                           ),
                         ),
@@ -366,11 +368,7 @@ class _EventFormPageState extends State<EventFormPage> {
       children: [
         Row(
           children: [
-            Icon(
-              icon,
-              size: 12,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
+            Icon(icon, size: 12, color: Colors.white.withValues(alpha: 0.5)),
             const SizedBox(width: 6),
             Text(
               label.toUpperCase(),
@@ -388,10 +386,7 @@ class _EventFormPageState extends State<EventFormPage> {
           validator: validator,
           minLines: minLines,
           maxLines: maxLines,
-          style: const TextStyle(
-            color: VcomColors.blancoCrema,
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: VcomColors.blancoCrema, fontSize: 12),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
@@ -400,7 +395,12 @@ class _EventFormPageState extends State<EventFormPage> {
             ),
             filled: false,
             isDense: true,
-            contentPadding: const EdgeInsets.only(top: 2, left: 0, right: 0, bottom: 0),
+            contentPadding: const EdgeInsets.only(
+              top: 2,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            ),
             border: UnderlineInputBorder(
               borderSide: BorderSide(
                 color: Colors.white.withValues(alpha: 0.2),
@@ -412,14 +412,15 @@ class _EventFormPageState extends State<EventFormPage> {
               ),
             ),
             focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: VcomColors.oroLujoso,
-                width: 2,
-              ),
+              borderSide: BorderSide(color: VcomColors.oroLujoso, width: 2),
             ),
             suffixIcon: suffixIcon,
             suffixIconConstraints: suffixIcon != null
-                ? const BoxConstraints(minWidth: 24, minHeight: 0, maxHeight: 16)
+                ? const BoxConstraints(
+                    minWidth: 24,
+                    minHeight: 0,
+                    maxHeight: 16,
+                  )
                 : null,
           ),
         ),
@@ -443,9 +444,7 @@ class _EventFormPageState extends State<EventFormPage> {
             decoration: BoxDecoration(
               color: const Color(0xFF23314A).withValues(alpha: 0.34),
               borderRadius: BorderRadius.circular(7),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.16),
@@ -564,8 +563,8 @@ class _EventFormPageState extends State<EventFormPage> {
                                 _uploadingImage
                                     ? 'Preparando imagen...'
                                     : hasPendingImage
-                                        ? 'Imagen lista para publicar'
-                                        : 'Toca para cambiar la imagen',
+                                    ? 'Imagen lista para publicar'
+                                    : 'Toca para cambiar la imagen',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.72),
                                   fontSize: 11,
@@ -662,14 +661,19 @@ class _EventFormPageState extends State<EventFormPage> {
                 ),
               ),
               IconButton(
-                onPressed: () => _openItineraryEditorRoute(
-                  index: index,
-                  initialItem: item,
+                onPressed: () =>
+                    _openItineraryEditorRoute(index: index, initialItem: item),
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: VcomColors.oroLujoso,
                 ),
-                icon: const Icon(Icons.edit_outlined, color: VcomColors.oroLujoso),
               ),
               IconButton(
-                onPressed: () => setState(() => _items.removeAt(index)),
+                onPressed: () {
+                  setState(() {
+                    _items.removeAt(index);
+                  });
+                },
                 icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
               ),
             ],
@@ -713,6 +717,20 @@ class _EventFormPageState extends State<EventFormPage> {
         imageUrl = upload.url;
       }
 
+      final itineraryForRequest = _isEditing
+          ? EventItinerary(
+              idItinerary: widget.initialEvent?.itinerary?.idItinerary,
+              items: List<EventItineraryItem>.from(_items),
+              stateItinerary: true,
+            )
+          : _items.isEmpty
+          ? null
+          : EventItinerary(
+              idItinerary: widget.initialEvent?.itinerary?.idItinerary,
+              items: List<EventItineraryItem>.from(_items),
+              stateItinerary: true,
+            );
+
       final event = EventModel(
         idEvent: widget.initialEvent?.idEvent,
         titleEvent: _titleController.text.trim(),
@@ -731,13 +749,7 @@ class _EventFormPageState extends State<EventFormPage> {
         startTime: _startTime,
         endTime: _endTime,
         stateEvent: _stateEvent,
-        itinerary: _items.isEmpty
-            ? null
-            : EventItinerary(
-                idItinerary: widget.initialEvent?.itinerary?.idItinerary,
-                items: _items,
-                stateItinerary: true,
-              ),
+        itinerary: itineraryForRequest,
       );
 
       if (_isEditing) {
@@ -768,7 +780,9 @@ class _EventFormPageState extends State<EventFormPage> {
     int? index,
     EventItineraryItem? initialItem,
   }) async {
-    final titleController = TextEditingController(text: initialItem?.title ?? '');
+    final titleController = TextEditingController(
+      text: initialItem?.title ?? '',
+    );
     String date = initialItem?.date ?? _startDate;
     String startTime = initialItem?.startTime ?? '09:00:00';
     String endTime = initialItem?.endTime ?? '10:00:00';
@@ -802,92 +816,95 @@ class _EventFormPageState extends State<EventFormPage> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text(
-                      initialItem == null ? 'Nueva actividad' : 'Editar actividad',
-                      style: const TextStyle(
-                        color: VcomColors.blancoCrema,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildField(
-                      controller: titleController,
-                      label: 'Título',
-                      hint: 'Nombre de la actividad',
-                      icon: Icons.title,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildPickerCard(
-                            label: 'Fecha',
-                            value: _formatDisplayDate(date),
-                            onTap: () async {
-                              final value = await _pickDate(date);
-                              if (value != null) {
-                                setDialogState(() => date = value);
-                              }
-                            },
+                        Text(
+                          initialItem == null
+                              ? 'Nueva actividad'
+                              : 'Editar actividad',
+                          style: const TextStyle(
+                            color: VcomColors.blancoCrema,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildPickerCard(
-                            label: 'Inicio',
-                            value: _formatDisplayTime(startTime),
-                            onTap: () async {
-                              final value = await _pickTime(startTime);
-                              if (value != null) {
-                                setDialogState(() => startTime = value);
-                              }
-                            },
-                          ),
+                        const SizedBox(height: 16),
+                        _buildField(
+                          controller: titleController,
+                          label: 'Título',
+                          hint: 'Nombre de la actividad',
+                          icon: Icons.title,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _buildPickerCard(
-                      label: 'Final',
-                      value: _formatDisplayTime(endTime),
-                      onTap: () async {
-                        final value = await _pickTime(endTime);
-                        if (value != null) {
-                          setDialogState(() => endTime = value);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text('Cancelar'),
-                          ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildPickerCard(
+                                label: 'Fecha',
+                                value: _formatDisplayDate(date),
+                                onTap: () async {
+                                  final value = await _pickDate(date);
+                                  if (value != null) {
+                                    setDialogState(() => date = value);
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildPickerCard(
+                                label: 'Inicio',
+                                value: _formatDisplayTime(startTime),
+                                onTap: () async {
+                                  final value = await _pickTime(startTime);
+                                  if (value != null) {
+                                    setDialogState(() => startTime = value);
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              if (titleController.text.trim().isEmpty) {
-                                return;
-                              }
-                              Navigator.of(dialogContext).pop(
-                                EventItineraryItem(
-                                  title: titleController.text.trim(),
-                                  date: date,
-                                  startTime: startTime,
-                                  endTime: endTime,
-                                ),
-                              );
-                            },
-                            child: const Text('Guardar'),
-                          ),
+                        const SizedBox(height: 12),
+                        _buildPickerCard(
+                          label: 'Final',
+                          value: _formatDisplayTime(endTime),
+                          onTap: () async {
+                            final value = await _pickTime(endTime);
+                            if (value != null) {
+                              setDialogState(() => endTime = value);
+                            }
+                          },
                         ),
-                      ],
-                    ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(),
+                                child: const Text('Cancelar'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  if (titleController.text.trim().isEmpty) {
+                                    return;
+                                  }
+                                  Navigator.of(dialogContext).pop(
+                                    EventItineraryItem(
+                                      title: titleController.text.trim(),
+                                      date: date,
+                                      startTime: startTime,
+                                      endTime: endTime,
+                                    ),
+                                  );
+                                },
+                                child: const Text('Guardar'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -937,8 +954,7 @@ class _EventFormPageState extends State<EventFormPage> {
   }
 
   Future<String?> _pickDate(String currentValue) async {
-    final initialDate =
-        DateTime.tryParse(currentValue) ?? DateTime.now();
+    final initialDate = DateTime.tryParse(currentValue) ?? DateTime.now();
     final selected = await showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -1003,8 +1019,10 @@ class _EventFormPageState extends State<EventFormPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined,
-                    color: VcomColors.oroLujoso),
+                leading: const Icon(
+                  Icons.photo_library_outlined,
+                  color: VcomColors.oroLujoso,
+                ),
                 title: const Text(
                   'Galería',
                   style: TextStyle(color: VcomColors.blancoCrema),
@@ -1012,8 +1030,10 @@ class _EventFormPageState extends State<EventFormPage> {
                 onTap: () => Navigator.of(context).pop(false),
               ),
               ListTile(
-                leading:
-                    const Icon(Icons.photo_camera_outlined, color: VcomColors.oroLujoso),
+                leading: const Icon(
+                  Icons.photo_camera_outlined,
+                  color: VcomColors.oroLujoso,
+                ),
                 title: const Text(
                   'Cámara',
                   style: TextStyle(color: VcomColors.blancoCrema),
@@ -1081,7 +1101,9 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.initialItem?.title ?? '');
+    _titleController = TextEditingController(
+      text: widget.initialItem?.title ?? '',
+    );
     _date = widget.initialItem?.date.isNotEmpty == true
         ? widget.initialItem!.date
         : widget.defaultDate;
@@ -1262,11 +1284,7 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
       children: [
         Row(
           children: [
-            Icon(
-              icon,
-              size: 12,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
+            Icon(icon, size: 12, color: Colors.white.withValues(alpha: 0.5)),
             const SizedBox(width: 6),
             Text(
               label.toUpperCase(),
@@ -1283,10 +1301,7 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
         TextFormField(
           controller: controller,
           textAlignVertical: TextAlignVertical.bottom,
-          style: const TextStyle(
-            color: VcomColors.blancoCrema,
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: VcomColors.blancoCrema, fontSize: 12),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
@@ -1295,7 +1310,12 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
             ),
             filled: false,
             isDense: true,
-            contentPadding: const EdgeInsets.only(top: 2, left: 0, right: 0, bottom: 0),
+            contentPadding: const EdgeInsets.only(
+              top: 2,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            ),
             border: UnderlineInputBorder(
               borderSide: BorderSide(
                 color: Colors.white.withValues(alpha: 0.2),
@@ -1307,10 +1327,7 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
               ),
             ),
             focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: VcomColors.oroLujoso,
-                width: 2,
-              ),
+              borderSide: BorderSide(color: VcomColors.oroLujoso, width: 2),
             ),
           ),
         ),
@@ -1334,9 +1351,7 @@ class _ItineraryEditorPageState extends State<_ItineraryEditorPage> {
             decoration: BoxDecoration(
               color: const Color(0xFF23314A).withValues(alpha: 0.34),
               borderRadius: BorderRadius.circular(7),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.16),

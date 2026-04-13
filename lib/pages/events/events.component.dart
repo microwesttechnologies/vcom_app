@@ -230,7 +230,7 @@ class EventsComponent extends ChangeNotifier {
     final url = Uri.parse(
       '${EnvironmentDev.baseUrl}${EnvironmentDev.eventsUpdate(event.idEvent!)}',
     );
-    final payload = event.toJson();
+    final payload = _buildUpdatePayload(event);
     debugPrint('EventsComponent.updateEvent payload: ${jsonEncode(payload)}');
     final response = await http.put(
       url,
@@ -247,6 +247,19 @@ class EventsComponent extends ChangeNotifier {
 
     await _cache.removeByPrefix(_cacheKey('events::detail'));
     await fetchEvents(forceRefresh: true);
+  }
+
+  Map<String, dynamic> _buildUpdatePayload(EventModel event) {
+    final payload = event.toJson();
+    final itinerary = event.itinerary;
+
+    // Cuando el usuario deja el itinerario sin actividades, enviamos null para
+    // expresar borrado explícito y evitar validar items vacíos.
+    if (itinerary != null && itinerary.items.isEmpty) {
+      payload['itinerary'] = null;
+    }
+
+    return payload;
   }
 
   Future<void> deleteEvent(int eventId) async {

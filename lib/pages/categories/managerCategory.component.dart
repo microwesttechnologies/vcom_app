@@ -110,10 +110,10 @@ class ManagerCategoryComponent extends ChangeNotifier {
               jsonList = jsonResponse['results'] as List<dynamic>;
             } else {
               final listValues = jsonResponse.values
-                  .where((value) => value is List)
+                  .whereType<List<dynamic>>()
                   .toList();
               if (listValues.isNotEmpty) {
-                jsonList = listValues.first as List<dynamic>;
+                jsonList = listValues.first;
               } else {
                 throw Exception(
                   'No se encontró la lista de categorías en la respuesta',
@@ -156,10 +156,10 @@ class ManagerCategoryComponent extends ChangeNotifier {
             jsonList = jsonResponse['results'] as List<dynamic>;
           } else {
             final listValues = jsonResponse.values
-                .where((value) => value is List)
+                .whereType<List<dynamic>>()
                 .toList();
             if (listValues.isNotEmpty) {
-              jsonList = listValues.first as List<dynamic>;
+              jsonList = listValues.first;
             } else {
               throw Exception(
                 'No se encontró la lista de categorías en la respuesta',

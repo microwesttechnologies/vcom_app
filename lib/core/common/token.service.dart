@@ -3,12 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vcom_app/core/common/app_routes.dart';
 import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/session_state_registry.service.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/core/models/login.model.dart';
 import 'package:vcom_app/core/models/module.model.dart';
-import 'package:vcom_app/pages/auth/login.page.dart';
 
 /// Servicio para gestionar el token de autenticación, el rol derivado del JWT
 /// y los permisos cargados desde el backend.
@@ -254,10 +254,7 @@ class TokenService {
 
     final navigator = navigatorKey.currentState;
     if (navigator != null) {
-      navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginPage()),
-        (route) => false,
-      );
+      navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final context = navigatorKey.currentContext;

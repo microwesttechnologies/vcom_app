@@ -260,4 +260,25 @@ class EnvironmentDev {
 
   /// Obtener la TRM (tasa de cambio USD→COP) más reciente
   static const String trmLatest = '/api/v1/trm/latest';
+
+  // ============================================================================
+  // HUB
+  // Endpoints para feed social
+  // ============================================================================
+
+  /// Listar tags disponibles en Hub
+  static const String hubTags = '/api/v1/hub/tags';
+
+  /// Listar publicaciones del feed Hub
+  static const String hubPosts = '/api/v1/hub/posts';
+
+  /// Crear publicacion en Hub
+  static const String hubPostsCreate = '/api/v1/hub/posts';
+
+  /// Obtener detalle de post Hub
+  static String hubPostById(int id) => '/api/v1/hub/posts/$id';
+
+  /// Listar comentarios por post Hub
+  static String hubPostComments(int postId) =>
+      '/api/v1/hub/posts/$postId/comments';
 }
