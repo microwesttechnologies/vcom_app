@@ -6,6 +6,7 @@ class AppRoutes {
   static const String shop = '/shop';
   static const String training = '/training';
   static const String wallet = '/wallet';
+  static const String hub = '/hub';
   static const String chat = '/chat';
 
   static const String chatArgOtherUserId = 'otherUserId';

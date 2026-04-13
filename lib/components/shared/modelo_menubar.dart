@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/menubar.component.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
 import 'package:vcom_app/pages/events/events.page.dart';
+import 'package:vcom_app/pages/hub/hub.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/pages/wallet/wallet.page.dart';
@@ -16,34 +17,41 @@ class ModeloMenuBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final entries = <_ModeloMenuEntry>[
       _ModeloMenuEntry(
-        label: 'STORE',
-        icon: Icons.shopping_bag,
+        label: 'TIENDA',
+        icon: Icons.shopping_bag_outlined,
         hints: const ['shop', 'tienda', 'store'],
         onTap: (context) =>
             _pushIfNotCurrent<ShopPage>(context, () => const ShopPage()),
       ),
       _ModeloMenuEntry(
-        label: 'TRAINING',
+        label: 'FORMACION',
         icon: Icons.diamond_outlined,
-        hints: const ['training', 'entrenamiento'],
+        hints: const ['training', 'entrenamiento', 'formacion'],
         onTap: (context) => _pushIfNotCurrent<TrainingPage>(
           context,
           () => const TrainingPage(),
         ),
       ),
       _ModeloMenuEntry(
-        label: 'CALENDAR',
-        icon: Icons.event,
+        label: 'EVENTOS',
+        icon: Icons.access_time,
         hints: const ['event', 'evento', 'calendar', 'calendario'],
         onTap: (context) =>
             _pushIfNotCurrent<EventsPage>(context, () => const EventsPage()),
       ),
       _ModeloMenuEntry(
-        label: 'MY WALLET',
+        label: 'BILLETERA',
         icon: Icons.account_balance_wallet_outlined,
         hints: const ['wallet', 'cartera', 'billetera'],
         onTap: (context) =>
             _pushIfNotCurrent<WalletPage>(context, () => const WalletPage()),
+      ),
+      _ModeloMenuEntry(
+        label: 'HUB',
+        icon: Icons.grid_view_rounded,
+        hints: const ['hub', 'feed', 'chisme'],
+        onTap: (context) =>
+            _pushIfNotCurrent<HubPage>(context, () => const HubPage()),
       ),
       _ModeloMenuEntry(
         label: 'CHAT',

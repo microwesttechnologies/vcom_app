@@ -12,6 +12,7 @@ import 'package:vcom_app/pages/dahsboard/dashboard.component.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard_modelo.component.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard_modelo.view.dart';
 import 'package:vcom_app/pages/events/events.page.dart';
+import 'package:vcom_app/pages/hub/hub.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
@@ -74,7 +75,9 @@ class _DashboardPageState extends State<DashboardPage> {
       extendBody: _usesModeloDashboard,
       appBar: const ModeloNavbar(),
       drawer: const Drawer(
-        child: DynamicSidebarDrawer(selectedRouteHints: ['dashboard', 'inicio']),
+        child: DynamicSidebarDrawer(
+          selectedRouteHints: ['dashboard', 'inicio'],
+        ),
       ),
       body: Container(
         width: double.infinity,
@@ -136,6 +139,8 @@ class _DashboardPageState extends State<DashboardPage> {
     } else if (routeLower.contains('training') ||
         routeLower.contains('entrenamiento')) {
       targetPage = const TrainingPage();
+    } else if (routeLower.contains('hub') || routeLower.contains('feed')) {
+      targetPage = const HubPage();
     }
 
     if (targetPage != null) {
@@ -245,10 +250,12 @@ class _DashboardPageState extends State<DashboardPage> {
       );
     }
 
-    final visibleModules = _dashboardComponent.modules.where((module) {
-      final route = module.route.toLowerCase();
-      return !route.contains('product') && !route.contains('producto');
-    }).toList(growable: false);
+    final visibleModules = _dashboardComponent.modules
+        .where((module) {
+          final route = module.route.toLowerCase();
+          return !route.contains('product') && !route.contains('producto');
+        })
+        .toList(growable: false);
 
     if (visibleModules.isEmpty) {
       return Center(

@@ -16,6 +16,7 @@ import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
+import 'package:vcom_app/pages/hub/hub.page.dart';
 import 'package:vcom_app/pages/wallet/wallet.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
@@ -97,6 +98,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         AppRoutes.shop: (context) => const ShopPage(),
         AppRoutes.training: (context) => const TrainingPage(),
         AppRoutes.wallet: (context) => const WalletPage(),
+        AppRoutes.hub: (context) => const HubPage(),
       },
       onGenerateRoute: (settings) {
         if (settings.name != AppRoutes.chat) return null;
