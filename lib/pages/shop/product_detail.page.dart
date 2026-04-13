@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:vcom_app/components/shared/fullscreen_image_viewer.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/pages/shop/shop.component.dart';
@@ -13,11 +14,7 @@ class ProductDetailPage extends StatelessWidget {
   final ProductModel product;
   final VoidCallback? onBack;
 
-  const ProductDetailPage({
-    super.key,
-    required this.product,
-    this.onBack,
-  });
+  const ProductDetailPage({super.key, required this.product, this.onBack});
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +92,8 @@ class _ProductDetailBodyState extends State<ProductDetailBody> {
         ? widget.product.images
         : <ProductImageModel>[];
 
-    final categoryName = widget.product.category?.nameCategory ??
+    final categoryName =
+        widget.product.category?.nameCategory ??
         widget.product.brand?.nameBrand ??
         '';
 
@@ -219,22 +217,33 @@ class _ProductDetailBodyState extends State<ProductDetailBody> {
                               borderRadius: BorderRadius.circular(12),
                               child: ClipRect(
                                 child: BackdropFilter(
-                                  filter:
-                                      ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                  filter: ImageFilter.blur(
+                                    sigmaX: 12,
+                                    sigmaY: 12,
+                                  ),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: const Color.fromRGBO(
-                                          241, 191, 39, 0.15),
+                                        241,
+                                        191,
+                                        39,
+                                        0.15,
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: const Color.fromRGBO(
-                                            241, 191, 39, 0.3),
+                                          241,
+                                          191,
+                                          39,
+                                          0.3,
+                                        ),
                                         width: 1,
                                       ),
                                       boxShadow: [
                                         BoxShadow(
                                           color: Colors.black.withValues(
-                                              alpha: 0.3),
+                                            alpha: 0.3,
+                                          ),
                                           blurRadius: 30,
                                           offset: const Offset(0, 10),
                                         ),
@@ -244,12 +253,12 @@ class _ProductDetailBodyState extends State<ProductDetailBody> {
                                       color: Colors.transparent,
                                       child: InkWell(
                                         onTap: _contactWhatsApp,
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(12),
                                         child: Container(
                                           width: double.infinity,
                                           padding: const EdgeInsets.symmetric(
-                                              vertical: 16),
+                                            vertical: 16,
+                                          ),
                                           alignment: Alignment.center,
                                           child: const Text(
                                             'CONTACTAR AL VENDEDOR',
@@ -285,18 +294,48 @@ class _ProductDetailBodyState extends State<ProductDetailBody> {
     if (images.isEmpty) {
       return Container(
         color: const Color(0xFF1a2847),
-        child: const Icon(Icons.image_not_supported,
-            size: 64, color: Colors.white24),
+        child: const Icon(
+          Icons.image_not_supported,
+          size: 64,
+          color: Colors.white24,
+        ),
       );
     }
+
+    final validUrls = images
+        .map((image) => image.imageUrl.trim())
+        .where((url) => url.isNotEmpty)
+        .toList(growable: false);
 
     return PageView.builder(
       controller: _pageController,
       itemCount: images.length,
-      itemBuilder: (_, i) => Image.network(
-        images[i].imageUrl,
-        fit: BoxFit.cover,
-      ),
+      itemBuilder: (_, i) {
+        final currentUrl = images[i].imageUrl.trim();
+        final viewerInitialIndex = validUrls.indexOf(currentUrl);
+        return GestureDetector(
+          onTap: () {
+            if (validUrls.isEmpty) return;
+            openFullscreenImageViewer(
+              context: context,
+              imageUrls: validUrls,
+              initialIndex: viewerInitialIndex >= 0 ? viewerInitialIndex : 0,
+            );
+          },
+          child: Image.network(
+            currentUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Container(
+              color: VcomColors.azulZafiroProfundo,
+              child: const Icon(
+                Icons.image_not_supported_outlined,
+                size: 64,
+                color: Colors.white24,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
