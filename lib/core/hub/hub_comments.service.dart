@@ -24,10 +24,25 @@ class HubCommentPageResult {
 class HubCommentsService {
   static final HubCommentsService _instance = HubCommentsService._internal();
   factory HubCommentsService() => _instance;
-  HubCommentsService._internal();
+  HubCommentsService._internal({
+    Random? random,
+    TokenService? tokenService,
+    http.Client? httpClient,
+  }) : _random = random ?? Random(),
+       _tokenService = tokenService ?? TokenService(),
+       _httpClient = httpClient ?? http.Client();
 
-  final Random _random = Random();
-  final TokenService _tokenService = TokenService();
+  HubCommentsService.test({
+    Random? random,
+    TokenService? tokenService,
+    http.Client? httpClient,
+  }) : _random = random ?? Random(),
+       _tokenService = tokenService ?? TokenService(),
+       _httpClient = httpClient ?? http.Client();
+
+  final Random _random;
+  final TokenService _tokenService;
+  final http.Client _httpClient;
   int _nextCommentId = 5000;
 
   final Map<int, List<HubCommentModel>> _commentsByPostId = {
@@ -83,7 +98,7 @@ class HubCommentsService {
     ).replace(queryParameters: {'page': '$page', 'per_page': '$perPage'});
 
     try {
-      final response = await http
+      final response = await _httpClient
           .get(
             uri,
             headers: {
@@ -158,7 +173,7 @@ class HubCommentsService {
     );
 
     try {
-      final response = await http
+      final response = await _httpClient
           .post(
             uri,
             headers: {

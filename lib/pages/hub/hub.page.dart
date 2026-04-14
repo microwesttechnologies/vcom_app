@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
+import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/core/models/hub_comment.model.dart';
 import 'package:vcom_app/core/models/hub_media.model.dart';
 import 'package:vcom_app/core/models/hub_post.model.dart';
@@ -60,6 +61,7 @@ class _HubPageState extends State<HubPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      appBar: const ModeloNavbar(),
       extendBody: true,
       bottomNavigationBar: const ModeloMenuBar(activeRoute: 'hub'),
       floatingActionButton: _component.canCreatePosts
@@ -90,6 +92,7 @@ class _HubPageState extends State<HubPage> {
           ),
         ),
         child: SafeArea(
+          top: false,
           bottom: false,
           child: Column(
             children: [
@@ -108,21 +111,6 @@ class _HubPageState extends State<HubPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: const [
-              _HeaderDot(),
-              SizedBox(width: 8),
-              Text(
-                'Chismes del studio',
-                style: TextStyle(
-                  color: VcomColors.blancoCrema,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
           Container(
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.58),
@@ -352,22 +340,6 @@ class _HubPageState extends State<HubPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _HubCommentsSheet(post: post, component: _component),
-    );
-  }
-}
-
-class _HeaderDot extends StatelessWidget {
-  const _HeaderDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: const BoxDecoration(
-        color: VcomColors.oroLujoso,
-        shape: BoxShape.circle,
-      ),
     );
   }
 }

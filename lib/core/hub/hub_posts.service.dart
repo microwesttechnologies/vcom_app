@@ -11,98 +11,48 @@ import 'package:vcom_app/core/models/hub_media.model.dart';
 import 'package:vcom_app/core/models/hub_post.model.dart';
 import 'package:vcom_app/core/models/hub_tag.model.dart';
 
+typedef HubMultipartRequestFactory =
+    http.MultipartRequest Function(String method, Uri uri);
+
 class HubPostsService {
   static final HubPostsService _instance = HubPostsService._internal();
   factory HubPostsService() => _instance;
-  HubPostsService._internal();
+  HubPostsService._internal({
+    Random? random,
+    TokenService? tokenService,
+    http.Client? httpClient,
+    HubMultipartRequestFactory? multipartRequestFactory,
+  }) : _random = random ?? Random(),
+       _tokenService = tokenService ?? TokenService(),
+       _httpClient = httpClient ?? http.Client(),
+       _multipartRequestFactory =
+           multipartRequestFactory ??
+           ((method, uri) => http.MultipartRequest(method, uri));
 
-  final Random _random = Random();
-  final TokenService _tokenService = TokenService();
+  @visibleForTesting
+  HubPostsService.test({
+    Random? random,
+    TokenService? tokenService,
+    http.Client? httpClient,
+    HubMultipartRequestFactory? multipartRequestFactory,
+  }) : _random = random ?? Random(),
+       _tokenService = tokenService ?? TokenService(),
+       _httpClient = httpClient ?? http.Client(),
+       _multipartRequestFactory =
+           multipartRequestFactory ??
+           ((method, uri) => http.MultipartRequest(method, uri));
+
+  final Random _random;
+  final TokenService _tokenService;
+  final http.Client _httpClient;
+  final HubMultipartRequestFactory _multipartRequestFactory;
 
   void _log(String message) {
     debugPrint('[HubPostsService] $message');
   }
 
   int _nextPostId = 1000;
-  List<HubPostModel> _posts = [
-    HubPostModel(
-      id: 101,
-      author: const HubAuthorModel(
-        id: 'u-10',
-        type: 'model',
-        name: 'Laura M',
-        role: 'modelo',
-      ),
-      tag: const HubTagModel(id: 1, name: 'Vivir bien', slug: 'vivir-bien'),
-      content:
-          'Alguien vio al director creativo saliendo con los nuevos renders exclusivos? '
-          'Parece que se viene un lanzamiento fuerte para esta temporada.',
-      media: const [],
-      reactionsCount: 428,
-      commentsCount: 56,
-      createdAt: DateTime(2026, 4, 13, 9, 20),
-      reactedByMe: false,
-    ),
-    HubPostModel(
-      id: 102,
-      author: const HubAuthorModel(
-        id: 'u-11',
-        type: 'employee',
-        name: 'Equipo Creativo',
-        role: 'monitor',
-      ),
-      tag: const HubTagModel(id: 3, name: 'Moda', slug: 'moda'),
-      content:
-          'Preview del set de producto para esta tarde. '
-          'Nos quedamos con la composicion oscura y acento dorado.',
-      media: const [
-        HubMediaModel(
-          id: 'm-102-1',
-          type: HubMediaType.image,
-          url:
-              'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=1200&q=80',
-          sortOrder: 1,
-        ),
-      ],
-      reactionsCount: 179,
-      commentsCount: 21,
-      createdAt: DateTime(2026, 4, 12, 20, 45),
-      reactedByMe: true,
-    ),
-    HubPostModel(
-      id: 103,
-      author: const HubAuthorModel(
-        id: 'u-12',
-        type: 'employee',
-        name: 'Coordinacion',
-        role: 'admin',
-      ),
-      tag: const HubTagModel(id: 2, name: 'Personal', slug: 'personal'),
-      content:
-          'Recordatorio: manana cerramos convocatoria para contenido de bienvenida. '
-          'Suban propuestas antes de las 6PM.',
-      media: const [
-        HubMediaModel(
-          id: 'm-103-1',
-          type: HubMediaType.image,
-          url:
-              'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80',
-          sortOrder: 1,
-        ),
-        HubMediaModel(
-          id: 'm-103-2',
-          type: HubMediaType.image,
-          url:
-              'https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?auto=format&fit=crop&w=1200&q=80',
-          sortOrder: 2,
-        ),
-      ],
-      reactionsCount: 94,
-      commentsCount: 13,
-      createdAt: DateTime(2026, 4, 12, 11, 10),
-      reactedByMe: false,
-    ),
-  ];
+  List<HubPostModel> _posts = [];
 
   Future<HubPostPageResult> fetchPosts({
     required int page,
@@ -128,7 +78,7 @@ class HubPostsService {
     );
 
     try {
-      final response = await http
+      final response = await _httpClient
           .get(
             uri,
             headers: {
@@ -268,7 +218,7 @@ class HubPostsService {
     _log(
       'createPost -> POST $uri | tag=${tag.id} contentLen=${content.trim().length} media=${media.length}',
     );
-    final request = http.MultipartRequest('POST', uri);
+    final request = _multipartRequestFactory('POST', uri);
     request.headers.addAll({
       'Accept': 'application/json',
       ..._tokenService.getAuthHeaders(),
