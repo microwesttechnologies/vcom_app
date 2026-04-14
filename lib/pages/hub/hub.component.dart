@@ -31,6 +31,10 @@ class HubComponent extends ChangeNotifier {
   final HubCommentsService _commentsService;
   final TokenService _tokenService = TokenService();
 
+  void _log(String message) {
+    debugPrint('[HubComponent] $message');
+  }
+
   static const int _perPage = 10;
   Timer? _searchDebounce;
 
@@ -61,15 +65,18 @@ class HubComponent extends ChangeNotifier {
 
   Future<void> initialize({bool forceRefresh = false}) async {
     if (_initialized && !forceRefresh) return;
+    _log('initialize -> forceRefresh=$forceRefresh');
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
       _tags = await _tagsService.fetchTags();
+      _log('initialize tags -> loaded=${_tags.length}');
       await _loadPosts(resetData: true);
       _initialized = true;
     } catch (e) {
+      _log('initialize error -> $e');
       _error = 'No fue posible cargar Hub: $e';
     } finally {
       _isLoading = false;
@@ -78,6 +85,9 @@ class HubComponent extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    _log(
+      'refresh -> selectedTagId=${_selectedTagId ?? 'null'} q="$_searchQuery" currentPosts=${_posts.length}',
+    );
     _error = null;
     _isLoading = true;
     notifyListeners();
@@ -85,6 +95,7 @@ class HubComponent extends ChangeNotifier {
     try {
       await _loadPosts(resetData: true);
     } catch (e) {
+      _log('refresh error -> $e');
       _error = 'No fue posible refrescar Hub: $e';
     } finally {
       _isLoading = false;
@@ -94,12 +105,16 @@ class HubComponent extends ChangeNotifier {
 
   Future<void> loadMore() async {
     if (_isLoading || _isLoadingMore || !_hasMore) return;
+    _log(
+      'loadMore -> nextPage=$_currentPage hasMore=$_hasMore currentPosts=${_posts.length}',
+    );
     _isLoadingMore = true;
     notifyListeners();
 
     try {
       await _loadPosts(resetData: false);
     } catch (e) {
+      _log('loadMore error -> $e');
       _error = 'No fue posible cargar mas publicaciones: $e';
     } finally {
       _isLoadingMore = false;
@@ -109,6 +124,7 @@ class HubComponent extends ChangeNotifier {
 
   void setSelectedTag(int? tagId) {
     if (_selectedTagId == tagId) return;
+    _log('setSelectedTag -> old=${_selectedTagId ?? 'null'} new=${tagId ?? 'null'}');
     _selectedTagId = tagId;
     unawaited(refresh());
   }
@@ -118,6 +134,7 @@ class HubComponent extends ChangeNotifier {
     if (_searchQuery == normalized) return;
 
     _searchQuery = normalized;
+    _log('onSearchChanged -> q="$_searchQuery"');
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       unawaited(refresh());
@@ -181,6 +198,9 @@ class HubComponent extends ChangeNotifier {
     required String content,
     required List<HubMediaModel> media,
   }) async {
+    _log(
+      'createPost (component) -> tag=${tag.id} contentLen=${content.trim().length} media=${media.length} selectedTagFilter=${_selectedTagId ?? 'null'} q="$_searchQuery" postsBefore=${_posts.length}',
+    );
     if (!canCreatePosts) {
       throw StateError('Solo admin y monitor pueden crear publicaciones.');
     }
@@ -199,6 +219,7 @@ class HubComponent extends ChangeNotifier {
 
     final nextPosts = [post, ..._posts];
     _posts = nextPosts;
+    _log('createPost (component) success -> insertedId=${post.id} postsNow=${_posts.length}');
     notifyListeners();
     return post;
   }
@@ -219,10 +240,14 @@ class HubComponent extends ChangeNotifier {
   }
 
   Future<void> _loadPosts({required bool resetData}) async {
+    _log(
+      '_loadPosts start -> reset=$resetData page=$_currentPage hasMore=$_hasMore selectedTagId=${_selectedTagId ?? 'null'} q="$_searchQuery"',
+    );
     if (resetData) {
       _currentPage = 1;
       _hasMore = true;
       _posts = const [];
+      _log('_loadPosts reset -> page=$_currentPage postsCleared');
     }
 
     final result = await _postsService.fetchPosts(
@@ -238,9 +263,13 @@ class HubComponent extends ChangeNotifier {
     } else {
       _posts = [..._posts, ...result.data];
     }
+    _log(
+      '_loadPosts result -> received=${result.data.length} postsNow=${_posts.length} hasMore=$_hasMore',
+    );
 
     if (result.data.isNotEmpty) {
       _currentPage += 1;
+      _log('_loadPosts page advanced -> $_currentPage');
     }
   }
 

@@ -14,6 +14,10 @@ class CreatePostComponent extends ChangeNotifier {
   final ImagePicker _picker = ImagePicker();
   final TokenService _tokenService = TokenService();
 
+  void _log(String message) {
+    debugPrint('[CreatePostComponent] $message');
+  }
+
   bool _isLoading = false;
   bool _isSubmitting = false;
   String? _error;
@@ -117,14 +121,19 @@ class CreatePostComponent extends ChangeNotifier {
   }
 
   Future<HubPostModel?> publish() async {
+    _log(
+      'publish -> canCreate=$canCreatePosts canPublish=$canPublish tagId=${_selectedTagId ?? 'null'} titleLen=${_title.trim().length} descLen=${_description.trim().length} media=${_media.length}',
+    );
     if (!canCreatePosts) {
       _error = 'Solo admin y monitor pueden crear publicaciones.';
+      _log('publish blocked -> no permission');
       notifyListeners();
       return null;
     }
 
     if (!canPublish) {
       _error = 'Selecciona una categoria y agrega contenido o media.';
+      _log('publish blocked -> invalid payload');
       notifyListeners();
       return null;
     }
@@ -144,9 +153,11 @@ class CreatePostComponent extends ChangeNotifier {
         content: _composeContent(),
         media: _media,
       );
+      _log('publish success -> createdId=${post?.id}');
       return post;
     } catch (e) {
       _error = 'No fue posible publicar: $e';
+      _log('publish error -> $e');
       return null;
     } finally {
       _isSubmitting = false;

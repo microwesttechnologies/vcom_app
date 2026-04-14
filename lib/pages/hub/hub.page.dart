@@ -326,12 +326,24 @@ class _HubPageState extends State<HubPage> {
   }
 
   Future<void> _openCreatePost() async {
+    debugPrint(
+      '[HubPage] openCreatePost -> before: posts=${_component.posts.length} tagFilter=${_component.selectedTagId ?? 'null'} q="${_component.searchQuery}"',
+    );
     final result = await Navigator.push<HubPostModel>(
       context,
       MaterialPageRoute(builder: (_) => const CreatePostPage()),
     );
-    if (result == null) return;
+    if (result == null) {
+      debugPrint('[HubPage] openCreatePost -> canceled by user');
+      return;
+    }
+    debugPrint(
+      '[HubPage] openCreatePost -> createdId=${result.id}; forcing refresh',
+    );
     await _component.refresh();
+    debugPrint(
+      '[HubPage] openCreatePost -> after refresh: posts=${_component.posts.length} tagFilter=${_component.selectedTagId ?? 'null'} q="${_component.searchQuery}"',
+    );
   }
 
   Future<void> _openCommentsSheet(HubPostModel post) async {

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/token.service.dart';
@@ -17,6 +18,10 @@ class HubPostsService {
 
   final Random _random = Random();
   final TokenService _tokenService = TokenService();
+
+  void _log(String message) {
+    debugPrint('[HubPostsService] $message');
+  }
 
   int _nextPostId = 1000;
   List<HubPostModel> _posts = [
@@ -118,6 +123,9 @@ class HubPostsService {
 
     final uri = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.hubPosts}')
         .replace(queryParameters: queryParameters);
+    _log(
+      'fetchPosts -> GET $uri | page=$page perPage=$perPage tagId=${tagId ?? 'null'} q="${searchQuery.trim()}"',
+    );
 
     try {
       final response = await http
@@ -130,6 +138,9 @@ class HubPostsService {
             },
           )
           .timeout(const Duration(seconds: 12));
+      _log(
+        'fetchPosts <- status=${response.statusCode} bodyLength=${response.body.length}',
+      );
 
       _tokenService.handleUnauthorizedStatus(response.statusCode);
       if (response.statusCode == 200) {
@@ -148,6 +159,9 @@ class HubPostsService {
         final currentPage = (meta['current_page'] as num?)?.toInt() ?? page;
         final currentPerPage = (meta['per_page'] as num?)?.toInt() ?? perPage;
         final hasMore = meta['has_more'] as bool? ?? false;
+        _log(
+          'fetchPosts parsed -> posts=${parsedPosts.length} currentPage=$currentPage hasMore=$hasMore',
+        );
 
         _syncLocalCache(page: page, incoming: parsedPosts);
 
@@ -158,7 +172,11 @@ class HubPostsService {
           hasMore: hasMore,
         );
       }
-    } catch (_) {}
+    } catch (e) {
+      _log('fetchPosts error -> $e');
+    }
+
+    _log('fetchPosts -> using fallback local cache');
 
     return _fetchPostsFallback(
       page: page,
@@ -174,6 +192,9 @@ class HubPostsService {
     String searchQuery = '',
     int? tagId,
   }) {
+    _log(
+      '_fetchPostsFallback -> page=$page perPage=$perPage tagId=${tagId ?? 'null'} q="${searchQuery.trim()}" cacheSize=${_posts.length}',
+    );
     final normalizedSearch = searchQuery.trim().toLowerCase();
 
     final filtered = _posts
@@ -195,6 +216,7 @@ class HubPostsService {
 
     final start = (page - 1) * perPage;
     if (start >= filtered.length) {
+      _log('_fetchPostsFallback result -> empty page (filtered=${filtered.length})');
       return HubPostPageResult(
         data: const [],
         currentPage: page,
@@ -205,6 +227,9 @@ class HubPostsService {
 
     final end = min(start + perPage, filtered.length);
     final data = filtered.sublist(start, end);
+    _log(
+      '_fetchPostsFallback result -> returned=${data.length} filtered=${filtered.length} hasMore=${end < filtered.length}',
+    );
     return HubPostPageResult(
       data: data,
       currentPage: page,
@@ -240,6 +265,9 @@ class HubPostsService {
     required List<HubMediaModel> media,
   }) async {
     final uri = Uri.parse('${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostsCreate}');
+    _log(
+      'createPost -> POST $uri | tag=${tag.id} contentLen=${content.trim().length} media=${media.length}',
+    );
     final request = http.MultipartRequest('POST', uri);
     request.headers.addAll({
       'Accept': 'application/json',
@@ -256,7 +284,10 @@ class HubPostsService {
     for (final item in media) {
       if (item.isLocal) {
         final file = File(item.url);
-        if (!file.existsSync()) continue;
+        if (!file.existsSync()) {
+          _log('createPost media skip -> local file not found: ${item.url}');
+          continue;
+        }
         request.files.add(
           await http.MultipartFile.fromPath('media_files[]', item.url),
         );
@@ -275,10 +306,16 @@ class HubPostsService {
     if (remoteMediaPayload.isNotEmpty) {
       request.fields['media'] = jsonEncode(remoteMediaPayload);
     }
+    _log(
+      'createPost payload -> fields=${request.fields.keys.toList()} files=${request.files.length} remoteMedia=${remoteMediaPayload.length}',
+    );
 
     try {
       final streamed = await request.send().timeout(const Duration(seconds: 20));
       final response = await http.Response.fromStream(streamed);
+      _log(
+        'createPost <- status=${response.statusCode} bodyLength=${response.body.length}',
+      );
       _tokenService.handleUnauthorizedStatus(response.statusCode);
 
       if (response.statusCode == 201) {
@@ -289,11 +326,16 @@ class HubPostsService {
 
         final created = HubPostModel.fromJson(raw);
         _posts.insert(0, created);
+        _log('createPost success -> createdId=${created.id} cacheSize=${_posts.length}');
         return created;
       }
-    } catch (_) {}
+      _log('createPost non-201 response -> fallback local');
+    } catch (e) {
+      _log('createPost error -> $e');
+    }
 
     // Fallback local si el backend no está disponible.
+    _log('createPost -> using fallback local post');
     await Future<void>.delayed(const Duration(milliseconds: 250));
     final now = DateTime.now();
     final sortedMedia = [...media]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
@@ -310,6 +352,7 @@ class HubPostsService {
       reactedByMe: false,
     );
     _posts.insert(0, post);
+    _log('createPost fallback success -> createdId=${post.id} cacheSize=${_posts.length}');
     return post;
   }
 
@@ -324,6 +367,7 @@ class HubPostsService {
   void _syncLocalCache({required int page, required List<HubPostModel> incoming}) {
     if (page <= 1) {
       _posts = [...incoming];
+      _log('_syncLocalCache reset -> cacheSize=${_posts.length}');
       return;
     }
 
@@ -338,5 +382,6 @@ class HubPostsService {
     }
     merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     _posts = merged;
+    _log('_syncLocalCache merge -> incoming=${incoming.length} cacheSize=${_posts.length} page=$page');
   }
 }
