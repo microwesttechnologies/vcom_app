@@ -4,13 +4,12 @@ import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vcom_app/core/chat/chat_api.service.dart';
 import 'package:vcom_app/core/chat/chat_ui_state.service.dart';
+import 'package:vcom_app/core/common/app_routes.dart';
 import 'package:vcom_app/core/common/token.service.dart';
-import 'package:vcom_app/pages/chat/chat.page.dart';
 
 final FlutterLocalNotificationsPlugin _backgroundLocalNotifications =
     FlutterLocalNotificationsPlugin();
@@ -156,7 +155,9 @@ class ChatPushService {
       provisional: false,
     );
     if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      debugPrint('Push chat: permisos de notificacion denegados por el usuario.');
+      debugPrint(
+        'Push chat: permisos de notificacion denegados por el usuario.',
+      );
       return;
     }
 
@@ -330,14 +331,17 @@ class ChatPushService {
     final otherUserName = (data['other_user_name'] ?? '').toString().trim();
     final otherUserRole = (data['other_user_role'] ?? '').toString().trim();
 
-    navigator.push(
-      MaterialPageRoute(
-        builder: (_) => ChatPage(
-          initialOtherUserId: otherUserId.isEmpty ? null : otherUserId,
-          initialOtherUserName: otherUserName.isEmpty ? null : otherUserName,
-          initialOtherUserRole: otherUserRole.isEmpty ? null : otherUserRole,
-        ),
-      ),
+    navigator.pushNamed(
+      AppRoutes.chat,
+      arguments: <String, String?>{
+        AppRoutes.chatArgOtherUserId: otherUserId.isEmpty ? null : otherUserId,
+        AppRoutes.chatArgOtherUserName: otherUserName.isEmpty
+            ? null
+            : otherUserName,
+        AppRoutes.chatArgOtherUserRole: otherUserRole.isEmpty
+            ? null
+            : otherUserRole,
+      },
     );
   }
 }

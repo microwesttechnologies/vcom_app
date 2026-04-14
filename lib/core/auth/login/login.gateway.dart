@@ -9,4 +9,3 @@ abstract class LoginGateway {
   /// Obtiene los permisos y datos del usuario autenticado
   Future<PermissionsResponse> getPermissions(String token);
 }
-
