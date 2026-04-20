@@ -16,10 +16,24 @@ class HubCommentsService {
     };
   }
 
-  Future<List<HubCommentModel>> fetchPostComments(dynamic postId) async {
-    final url = Uri.parse(
-      '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostComments(postId)}',
-    );
+  Future<List<HubCommentModel>> fetchPostComments(
+    dynamic postId, {
+    int page = 1,
+    int perPage = 15,
+  }) async {
+    final numericId = postId is int
+        ? postId
+        : int.tryParse(postId.toString()) ?? postId;
+    final url =
+        Uri.parse(
+          '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostCommentsList}',
+        ).replace(
+          queryParameters: {
+            'post_id': numericId.toString(),
+            'page': page.toString(),
+            'per_page': perPage.toString(),
+          },
+        );
     final response = await http.get(url, headers: _headers());
     if (response.statusCode >= 400) {
       throw Exception(

@@ -234,6 +234,9 @@ class EnvironmentDev {
   /// Crear/actualizar comentario de un post (nuevo endpoint con body JSON)
   static const String hubPostCommentsCreate = '/api/v1/hub/post-comments';
 
+  /// Listar comentarios de un post (query params: post_id, page, per_page)
+  static const String hubPostCommentsList = '/api/v1/hub/post-comments';
+
   /// Resumen de reacciones de un post (admite UUID o numérico)
   static String hubPostReactions(dynamic post) =>
       '/api/v1/hub/posts/$post/reactions';
