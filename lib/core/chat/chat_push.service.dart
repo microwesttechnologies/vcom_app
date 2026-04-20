@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -27,6 +28,7 @@ bool _backgroundNotificationsReady = false;
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (kIsWeb || Platform.isWindows) return;
   try {
     await Firebase.initializeApp();
   } catch (_) {}
@@ -118,7 +120,7 @@ class ChatPushService {
   StreamSubscription<String>? _tokenRefreshSubscription;
 
   Future<void> initialize() async {
-    if (kIsWeb) return;
+    if (kIsWeb || Platform.isWindows) return;
 
     await _tokenService.initialize();
 
@@ -156,7 +158,9 @@ class ChatPushService {
       provisional: false,
     );
     if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      debugPrint('Push chat: permisos de notificacion denegados por el usuario.');
+      debugPrint(
+        'Push chat: permisos de notificacion denegados por el usuario.',
+      );
       return;
     }
 
@@ -169,10 +173,14 @@ class ChatPushService {
     final token = _tokenService.getToken();
     if (token == null || token.isEmpty) return;
 
-    final fcmToken = await messaging.getToken();
-    if (fcmToken != null && fcmToken.isNotEmpty) {
-      debugPrint('FCM token obtenido: $fcmToken');
-      await _registerTokenWithBackend(fcmToken);
+    try {
+      final fcmToken = await messaging.getToken();
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        debugPrint('FCM token obtenido: $fcmToken');
+        await _registerTokenWithBackend(fcmToken);
+      }
+    } catch (e) {
+      debugPrint('Push chat: no se pudo obtener FCM token: $e');
     }
 
     final initialMessage = await messaging.getInitialMessage();
@@ -182,7 +190,7 @@ class ChatPushService {
   }
 
   Future<void> unregisterCurrentDevice() async {
-    if (kIsWeb) return;
+    if (kIsWeb || Platform.isWindows) return;
 
     final prefs = await SharedPreferences.getInstance();
     final cachedToken = prefs.getString(_cachedPushTokenKey);

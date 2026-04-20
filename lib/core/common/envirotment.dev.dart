@@ -1,7 +1,10 @@
 /// Configuración de ambiente de desarrollo
 class EnvironmentDev {
   /// URL base del API local
-  static const String baseUrl = 'https://vcamb.microwesttechnologies.com';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://vcamb.microwesttechnologies.com',
+  );
   // static const String baseUrl = 'http://192.168.1.2:8000'; // IP local (desarrollo)
   // static const String baseUrl = 'http://localhost:8000'; // Localhost (para web/desktop)
   // static const String baseUrl = 'http://10.0.2.2:8000'; // Emulador Android
@@ -212,6 +215,42 @@ class EnvironmentDev {
 
   /// Eliminar un evento por ID
   static String eventsDelete(int id) => '/api/v1/events/$id';
+
+  // ============================================================================
+  // HUB
+  // Endpoints para publicaciones estilo feed
+  // ============================================================================
+
+  /// Listar publicaciones del Hub
+  static const String hubPostsList = '/api/v1/hub/posts';
+
+  /// Ver detalle del post (admite UUID o numérico)
+  static String hubPostDetail(dynamic post) => '/api/v1/hub/posts/$post';
+
+  /// Listar comentarios de un post (admite UUID o numérico)
+  static String hubPostComments(dynamic post) =>
+      '/api/v1/hub/posts/$post/comments';
+
+  /// Crear/actualizar comentario de un post (nuevo endpoint con body JSON)
+  static const String hubPostCommentsCreate = '/api/v1/hub/post-comments';
+
+  /// Resumen de reacciones de un post (admite UUID o numérico)
+  static String hubPostReactions(dynamic post) =>
+      '/api/v1/hub/posts/$post/reactions';
+
+  /// Crear/actualizar reacción a un post (nuevo endpoint con body JSON)
+  static const String hubPostReactionsCreate = '/api/v1/hub/post-reactions';
+
+  /// Resumen de reacciones de un comentario (post admite UUID o numérico)
+  static String hubCommentReactions(dynamic post, dynamic commentId) =>
+      '/api/v1/hub/posts/$post/comments/$commentId/reactions';
+
+  /// Crear/actualizar reacción a un comentario (nuevo endpoint con body JSON)
+  static const String hubCommentReactionsCreate =
+      '/api/v1/hub/comment-reactions';
+
+  /// Listar tags del Hub
+  static const String hubTagsList = '/api/v1/hub/tags';
 
   // ============================================================================
   // MODELO (Rol Modelo)

@@ -5,6 +5,7 @@ import 'package:vcom_app/pages/events/events.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
 import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/pages/wallet/wallet.page.dart';
+import 'package:vcom_app/pages/hub/hub.page.dart';
 
 class ModeloMenuBar extends StatelessWidget {
   final int activeIndex;
@@ -15,6 +16,13 @@ class ModeloMenuBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = <_ModeloMenuEntry>[
+      _ModeloMenuEntry(
+        label: 'HUB',
+        icon: Icons.hub,
+        hints: const ['dashboard', 'inicio', 'hub'],
+        onTap: (context) =>
+            _pushIfNotCurrent<HubPage>(context, () => const HubPage()),
+      ),
       _ModeloMenuEntry(
         label: 'STORE',
         icon: Icons.shopping_bag,
