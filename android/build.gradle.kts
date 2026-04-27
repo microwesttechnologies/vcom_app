@@ -5,20 +5,19 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory =
-    rootProject.layout.buildDirectory
-        .dir("../../build")
-        .get()
-rootProject.layout.buildDirectory.value(newBuildDir)
+val externalBuildRoot = File(
+    System.getenv("LOCALAPPDATA") ?: System.getProperty("java.io.tmpdir"),
+    "vcom_app_build",
+)
+rootProject.layout.buildDirectory.set(externalBuildRoot)
 
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
+    project.layout.buildDirectory.set(File(externalBuildRoot, project.name))
 }
 subprojects {
     project.evaluationDependsOn(":app")
 }
 
 tasks.register<Delete>("clean") {
-    delete(rootProject.layout.buildDirectory)
+    delete(externalBuildRoot)
 }

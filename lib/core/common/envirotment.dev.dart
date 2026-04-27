@@ -244,9 +244,9 @@ class EnvironmentDev {
   /// Crear/actualizar reacción a un post (nuevo endpoint con body JSON)
   static const String hubPostReactionsCreate = '/api/v1/hub/post-reactions';
 
-  /// Resumen de reacciones de un comentario (post admite UUID o numérico)
-  static String hubCommentReactions(dynamic post, dynamic commentId) =>
-      '/api/v1/hub/posts/$post/comments/$commentId/reactions';
+  /// Resumen de reacciones de un comentario por ID numérico
+  static String hubCommentReactions(dynamic commentId) =>
+      '/api/v1/hub/comment-reactions?comment_id=$commentId';
 
   /// Crear/actualizar reacción a un comentario (nuevo endpoint con body JSON)
   static const String hubCommentReactionsCreate =
