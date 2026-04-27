@@ -7,17 +7,21 @@ import 'package:vcom_app/pages/hub/hub_helpers.dart';
 class PostCardWidget extends StatelessWidget {
   const PostCardWidget({
     required this.post,
-    required this.reactionsLabel,
-    required this.commentsCount,
     required this.onReactionsTap,
     required this.onCommentsTap,
     required this.reactionExpandedWidget,
+    this.reactionsLabel,
+    this.commentsCount,
     super.key,
   });
 
   final Map<String, dynamic> post;
-  final String reactionsLabel;
-  final int commentsCount;
+
+  /// Null = still loading, non-null = ready.
+  final String? reactionsLabel;
+
+  /// Null = still loading, non-null = ready.
+  final int? commentsCount;
   final VoidCallback onReactionsTap;
   final VoidCallback onCommentsTap;
   final Widget? reactionExpandedWidget;
@@ -174,14 +178,16 @@ class PostCardWidget extends StatelessWidget {
                 color: Colors.white70,
               ),
               const SizedBox(width: 6),
-              Text(
-                reactionsLabel,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              reactionsLabel != null
+                  ? Text(
+                      reactionsLabel!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  : _miniLoader(),
             ],
           ),
         ),
@@ -198,18 +204,31 @@ class PostCardWidget extends StatelessWidget {
                 color: Colors.white70,
               ),
               const SizedBox(width: 6),
-              Text(
-                '$commentsCount',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              commentsCount != null
+                  ? Text(
+                      '$commentsCount',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  : _miniLoader(),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _miniLoader() {
+    return SizedBox(
+      width: 12,
+      height: 12,
+      child: CircularProgressIndicator(
+        strokeWidth: 1.5,
+        color: Colors.white.withValues(alpha: 0.45),
+      ),
     );
   }
 

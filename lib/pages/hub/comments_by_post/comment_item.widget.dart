@@ -78,6 +78,7 @@ class CommentItemWidget extends StatelessWidget {
 
   Widget _bubble(String author, String content) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: VcomColors.azulOverlayTransparente70,

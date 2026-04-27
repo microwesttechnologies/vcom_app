@@ -17,23 +17,32 @@ class HubPage extends StatefulWidget {
   State<HubPage> createState() => _HubPageState();
 }
 
-class _HubPageState extends State<HubPage> {
-  final HubComponent _component = HubComponent();
+class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
+  static final HubComponent _component = HubComponent();
   final TextEditingController _searchController = TextEditingController();
   final Set<int> _expandedPostReactions = <int>{};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _component.addListener(_onChanged);
     _component.initialize();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _component.removeListener(_onChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_component.isCacheValid) {
+      _component.initialize(force: true);
+    }
   }
 
   void _onChanged() {
@@ -69,7 +78,11 @@ class _HubPageState extends State<HubPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => CommentsSheet(postId: postId, component: _component),
+      builder: (sheetCtx) => CommentsSheet(
+        postId: postId,
+        component: _component,
+        rootMessenger: ScaffoldMessenger.of(context),
+      ),
     );
   }
 
@@ -124,12 +137,14 @@ class _HubPageState extends State<HubPage> {
     if (_component.error != null && _component.posts.isEmpty) {
       return _buildError();
     }
-    if (_component.posts.isEmpty) return _buildEmpty();
+    final list = _component.posts.isEmpty
+        ? <Map<String, dynamic>>[]
+        : _applyUiFilters(_component.posts);
+    final hasItems = list.isNotEmpty;
 
-    final list = _applyUiFilters(_component.posts);
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-      itemCount: list.length + 2,
+      itemCount: hasItems ? list.length + 2 : 3,
       itemBuilder: (_, index) {
         if (index == 0) return _buildSearchBar();
         if (index == 1) {
@@ -139,6 +154,7 @@ class _HubPageState extends State<HubPage> {
             onSelected: (tag) => _component.selectTag(tag),
           );
         }
+        if (!hasItems) return _buildEmpty();
         return _buildPostItem(list[index - 2]);
       },
     );
@@ -267,8 +283,10 @@ class _HubPageState extends State<HubPage> {
 
     return PostCardWidget(
       post: post,
-      reactionsLabel: _formatReactionsCount(reactions),
-      commentsCount: comments?.length ?? 0,
+      reactionsLabel: reactions != null
+          ? _formatReactionsCount(reactions)
+          : null,
+      commentsCount: comments?.length,
       onReactionsTap: () {
         if (postId == null) return;
         setState(() {

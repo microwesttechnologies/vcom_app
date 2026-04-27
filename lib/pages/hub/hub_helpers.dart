@@ -107,14 +107,18 @@ String toDisplayName(String value) {
       .join(' ');
 }
 
-/// Genera un texto relativo como "HACE 5M", "HACE 2H", "HACE 3D".
+/// Genera un texto relativo legible: "Hace un momento", "Hace 5 minutos", etc.
 String relativeTime(String raw) {
   try {
     final dt = DateTime.parse(raw).toLocal();
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 60) return 'HACE ${diff.inMinutes}M';
-    if (diff.inHours < 24) return 'HACE ${diff.inHours}H';
-    return 'HACE ${diff.inDays}D';
+    if (diff.inSeconds < 60) return 'Hace un momento';
+    if (diff.inMinutes == 1) return 'Hace 1 minuto';
+    if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} minutos';
+    if (diff.inHours == 1) return 'Hace 1 hora';
+    if (diff.inHours < 24) return 'Hace ${diff.inHours} horas';
+    if (diff.inDays == 1) return 'Hace 1 día';
+    return 'Hace ${diff.inDays} días';
   } catch (_) {
     return raw;
   }
@@ -135,8 +139,8 @@ String? _resolveByPresence(
     return currentUserName;
   }
 
-  final presenceName =
-      (userStatusService.presenceNameById[authorId] ?? '').trim();
+  final presenceName = (userStatusService.presenceNameById[authorId] ?? '')
+      .trim();
   if (presenceName.isNotEmpty) return toDisplayName(presenceName);
   return null;
 }

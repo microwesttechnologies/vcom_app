@@ -11,14 +11,15 @@ class CommentReactionSelector extends StatefulWidget {
     super.key,
   });
 
-  final int reactionsCount;
+  final int? reactionsCount;
   final List<List<String>> reactionOptions;
   final Future<bool> Function(String type) onReactionSelected;
   final String? selectedReactionType;
   final bool isSubmitting;
 
   @override
-  State<CommentReactionSelector> createState() => _CommentReactionSelectorState();
+  State<CommentReactionSelector> createState() =>
+      _CommentReactionSelectorState();
 }
 
 class _CommentReactionSelectorState extends State<CommentReactionSelector> {
@@ -27,7 +28,9 @@ class _CommentReactionSelectorState extends State<CommentReactionSelector> {
   @override
   Widget build(BuildContext context) {
     final selectedEmoji = widget.reactionOptions
-        .where((pair) => pair.length >= 2 && pair[1] == widget.selectedReactionType)
+        .where(
+          (pair) => pair.length >= 2 && pair[1] == widget.selectedReactionType,
+        )
         .map((pair) => pair[0])
         .cast<String?>()
         .firstWhere((value) => value != null, orElse: () => null);
@@ -58,14 +61,24 @@ class _CommentReactionSelectorState extends State<CommentReactionSelector> {
                 else
                   Text(selectedEmoji, style: const TextStyle(fontSize: 14)),
                 const SizedBox(width: 4),
-                Text(
-                  '${widget.reactionsCount}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                if (widget.reactionsCount != null)
+                  Text(
+                    '${widget.reactionsCount}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  )
+                else
+                  SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -104,7 +117,10 @@ class _CommentReactionSelectorState extends State<CommentReactionSelector> {
                               : Colors.white.withValues(alpha: 0.08),
                         ),
                       ),
-                      child: Text(pair[0], style: const TextStyle(fontSize: 14)),
+                      child: Text(
+                        pair[0],
+                        style: const TextStyle(fontSize: 14),
+                      ),
                     ),
                   ),
             ],

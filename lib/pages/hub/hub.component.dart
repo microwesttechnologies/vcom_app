@@ -19,6 +19,12 @@ class HubComponent extends ChangeNotifier {
   final TagsComponent _tagsComponent = TagsComponent();
 
   String? _error;
+  DateTime? _lastFetchTime;
+
+  /// True si los datos en caché tienen menos de 5 minutos.
+  bool get isCacheValid =>
+      _lastFetchTime != null &&
+      DateTime.now().difference(_lastFetchTime!) < HubConstants.cacheTtl;
 
   // ── Getters delegados ──────────────────────────────────────
 
@@ -51,12 +57,18 @@ class HubComponent extends ChangeNotifier {
     int page = HubConstants.defaultPage,
     int perPage = HubConstants.defaultPerPage,
     String? tag,
+    bool force = false,
   }) async {
+    if (!force && isCacheValid && _postComponent.posts.isNotEmpty) return;
     _postComponent.configure(page: page, perPage: perPage);
     await fetchPosts(tag: tag);
     await _tagsComponent.loadTags();
+    _lastFetchTime = DateTime.now();
     notifyListeners();
   }
+
+  /// Invalida el caché manualmente.
+  void invalidateCache() => _lastFetchTime = null;
 
   Future<void> fetchPosts({String? tag}) async {
     _error = null;
@@ -75,8 +87,10 @@ class HubComponent extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    _lastFetchTime = null;
     await fetchPosts(tag: _tagsComponent.selectedTag?.slug);
     await _tagsComponent.loadTags();
+    _lastFetchTime = DateTime.now();
     notifyListeners();
   }
 
@@ -86,25 +100,13 @@ class HubComponent extends ChangeNotifier {
     required String title,
     required String content,
     HubTag? tag,
-    String? mediaUrl,
+    List<Map<String, dynamic>>? media,
   }) async {
-    final media = (mediaUrl != null && mediaUrl.trim().isNotEmpty)
-        ? [
-            {
-              'type': 'image',
-              'url': mediaUrl.trim(),
-              'mime_type': 'image/*',
-              'file_size': 0,
-              'sort_order': 0,
-            },
-          ]
-        : <Map<String, dynamic>>[];
-
     final ok = await _postComponent.createPost(
       title: title,
       content: content,
       tagId: tag?.id,
-      media: media.isEmpty ? null : media,
+      media: media,
     );
 
     if (ok) await refresh();
