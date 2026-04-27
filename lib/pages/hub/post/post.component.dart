@@ -1,13 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:vcom_app/core/hub/services/hub.post.services.dart';
 import 'package:vcom_app/pages/hub/hub_constants.dart';
 import 'package:vcom_app/pages/hub/hub_helpers.dart';
-import 'package:vcom_app/pages/hub/multimedia_by_post/multimedia_by_post.component.dart';
 
 /// Componente de lógica de negocio para la gestión de Posts.
 class PostComponent extends ChangeNotifier {
   final HubPostsService _postsService = HubPostsService();
-  final MultimediaByPostComponent _mediaValidator = MultimediaByPostComponent();
 
   bool _isLoading = false;
   String? _error;
@@ -59,29 +59,20 @@ class PostComponent extends ChangeNotifier {
     }
   }
 
-  /// Crea un post validando reglas de multimedia.
+  /// Crea un post enviando archivos multimedia como multipart.
   Future<bool> createPost({
     required String title,
     required String content,
     int? tagId,
-    List<Map<String, dynamic>>? media,
+    List<File> mediaFiles = const [],
   }) async {
-    final mediaValidation = _mediaValidator.validateMedia(media ?? []);
-    if (mediaValidation != null) {
-      _error = mediaValidation;
-      notifyListeners();
-      return false;
-    }
-
     try {
-      final body = <String, dynamic>{
-        'title_post': title,
-        'content': content,
-        if (tagId != null) 'tag_id': tagId,
-        if (media != null && media.isNotEmpty) 'media': media,
-      };
-
-      await _postsService.createPost(body);
+      await _postsService.createPost(
+        titlePost: title,
+        content: content,
+        tagId: tagId,
+        mediaFiles: mediaFiles,
+      );
       _error = null;
       return true;
     } catch (e) {

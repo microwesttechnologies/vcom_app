@@ -38,6 +38,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   video_player: ^2.8.2
   http: ^1.2.0
+  http_parser: ^4.0.2
   shared_preferences: ^2.2.2
   image_picker: ^1.1.2
   url_launcher: ^6.2.4

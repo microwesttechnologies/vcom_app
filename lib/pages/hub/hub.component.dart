@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:vcom_app/core/hub/hub_models.dart';
 import 'package:vcom_app/core/hub/hub_tags.service.dart';
@@ -100,13 +102,13 @@ class HubComponent extends ChangeNotifier {
     required String title,
     required String content,
     HubTag? tag,
-    List<Map<String, dynamic>>? media,
+    List<File> mediaFiles = const [],
   }) async {
     final ok = await _postComponent.createPost(
       title: title,
       content: content,
       tagId: tag?.id,
-      media: media,
+      mediaFiles: mediaFiles,
     );
 
     if (ok) await refresh();

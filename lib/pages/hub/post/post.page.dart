@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:vcom_app/core/common/media_upload.service.dart';
 import 'package:vcom_app/core/hub/hub_tags.service.dart';
 import 'package:vcom_app/pages/hub/hub_constants.dart';
 import 'package:vcom_app/pages/hub/post/media_picker.widget.dart';
@@ -30,7 +29,6 @@ class CreatePostSheet extends StatefulWidget {
 class _CreatePostSheetState extends State<CreatePostSheet> {
   final _titleCtrl = TextEditingController();
   final _contentCtrl = TextEditingController();
-  final _uploadService = MediaUploadService();
   HubTag? _selectedTag;
   List<PickedMedia> _pickedMedia = [];
   bool _isSubmitting = false;
@@ -64,7 +62,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     });
 
     try {
-      final media = await _processMedia();
+      final files = await _prepareFiles();
       if (!mounted) return;
 
       setState(() => _progressMsg = 'Publicando...');
@@ -73,7 +71,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
         title: title,
         content: content,
         tagId: _selectedTag?.id,
-        media: media.isEmpty ? null : media,
+        mediaFiles: files,
       );
 
       if (!mounted) return;
@@ -103,48 +101,26 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _processMedia() async {
+  Future<List<File>> _prepareFiles() async {
     if (_pickedMedia.isEmpty) return [];
-    final results = <Map<String, dynamic>>[];
+    final files = <File>[];
 
     for (var i = 0; i < _pickedMedia.length; i++) {
       final media = _pickedMedia[i];
       if (mounted) {
         setState(
-          () => _progressMsg =
-              'Comprimiendo y subiendo ${i + 1}/${_pickedMedia.length}...',
+          () =>
+              _progressMsg = 'Comprimiendo ${i + 1}/${_pickedMedia.length}...',
         );
       }
 
       if (media.type == 'image') {
-        final compressed = await _compressImage(media.file);
-        final upload = await _uploadService.uploadFile(
-          file: compressed,
-          type: 'image',
-        );
-        results.add({
-          'type': 'image',
-          'url': upload.url,
-          'mime_type': upload.contentType ?? 'image/jpeg',
-          'file_size': await compressed.length(),
-          'sort_order': i,
-        });
+        files.add(await _compressImage(media.file));
       } else {
-        final upload = await _uploadService.uploadFile(
-          file: media.file,
-          type: 'video',
-        );
-        results.add({
-          'type': 'video',
-          'url': upload.url,
-          'mime_type': upload.contentType ?? 'video/mp4',
-          'file_size': await media.file.length(),
-          'sort_order': i,
-          if (upload.thumbnailUrl != null) 'thumbnail': upload.thumbnailUrl,
-        });
+        files.add(media.file);
       }
     }
-    return results;
+    return files;
   }
 
   Future<File> _compressImage(File original) async {
