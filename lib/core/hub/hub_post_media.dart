@@ -1,6 +1,180 @@
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 
+/// Tipo de recurso en la galería del post.
+enum HubMediaKind { image, video }
+
+/// Un archivo de imagen o vídeo asociado al post.
+class HubPostMediaItem {
+  const HubPostMediaItem({required this.url, required this.kind});
+
+  final String url;
+  final HubMediaKind kind;
+}
+
+bool hubMediaUrlLooksLikeVideo(String raw) {
+  final path = raw.split('?').first.toLowerCase();
+  return path.endsWith('.mp4') ||
+      path.endsWith('.mov') ||
+      path.endsWith('.webm') ||
+      path.endsWith('.m4v') ||
+      path.endsWith('.avi') ||
+      path.endsWith('.mkv');
+}
+
+HubMediaKind? _kindFromMediaMap(Map<String, dynamic> m) {
+  final t = (m['mime_type'] ??
+          m['mimeType'] ??
+          m['type'] ??
+          m['media_type'] ??
+          '')
+      .toString()
+      .toLowerCase();
+  if (t.contains('video')) return HubMediaKind.video;
+  if (t.contains('image')) return HubMediaKind.image;
+  final url = _firstUrlFromMediaMap(m);
+  if (url != null && hubMediaUrlLooksLikeVideo(url)) {
+    return HubMediaKind.video;
+  }
+  return null;
+}
+
+void _hubCollectMediaFromDynamic(
+  dynamic value,
+  void Function(String? url, HubMediaKind? hint) add,
+) {
+  if (value == null) return;
+  if (value is String) {
+    add(value, null);
+    return;
+  }
+  if (value is List) {
+    _hubCollectMediaFromList(value, add);
+    return;
+  }
+  if (value is Map<String, dynamic>) {
+    final inner =
+        value['data'] ?? value['items'] ?? value['records'] ?? value['rows'];
+    if (inner is List) {
+      _hubCollectMediaFromList(inner, add);
+      return;
+    }
+    final hint = _kindFromMediaMap(value);
+    add(_firstUrlFromMediaMap(value), hint);
+    final rel = value['media'] ?? value['file'] ?? value['attachment'];
+    _hubCollectMediaFromDynamic(rel, add);
+  }
+}
+
+void _hubCollectMediaFromList(
+  List<dynamic> list,
+  void Function(String? url, HubMediaKind? hint) add,
+) {
+  for (final e in list) {
+    if (e is String) {
+      add(e, null);
+    } else if (e is Map<String, dynamic>) {
+      final hint = _kindFromMediaMap(e);
+      add(_firstUrlFromMediaMap(e), hint);
+      final rel = e['media'] ?? e['file'] ?? e['attachment'];
+      _hubCollectMediaFromDynamic(rel, add);
+    }
+  }
+}
+
+/// Imágenes y vídeos del post con tipo inferido (mime, extensión).
+List<HubPostMediaItem> extractPostMediaItems(Map<String, dynamic> post) {
+  final root = _effectivePostRoot(post);
+  const listKeys = [
+    'images',
+    'media',
+    'photos',
+    'attachments',
+    'files',
+    'medias',
+    'gallery',
+    'post_media',
+    'post_medias',
+    'postMedia',
+    'postMedias',
+    'hub_post_media',
+    'hubPostMedia',
+    'hub_medias',
+    'hubMedias',
+  ];
+  final items = <HubPostMediaItem>[];
+  final seen = <String>{};
+
+  void addResolved(String? s, HubMediaKind? hint) {
+    if (s == null) return;
+    final u = resolveHubMediaUrl(s.trim());
+    if (u.isEmpty || u.startsWith('data:')) return;
+    var kind = hint ?? HubMediaKind.image;
+    if (hubMediaUrlLooksLikeVideo(u)) kind = HubMediaKind.video;
+    if (seen.contains(u)) return;
+    seen.add(u);
+    items.add(HubPostMediaItem(url: u, kind: kind));
+  }
+
+  for (final key in listKeys) {
+    _hubCollectMediaFromDynamic(root[key], addResolved);
+  }
+
+  if (items.isEmpty) {
+    const coverKeys = [
+      'cover',
+      'image',
+      'picture',
+      'cover_url',
+      'coverUrl',
+      'featured_image',
+      'featuredImage',
+      'image_url',
+      'imageUrl',
+      'image_path',
+      'imagePath',
+      'photo',
+      'photo_url',
+      'photoUrl',
+      'thumb_url',
+      'thumbUrl',
+      'thumbnail',
+      'banner',
+      'banner_url',
+      'url_source',
+      'urlSource',
+    ];
+    for (final key in coverKeys) {
+      final v = root[key];
+      if (v is String && v.trim().isNotEmpty) {
+        addResolved(v, HubMediaKind.image);
+        break;
+      }
+    }
+  }
+
+  return items;
+}
+
+/// Cabeceras HTTP para [VideoPlayerController] en URLs del Hub.
+Map<String, String> hubVideoRequestHeadersForUrl(
+  String url,
+  TokenService tokenService,
+) {
+  final lower = url.toLowerCase();
+  if (lower.contains('/api/v1/storage/')) {
+    return {
+      'Accept': 'video/*,*/*;q=0.8',
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+  }
+  return {
+    'Accept': 'video/*,*/*;q=0.8',
+    'X-Requested-With': 'XMLHttpRequest',
+    ...tokenService.getAuthHeaders(),
+  };
+}
+
 /// Convierte rutas relativas del API en URL absoluta para [Image.network].
 String resolveHubMediaUrl(String raw) {
   var s = raw.trim();
@@ -71,111 +245,9 @@ Map<String, dynamic> _effectivePostRoot(Map<String, dynamic> post) {
   return root;
 }
 
-void _hubCollectFromDynamic(
-  dynamic value,
-  void Function(String?) addResolved,
-) {
-  if (value == null) return;
-  if (value is String) {
-    addResolved(value);
-    return;
-  }
-  if (value is List) {
-    _hubCollectFromList(value, addResolved);
-    return;
-  }
-  if (value is Map<String, dynamic>) {
-    final inner =
-        value['data'] ?? value['items'] ?? value['records'] ?? value['rows'];
-    if (inner is List) {
-      _hubCollectFromList(inner, addResolved);
-    } else {
-      addResolved(_firstUrlFromMediaMap(value));
-    }
-  }
-}
-
-void _hubCollectFromList(
-  List<dynamic> list,
-  void Function(String?) addResolved,
-) {
-  for (final e in list) {
-    if (e is String) {
-      addResolved(e);
-    } else if (e is Map<String, dynamic>) {
-      addResolved(_firstUrlFromMediaMap(e));
-      final rel = e['media'] ?? e['file'] ?? e['attachment'];
-      _hubCollectFromDynamic(rel, addResolved);
-    }
-  }
-}
-
-/// URLs de imágenes del post según el JSON del listado (resueltas contra [EnvironmentDev.baseUrl]).
+/// URLs de medios del post (imagen y vídeo); mismo orden que [extractPostMediaItems].
 List<String> extractPostImageUrls(Map<String, dynamic> post) {
-  final root = _effectivePostRoot(post);
-  const listKeys = [
-    'images',
-    'media',
-    'photos',
-    'attachments',
-    'files',
-    'medias',
-    'gallery',
-    'post_media',
-    'post_medias',
-    'postMedia',
-    'postMedias',
-    'hub_post_media',
-    'hubPostMedia',
-    'hub_medias',
-    'hubMedias',
-  ];
-  final urls = <String>[];
-
-  void addResolved(String? s) {
-    if (s == null) return;
-    final u = resolveHubMediaUrl(s);
-    if (u.isNotEmpty && !u.startsWith('data:')) urls.add(u);
-  }
-
-  for (final key in listKeys) {
-    _hubCollectFromDynamic(root[key], addResolved);
-  }
-
-  if (urls.isEmpty) {
-    const coverKeys = [
-      'cover',
-      'image',
-      'picture',
-      'cover_url',
-      'coverUrl',
-      'featured_image',
-      'featuredImage',
-      'image_url',
-      'imageUrl',
-      'image_path',
-      'imagePath',
-      'photo',
-      'photo_url',
-      'photoUrl',
-      'thumb_url',
-      'thumbUrl',
-      'thumbnail',
-      'banner',
-      'banner_url',
-      'url_source',
-      'urlSource',
-    ];
-    for (final key in coverKeys) {
-      final v = root[key];
-      if (v is String && v.trim().isNotEmpty) {
-        addResolved(v);
-        break;
-      }
-    }
-  }
-
-  return urls;
+  return extractPostMediaItems(post).map((e) => e.url).toList(growable: false);
 }
 
 String? _firstUrlFromMediaMap(Map<String, dynamic> m) {

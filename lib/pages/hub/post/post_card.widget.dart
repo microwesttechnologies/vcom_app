@@ -3,6 +3,8 @@ import 'package:vcom_app/core/hub/hub_post_media.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/pages/hub/hub_helpers.dart';
+import 'package:vcom_app/pages/hub/post/hub_post_media_viewer.page.dart';
+import 'package:vcom_app/pages/hub/post/hub_video_preview_tile.widget.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 /// Widget que renderiza una tarjeta individual de post.
@@ -37,7 +39,7 @@ class PostCardWidget extends StatelessWidget {
     );
     final title = (post['title_post'] ?? post['title'] ?? '').toString();
     final createdAt = (post['created_at'] ?? post['date'] ?? '').toString();
-    final images = extractPostImageUrls(post);
+    final media = extractPostMediaItems(post);
     final category = _extractCategory(post);
 
     return Padding(
@@ -68,7 +70,7 @@ class PostCardWidget extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (images.isNotEmpty) _buildMediaPreview(images),
+                    if (media.isNotEmpty) _buildMediaPreview(context, media),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
                       child: Column(
@@ -280,26 +282,38 @@ class PostCardWidget extends StatelessWidget {
   static const double _mediaAspect = 4 / 3;
   static const double _gridGap = 2;
 
-  Widget _buildMediaPreview(List<String> urls) {
-    final n = urls.length;
-    if (n == 1) return _buildSingleImage(urls.first);
-    if (n == 2) return _buildTwoImagesRow(urls);
-    if (n == 3) return _buildThreeImagesRow(urls);
-    return _buildFourQuadrantGrid(urls);
+  void _openViewer(BuildContext context, List<HubPostMediaItem> items, int index) {
+    HubPostMediaViewerPage.open(context, items: items, initialIndex: index);
   }
 
-  Widget _buildSingleImage(String url) {
+  Widget _buildMediaPreview(BuildContext context, List<HubPostMediaItem> media) {
+    final n = media.length;
+    if (n == 1) return _buildSingleMedia(context, media, 0);
+    if (n == 2) return _buildTwoMediaRow(context, media);
+    if (n == 3) return _buildThreeMediaRow(context, media);
+    return _buildFourQuadrantGrid(context, media);
+  }
+
+  Widget _buildSingleMedia(
+    BuildContext context,
+    List<HubPostMediaItem> media,
+    int index,
+  ) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(topRight: Radius.circular(15)),
       child: AspectRatio(
         aspectRatio: _mediaAspect,
-        child: _buildNetworkImage(url),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _openViewer(context, media, index),
+          child: _mediaTile(media[index]),
+        ),
       ),
     );
   }
 
   /// Dos recursos: 50% · 50% (ancho).
-  Widget _buildTwoImagesRow(List<String> urls) {
+  Widget _buildTwoMediaRow(BuildContext context, List<HubPostMediaItem> media) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(topRight: Radius.circular(15)),
       child: AspectRatio(
@@ -308,12 +322,20 @@ class PostCardWidget extends StatelessWidget {
           children: [
             Expanded(
               flex: 1,
-              child: ClipRect(child: _buildNetworkImage(urls[0])),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openViewer(context, media, 0),
+                child: ClipRect(child: _mediaTile(media[0])),
+              ),
             ),
             SizedBox(width: _gridGap),
             Expanded(
               flex: 1,
-              child: ClipRect(child: _buildNetworkImage(urls[1])),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openViewer(context, media, 1),
+                child: ClipRect(child: _mediaTile(media[1])),
+              ),
             ),
           ],
         ),
@@ -323,7 +345,7 @@ class PostCardWidget extends StatelessWidget {
 
   /// Tres recursos: mitad izquierda con dos miniaturas apiladas (25%+25% del área),
   /// mitad derecha una miniatura a altura completa (50% del ancho).
-  Widget _buildThreeImagesRow(List<String> urls) {
+  Widget _buildThreeMediaRow(BuildContext context, List<HubPostMediaItem> media) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(topRight: Radius.circular(15)),
       child: AspectRatio(
@@ -335,11 +357,19 @@ class PostCardWidget extends StatelessWidget {
               child: Column(
                 children: [
                   Expanded(
-                    child: ClipRect(child: _buildNetworkImage(urls[0])),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _openViewer(context, media, 0),
+                      child: ClipRect(child: _mediaTile(media[0])),
+                    ),
                   ),
                   SizedBox(height: _gridGap),
                   Expanded(
-                    child: ClipRect(child: _buildNetworkImage(urls[1])),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _openViewer(context, media, 1),
+                      child: ClipRect(child: _mediaTile(media[1])),
+                    ),
                   ),
                 ],
               ),
@@ -347,7 +377,11 @@ class PostCardWidget extends StatelessWidget {
             SizedBox(width: _gridGap),
             Expanded(
               flex: 1,
-              child: ClipRect(child: _buildNetworkImage(urls[2])),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openViewer(context, media, 2),
+                child: ClipRect(child: _mediaTile(media[2])),
+              ),
             ),
           ],
         ),
@@ -356,9 +390,12 @@ class PostCardWidget extends StatelessWidget {
   }
 
   /// Cuatro o más: cuadrícula 2×2 (máx. 4 miniaturas); "+N" abajo a la derecha si hay más.
-  Widget _buildFourQuadrantGrid(List<String> urls) {
-    final total = urls.length;
-    final visible = urls.take(4).toList(growable: false);
+  Widget _buildFourQuadrantGrid(
+    BuildContext context,
+    List<HubPostMediaItem> media,
+  ) {
+    final total = media.length;
+    final visible = media.take(4).toList(growable: false);
     final extra = total > 4 ? total - 4 : 0;
 
     return ClipRRect(
@@ -370,9 +407,9 @@ class PostCardWidget extends StatelessWidget {
             Expanded(
               child: Row(
                 children: [
-                  Expanded(child: _gridCell(visible, 0)),
+                  Expanded(child: _gridCell(context, media, visible, 0)),
                   SizedBox(width: _gridGap),
-                  Expanded(child: _gridCell(visible, 1)),
+                  Expanded(child: _gridCell(context, media, visible, 1)),
                 ],
               ),
             ),
@@ -380,19 +417,23 @@ class PostCardWidget extends StatelessWidget {
             Expanded(
               child: Row(
                 children: [
-                  Expanded(child: _gridCell(visible, 2)),
+                  Expanded(child: _gridCell(context, media, visible, 2)),
                   SizedBox(width: _gridGap),
                   Expanded(
                     child: Stack(
                       fit: StackFit.expand,
                       clipBehavior: Clip.hardEdge,
                       children: [
-                        _gridCell(visible, 3),
+                        _gridCell(context, media, visible, 3),
                         if (extra > 0)
                           Positioned(
                             right: 6,
                             bottom: 6,
-                            child: _moreResourcesBadge(extra),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _openViewer(context, media, 4),
+                              child: _moreResourcesBadge(extra),
+                            ),
                           ),
                       ],
                     ),
@@ -406,13 +447,27 @@ class PostCardWidget extends StatelessWidget {
     );
   }
 
-  Widget _gridCell(List<String> visible, int index) {
+  Widget _gridCell(
+    BuildContext context,
+    List<HubPostMediaItem> all,
+    List<HubPostMediaItem> visible,
+    int index,
+  ) {
     if (index < visible.length) {
-      return ClipRect(
-        child: _buildNetworkImage(visible[index]),
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _openViewer(context, all, index),
+        child: ClipRect(child: _mediaTile(visible[index])),
       );
     }
-    return ColoredBox(color: const Color(0xFF1A2740));
+    return const ColoredBox(color: Color(0xFF1A2740));
+  }
+
+  Widget _mediaTile(HubPostMediaItem item) {
+    if (item.kind == HubMediaKind.video) {
+      return HubVideoPreviewTile(url: item.url);
+    }
+    return _buildNetworkImage(item.url);
   }
 
   Widget _moreResourcesBadge(int n) {

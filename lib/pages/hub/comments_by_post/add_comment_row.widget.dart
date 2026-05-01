@@ -100,32 +100,29 @@ class _AddCommentRowState extends State<AddCommentRow> {
   }
 
   Widget _sendButton() {
-    return GestureDetector(
-      onTap: _isSending ? null : _submit,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: _isSending
-              ? VcomColors.oroLujoso.withValues(alpha: 0.3)
-              : VcomColors.oroLujoso,
-          shape: BoxShape.circle,
-        ),
-        child: _isSending
-            ? const Padding(
-                padding: EdgeInsets.all(9),
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: VcomColors.azulMedianocheTexto,
-                ),
-              )
-            : const Icon(
-                Icons.send_rounded,
-                size: 18,
+    return IconButton(
+      tooltip: 'Enviar',
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      style: IconButton.styleFrom(
+        backgroundColor: _isSending
+            ? VcomColors.oroLujoso.withValues(alpha: 0.35)
+            : VcomColors.oroLujoso,
+        foregroundColor: VcomColors.azulMedianocheTexto,
+        shape: const CircleBorder(),
+      ),
+      onPressed: _isSending ? null : _submit,
+      icon: _isSending
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
                 color: VcomColors.azulMedianocheTexto,
               ),
-      ),
+            )
+          : const Icon(Icons.send_rounded, size: 20),
     );
   }
 
@@ -144,6 +141,7 @@ class _AddCommentRowState extends State<AddCommentRow> {
           controller: _controller,
           enabled: !_isSending,
           style: const TextStyle(color: Colors.white, fontSize: 14),
+          textInputAction: TextInputAction.send,
           decoration: const InputDecoration(
             hintText: 'Escribe un comentario...',
             hintStyle: TextStyle(color: Colors.white54, fontSize: 14),

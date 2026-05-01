@@ -49,7 +49,8 @@ class CommentsByPostComponent extends ChangeNotifier {
       await _commentsService.createPostComment(resolvedKey, trimmed);
       await loadComments(localId: localId, apiKey: resolvedKey);
       return true;
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[CommentsByPost] addComment failed: $e\n$st');
       return false;
     } finally {
       _inFlightCreate.remove(localId);

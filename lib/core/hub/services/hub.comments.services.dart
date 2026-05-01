@@ -48,15 +48,23 @@ class HubCommentsService {
         .toList(growable: false);
   }
 
+  /// Misma resolución que en [fetchPostComments]: id numérico o UUID/string.
+  dynamic _resolvePostIdForBody(dynamic postId) {
+    if (postId is int) return postId;
+    final parsed = int.tryParse(postId.toString());
+    return parsed ?? postId.toString();
+  }
+
   Future<void> createPostComment(dynamic postId, String content) async {
     final url = Uri.parse(
       '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostCommentsCreate}',
     );
+    final resolvedId = _resolvePostIdForBody(postId);
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json', ..._headers()},
       body: jsonEncode({
-        'post_id': postId is int ? postId : int.parse(postId.toString()),
+        'post_id': resolvedId,
         'content': content,
       }),
     );
