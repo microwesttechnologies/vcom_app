@@ -189,7 +189,13 @@ class HubComponent extends ChangeNotifier {
       content,
       apiKey: apiKey,
     );
-    if (!ok) _error = 'No se pudo crear el comentario';
+    if (ok) {
+      _error = null;
+    } else {
+      _error =
+          _commentsComponent.lastCommentCreateError ??
+          'No se pudo crear el comentario';
+    }
     notifyListeners();
     return ok;
   }

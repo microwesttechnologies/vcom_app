@@ -37,6 +37,7 @@ class HubPostMediaViewerPage extends StatefulWidget {
 class _HubPostMediaViewerPageState extends State<HubPostMediaViewerPage> {
   late final PageController _pageController;
   late int _currentIndex;
+  final Map<int, VoidCallback> _videoPauseByIndex = <int, VoidCallback>{};
 
   @override
   void initState() {
@@ -51,61 +52,96 @@ class _HubPostMediaViewerPageState extends State<HubPostMediaViewerPage> {
     super.dispose();
   }
 
+  void _registerVideoPause(int index, VoidCallback pause) {
+    _videoPauseByIndex[index] = pause;
+  }
+
+  void _unregisterVideoPause(int index) {
+    _videoPauseByIndex.remove(index);
+  }
+
+  void _pauseActiveVideo() {
+    _videoPauseByIndex[_currentIndex]?.call();
+  }
+
+  void _closeViewer() {
+    _pauseActiveVideo();
+    if (context.mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = widget.items;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            onPageChanged: (i) => setState(() => _currentIndex = i),
-            itemCount: items.length,
-            itemBuilder: (_, index) {
-              final item = items[index];
-              if (item.kind == HubMediaKind.video) {
-                return _FullscreenVideoPage(url: item.url);
-              }
-              return _FullscreenImagePage(url: item.url);
-            },
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white),
-                    tooltip: 'Cerrar',
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _pauseActiveVideo();
+        if (context.mounted) Navigator.of(context).pop(result);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              onPageChanged: (i) {
+                if (i != _currentIndex) {
+                  _videoPauseByIndex[_currentIndex]?.call();
+                }
+                setState(() => _currentIndex = i);
+              },
+              itemCount: items.length,
+              itemBuilder: (_, index) {
+                final item = items[index];
+                if (item.kind == HubMediaKind.video) {
+                  return _FullscreenVideoPage(
+                    url: item.url,
+                    pageIndex: index,
+                    registerPause: _registerVideoPause,
+                    unregisterPause: _unregisterVideoPause,
+                  );
+                }
+                return _FullscreenImagePage(url: item.url);
+              },
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      tooltip: 'Cerrar',
+                      onPressed: _closeViewer,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${_currentIndex + 1} / ${items.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${_currentIndex + 1} / ${items.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
+                    const SizedBox(width: 8),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -155,9 +191,17 @@ class _FullscreenImagePage extends StatelessWidget {
 }
 
 class _FullscreenVideoPage extends StatefulWidget {
-  const _FullscreenVideoPage({required this.url});
+  const _FullscreenVideoPage({
+    required this.url,
+    required this.pageIndex,
+    required this.registerPause,
+    required this.unregisterPause,
+  });
 
   final String url;
+  final int pageIndex;
+  final void Function(int index, VoidCallback pause) registerPause;
+  final void Function(int index) unregisterPause;
 
   @override
   State<_FullscreenVideoPage> createState() => _FullscreenVideoPageState();
@@ -167,6 +211,9 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   late final VideoPlayerController _controller;
   bool _initialized = false;
   bool _failed = false;
+  bool _postFrameTickPending = false;
+  /// Evita setState tras iniciar el cierre del visor (mounted sigue true hasta dispose).
+  bool _tearingDown = false;
 
   @override
   void initState() {
@@ -182,40 +229,87 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   Future<void> _initVideo() async {
     try {
       await _controller.initialize();
-      if (mounted) setState(() => _initialized = true);
+      if (!mounted || _tearingDown) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _tearingDown) return;
+        setState(() => _initialized = true);
+        widget.registerPause(widget.pageIndex, _pausePlayback);
+      });
     } catch (e, _) {
       debugPrint('[Hub viewer] video init error: $e');
-      if (mounted) setState(() => _failed = true);
+      if (!mounted || _tearingDown) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _tearingDown) return;
+        setState(() => _failed = true);
+      });
     }
   }
 
   @override
   void deactivate() {
-    if (_initialized && _controller.value.isPlaying) {
-      _controller.pause();
-    }
+    _stopPlaybackAndDetach();
     super.deactivate();
   }
 
+  /// Quita el listener antes de pausar para que ningún tick programe setState durante el pop.
+  void _stopPlaybackAndDetach() {
+    if (_tearingDown) return;
+    _tearingDown = true;
+    _postFrameTickPending = false;
+    _controller.removeListener(_onTick);
+    try {
+      if (_initialized) {
+        _controller.pause();
+      }
+    } catch (_) {}
+  }
+
   void _onTick() {
-    if (mounted) setState(() {});
+    if (_tearingDown || !mounted) return;
+    if (_postFrameTickPending) return;
+    _postFrameTickPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _postFrameTickPending = false;
+      if (_tearingDown || !mounted) return;
+      setState(() {});
+    });
+  }
+
+  /// Pausa por solicitud del visor (botón cerrar / gesto atrás) antes del pop.
+  void _pausePlayback() {
+    if (!_initialized || _tearingDown) return;
+    try {
+      if (_controller.value.isPlaying) {
+        _controller.pause();
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    widget.unregisterPause(widget.pageIndex);
+    _tearingDown = true;
+    _postFrameTickPending = false;
     _controller.removeListener(_onTick);
+    try {
+      _controller.pause();
+    } catch (_) {}
     _controller.dispose();
     super.dispose();
   }
 
   void _togglePlay() {
-    if (!_initialized) return;
+    if (!_initialized || _tearingDown) return;
     if (_controller.value.isPlaying) {
       _controller.pause();
     } else {
       _controller.play();
     }
-    setState(() {});
+    if (!mounted || _tearingDown) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _tearingDown) return;
+      setState(() {});
+    });
   }
 
   String _fmt(Duration d) {

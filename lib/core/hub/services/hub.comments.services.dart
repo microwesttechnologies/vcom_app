@@ -55,24 +55,73 @@ class HubCommentsService {
     return parsed ?? postId.toString();
   }
 
-  Future<void> createPostComment(dynamic postId, String content) async {
-    final url = Uri.parse(
-      '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostCommentsCreate}',
+  Exception _exceptionFromResponse(http.Response r) {
+    try {
+      final dynamic body = jsonDecode(r.body);
+      if (body is Map<String, dynamic>) {
+        final msg = body['message'];
+        if (msg is String && msg.trim().isNotEmpty) {
+          return Exception('$msg (${r.statusCode})');
+        }
+        final errs = body['errors'];
+        if (errs is Map<String, dynamic> && errs.isNotEmpty) {
+          final firstKey = errs.keys.first;
+          final v = errs[firstKey];
+          if (v is List && v.isNotEmpty) {
+            return Exception('${v.first} (${r.statusCode})');
+          }
+        }
+      }
+    } catch (_) {}
+    return Exception(
+      'No fue posible crear el comentario (${r.statusCode}): ${r.body}',
     );
+  }
+
+  /// [postId] suele ser el UUID o clave pública del post; [numericPostId] es el
+  /// `id` entero del listado (misma clave que usa [HubPage] al abrir comentarios).
+  Future<void> createPostComment(
+    dynamic postId,
+    String content, {
+    required int numericPostId,
+  }) async {
     final resolvedId = _resolvePostIdForBody(postId);
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json', ..._headers()},
-      body: jsonEncode({
-        'post_id': resolvedId,
-        'content': content,
-      }),
+    final headers = {'Content-Type': 'application/json', ..._headers()};
+    final base = EnvironmentDev.baseUrl;
+
+    Future<http.Response> post(Uri uri, Map<String, dynamic> body) =>
+        http.post(uri, headers: headers, body: jsonEncode(body));
+
+    final nestedUri = Uri.parse(
+      '$base${EnvironmentDev.hubPostComments(resolvedId.toString())}',
     );
-    if (response.statusCode >= 400) {
-      throw Exception(
-        'No fue posible crear el comentario (${response.statusCode}): ${response.body}',
-      );
+    final flatUri = Uri.parse('$base${EnvironmentDev.hubPostCommentsCreate}');
+
+    final attempts = <Future<http.Response> Function()>[
+      // Lo más habitual en Laravel: FK entera hub_posts.id
+      () => post(flatUri, {'post_id': numericPostId, 'content': content}),
+      () => post(flatUri, {'post_id': numericPostId, 'body': content}),
+      () => post(flatUri, {'id_post': numericPostId, 'content': content}),
+      () => post(flatUri, {'hub_post_id': numericPostId, 'content': content}),
+      () => post(flatUri, {'hub_post_id': numericPostId, 'body': content}),
+      // REST anidada con UUID o id en la ruta
+      () => post(nestedUri, {'content': content}),
+      // Fallback: mismo identificador que en GET ?post_id=
+      () => post(flatUri, {'post_id': resolvedId, 'content': content}),
+      () => post(flatUri, {'id_post': resolvedId, 'content': content}),
+    ];
+
+    http.Response? lastBad;
+    for (final attempt in attempts) {
+      final response = await attempt();
+      if (response.statusCode < 400) return;
+      lastBad = response;
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        throw _exceptionFromResponse(response);
+      }
     }
+    if (lastBad != null) throw _exceptionFromResponse(lastBad);
+    throw Exception('No fue posible crear el comentario');
   }
 
   List<dynamic> _extractList(dynamic body) {

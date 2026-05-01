@@ -11,8 +11,12 @@ class CommentsByPostComponent extends ChangeNotifier {
   final Map<int, List<HubCommentModel>> _commentsByPost = {};
   final Map<String, String> _myCommentReactions = {};
   final Set<int> _inFlightCreate = <int>{};
+  String? _lastCommentCreateError;
 
   Map<int, List<HubCommentModel>> get commentsByPost => _commentsByPost;
+
+  /// Detalle del último fallo al crear comentario (validación API, etc.).
+  String? get lastCommentCreateError => _lastCommentCreateError;
 
   String? myCommentReaction(int postId, dynamic commentId) =>
       _myCommentReactions[_key(postId, commentId)];
@@ -42,14 +46,23 @@ class CommentsByPostComponent extends ChangeNotifier {
     if (_inFlightCreate.contains(localId)) return false;
 
     _inFlightCreate.add(localId);
+    _lastCommentCreateError = null;
     notifyListeners();
 
     final resolvedKey = apiKey ?? localId;
     try {
-      await _commentsService.createPostComment(resolvedKey, trimmed);
+      await _commentsService.createPostComment(
+        resolvedKey,
+        trimmed,
+        numericPostId: localId,
+      );
       await loadComments(localId: localId, apiKey: resolvedKey);
       return true;
     } catch (e, st) {
+      _lastCommentCreateError = e
+          .toString()
+          .replaceFirst(RegExp(r'^Exception:\s*'), '')
+          .trim();
       debugPrint('[CommentsByPost] addComment failed: $e\n$st');
       return false;
     } finally {
@@ -61,6 +74,7 @@ class CommentsByPostComponent extends ChangeNotifier {
   /// Limpia el estado al refrescar.
   void clear() {
     _commentsByPost.clear();
+    _lastCommentCreateError = null;
   }
 
   // ── Merge ──────────────────────────────────────────────────
