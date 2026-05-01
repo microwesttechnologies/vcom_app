@@ -13,6 +13,7 @@ import 'package:vcom_app/core/models/chat/chat_contact.model.dart';
 import 'package:vcom_app/core/models/chat/chat_conversation.model.dart';
 import 'package:vcom_app/core/models/chat/chat_message.model.dart';
 import 'package:vcom_app/pages/chat/chat.component.dart';
+import 'package:vcom_app/pages/shop/store_fullscreen_images.view.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 class ChatPage extends StatefulWidget {
@@ -486,20 +487,28 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     if (isImage) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          imageUrl ?? message.content,
-          height: 190,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => Container(
-            height: 100,
+      final displayUrl = _fixLocalhostForAndroid(imageUrl ?? message.content);
+      return GestureDetector(
+        onTap: displayUrl.trim().isEmpty
+            ? null
+            : () => StoreFullscreenImages.open(context, urls: [displayUrl]),
+        behavior: HitTestBehavior.opaque,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            displayUrl,
+            height: 190,
             width: double.infinity,
-            color: Colors.black26,
-            alignment: Alignment.center,
-            child: Text(
-              'No se pudo cargar la imagen',
-              style: TextStyle(color: textColor.withValues(alpha: 0.8), fontSize: 12),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              height: 100,
+              width: double.infinity,
+              color: Colors.black26,
+              alignment: Alignment.center,
+              child: Text(
+                'No se pudo cargar la imagen',
+                style: TextStyle(color: textColor.withValues(alpha: 0.8), fontSize: 12),
+              ),
             ),
           ),
         ),
@@ -525,8 +534,9 @@ class _ChatPageState extends State<ChatPage> {
 
     return GestureDetector(
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
+        Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute<void>(
+            fullscreenDialog: true,
             builder: (_) => _ChatVideoPlayerPage(videoUrl: resolvedUrl),
           ),
         );
@@ -978,13 +988,18 @@ class _ChatVideoPlayerPageState extends State<_ChatVideoPlayerPage> {
   }
 
   Future<void> _initialize() async {
-    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.videoUrl),
+    );
     _controller = controller;
+    controller.addListener(_onVideoTick);
 
     try {
       await controller.initialize();
+      await controller.setLooping(false);
       await controller.play();
       if (!mounted || _controller != controller) {
+        controller.removeListener(_onVideoTick);
         await controller.dispose();
         return;
       }
@@ -993,16 +1008,38 @@ class _ChatVideoPlayerPageState extends State<_ChatVideoPlayerPage> {
         _isInitialized = true;
       });
     } catch (_) {
+      controller.removeListener(_onVideoTick);
+      await controller.dispose();
       if (!mounted) return;
+      if (_controller == controller) _controller = null;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se pudo reproducir el video')),
       );
+      Navigator.of(context).maybePop();
     }
+  }
+
+  void _onVideoTick() {
+    if (mounted) setState(() {});
+  }
+
+  void _togglePlay() {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    if (c.value.isPlaying) {
+      c.pause();
+    } else {
+      c.play();
+    }
+    setState(() {});
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    final c = _controller;
+    _controller = null;
+    c?.removeListener(_onVideoTick);
+    c?.dispose();
     super.dispose();
   }
 
@@ -1012,41 +1049,90 @@ class _ChatVideoPlayerPageState extends State<_ChatVideoPlayerPage> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Center(
-        child: !_isInitialized || controller == null
-            ? const CircularProgressIndicator(color: VcomColors.oroLujoso)
-            : AspectRatio(
-                aspectRatio: controller.value.aspectRatio > 0
-                    ? controller.value.aspectRatio
-                    : 16 / 9,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    VideoPlayer(controller),
-                    IconButton(
-                      onPressed: () {
-                        if (controller.value.isPlaying) {
-                          controller.pause();
-                        } else {
-                          controller.play();
-                        }
-                        setState(() {});
-                      },
-                      iconSize: 56,
-                      color: Colors.white,
-                      icon: Icon(
-                        controller.value.isPlaying
-                            ? Icons.pause_circle_filled
-                            : Icons.play_circle_fill,
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(
+            color: Colors.black,
+            child: !_isInitialized || controller == null
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: VcomColors.oroLujoso,
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final ar = controller.value.aspectRatio > 0 &&
+                              controller.value.aspectRatio.isFinite
+                          ? controller.value.aspectRatio
+                          : 16 / 9;
+                      var w = constraints.maxWidth;
+                      var h = w / ar;
+                      if (h > constraints.maxHeight) {
+                        h = constraints.maxHeight;
+                        w = h * ar;
+                      }
+                      return Center(
+                        child: SizedBox(
+                          width: w,
+                          height: h,
+                          child: VideoPlayer(controller),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 8, 0),
+              child: Row(
+                children: [
+                  Material(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      customBorder: const CircleBorder(),
+                      child: const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isInitialized && controller != null)
+            Center(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _togglePlay,
+                  customBorder: const CircleBorder(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Icon(
+                      controller.value.isPlaying
+                          ? Icons.pause_circle_filled_rounded
+                          : Icons.play_circle_fill_rounded,
+                      color: Colors.white.withValues(alpha: 0.92),
+                      size: 72,
+                      shadows: const [
+                        Shadow(blurRadius: 18, color: Colors.black87),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+            ),
+        ],
       ),
     );
   }
