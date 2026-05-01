@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/hub/hub_post_media.dart';
-import 'package:vcom_app/style/vcom_colors.dart';
+import 'package:vcom_app/pages/hub/hub_shimmer.dart';
 import 'package:video_player/video_player.dart';
 
 /// Vista previa del vídeo en la tarjeta (primer fotograma), con las mismas
@@ -100,29 +100,7 @@ class _HubVideoPreviewTileState extends State<HubVideoPreviewTile> {
   }
 
   Widget _loading() {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const ColoredBox(color: Color(0xFF1A2740)),
-        Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: VcomColors.oroLujoso.withValues(alpha: 0.75),
-            ),
-          ),
-        ),
-        Center(
-          child: Icon(
-            Icons.play_circle_rounded,
-            size: 44,
-            color: Colors.white.withValues(alpha: 0.35),
-          ),
-        ),
-      ],
-    );
+    return const HubMediaLoadingPlaceholder(showVideoPlayHint: true);
   }
 
   Widget _fallback() {

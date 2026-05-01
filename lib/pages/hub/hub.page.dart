@@ -3,6 +3,8 @@ import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/pages/hub/comments_by_post/comments_by_post.page.dart';
 import 'package:vcom_app/pages/hub/hub.component.dart';
+import 'package:vcom_app/pages/hub/hub_feed_skeleton.widget.dart';
+import 'package:vcom_app/pages/hub/hub_shimmer.dart';
 import 'package:vcom_app/pages/hub/post/post.component.dart';
 import 'package:vcom_app/pages/hub/post/post.page.dart';
 import 'package:vcom_app/pages/hub/post/post_card.widget.dart';
@@ -145,11 +147,13 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
         ),
         child: SafeArea(
           bottom: false,
-          child: RefreshIndicator(
-            onRefresh: _component.refresh,
-            color: VcomColors.oroLujoso,
-            backgroundColor: VcomColors.azulZafiroProfundo,
-            child: _buildBody(),
+          child: HubShimmerScope(
+            child: RefreshIndicator(
+              onRefresh: _component.refresh,
+              color: VcomColors.oroLujoso,
+              backgroundColor: VcomColors.azulZafiroProfundo,
+              child: _buildBody(),
+            ),
           ),
         ),
       ),
@@ -216,12 +220,7 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
   // ── Sub-widgets de estado ──────────────────────────────────
 
   Widget _buildLoading() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.only(top: 60),
-        child: CircularProgressIndicator(color: VcomColors.oroLujoso),
-      ),
-    );
+    return const HubFeedSkeleton();
   }
 
   Widget _buildError() {

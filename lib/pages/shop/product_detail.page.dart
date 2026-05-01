@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/pages/shop/shop.component.dart';
+import 'package:vcom_app/pages/shop/store_fullscreen_images.view.dart';
 import 'package:vcom_app/core/models/product.model.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 import 'package:intl/intl.dart';
@@ -49,6 +50,7 @@ class ProductDetailBody extends StatefulWidget {
 class _ProductDetailBodyState extends State<ProductDetailBody> {
   late ShopComponent _shopComponent;
   final PageController _pageController = PageController();
+  int _galleryIndex = 0;
 
   @override
   void initState() {
@@ -114,7 +116,19 @@ class _ProductDetailBodyState extends State<ProductDetailBody> {
               left: 0,
               right: 0,
               height: imageH,
-              child: _buildImageGallery(images),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: images.isEmpty
+                    ? null
+                    : () {
+                        StoreFullscreenImages.open(
+                          context,
+                          urls: images.map((e) => e.imageUrl).toList(),
+                          initialIndex: _galleryIndex,
+                        );
+                      },
+                child: _buildImageGallery(images),
+              ),
             ),
 
             // ── Fondo negro ──────────────────────────
@@ -292,6 +306,7 @@ class _ProductDetailBodyState extends State<ProductDetailBody> {
 
     return PageView.builder(
       controller: _pageController,
+      onPageChanged: (i) => setState(() => _galleryIndex = i),
       itemCount: images.length,
       itemBuilder: (_, i) => Image.network(
         images[i].imageUrl,

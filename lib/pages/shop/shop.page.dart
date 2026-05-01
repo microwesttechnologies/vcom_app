@@ -6,6 +6,7 @@ import 'package:vcom_app/components/commons/button.dart';
 import 'package:vcom_app/pages/shop/shop.component.dart';
 import 'package:vcom_app/pages/shop/product_detail.page.dart';
 import 'package:vcom_app/pages/shop/shop_product_form.page.dart';
+import 'package:vcom_app/pages/shop/store_fullscreen_images.view.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.component.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
@@ -707,25 +708,23 @@ class _ShopPageState extends State<ShopPage> {
     final categoryName =
         product.category?.nameCategory ?? product.brand?.nameBrand ?? '';
 
-    return GestureDetector(
-      onTap: () => _openProduct(product),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: VcomColors.oroLujoso.withValues(alpha: 0.35),
-            width: 0.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: VcomColors.oroLujoso.withValues(alpha: 0.35),
+          width: 0.5,
         ),
-        child: Column(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Imagen con botón de carrito superpuesto ──────────────────────
@@ -739,11 +738,18 @@ class _ShopPageState extends State<ShopPage> {
                       top: Radius.circular(16),
                     ),
                     child: primaryImage != null
-                        ? Image.network(
-                            primaryImage.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                _imagePlaceholder(),
+                        ? GestureDetector(
+                            onTap: () => StoreFullscreenImages.open(
+                              context,
+                              urls: [primaryImage.imageUrl],
+                            ),
+                            behavior: HitTestBehavior.opaque,
+                            child: Image.network(
+                              primaryImage.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _imagePlaceholder(),
+                            ),
                           )
                         : _imagePlaceholder(),
                   ),
@@ -867,59 +873,65 @@ class _ShopPageState extends State<ShopPage> {
             // ── Info del producto ─────────────────────────────────────────────
             Expanded(
               flex: 3,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.vertical(
+              child: Material(
+                color: Colors.black,
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _openProduct(product),
+                  borderRadius: const BorderRadius.vertical(
                     bottom: Radius.circular(16),
                   ),
-                ),
-                padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Categoría
-                    if (categoryName.isNotEmpty)
-                      Text(
-                        categoryName.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 7.5,
-                          fontWeight: FontWeight.w700,
-                          color: VcomColors.oroLujoso,
-                          letterSpacing: 1.2,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Categoría
+                        if (categoryName.isNotEmpty)
+                          Text(
+                            categoryName.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w700,
+                              color: VcomColors.oroLujoso,
+                              letterSpacing: 1.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        // Nombre
+                        Text(
+                          product.nameProduct,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: VcomColors.blancoCrema,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    // Nombre
-                    Text(
-                      product.nameProduct,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: VcomColors.blancoCrema,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                        // Precio
+                        Text(
+                          _formatPrice(product.priceCop),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ],
                     ),
-                    // Precio
-                    Text(
-                      _formatPrice(product.priceCop),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withValues(alpha: 0.55),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ],
         ),
-      ),
     );
   }
 

@@ -21,7 +21,6 @@ class TrainingComponent extends ChangeNotifier {
   String? _error;
   String _selectedFilter = 'Todos los Artículos';
   String _searchQuery = '';
-  int _thumbnailVersion = 0;
 
   // Getters
   List<VideoModel> get videos => _filteredVideos;
@@ -31,7 +30,6 @@ class TrainingComponent extends ChangeNotifier {
   String? get error => _error;
   String get selectedFilter => _selectedFilter;
   String get searchQuery => _searchQuery;
-  int get thumbnailVersion => _thumbnailVersion;
 
   String _cacheKey(String namespace, [String suffix = '']) {
     return _cache.scopedKey(
@@ -267,9 +265,5 @@ class TrainingComponent extends ChangeNotifier {
   /// Recarga los videos
   Future<void> refresh() async {
     await initialize(forceRefresh: true);
-    if (_error == null) {
-      _thumbnailVersion++;
-      notifyListeners();
-    }
   }
 }

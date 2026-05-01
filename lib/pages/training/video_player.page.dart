@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
+import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/models/video.model.dart';
+import 'package:vcom_app/core/training/training_video_cache.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 /// Página completa (uso con Navigator.push, ej. desde dashboard)
@@ -37,7 +39,8 @@ class VideoPlayerBody extends StatefulWidget {
   State<VideoPlayerBody> createState() => _VideoPlayerBodyState();
 }
 
-class _VideoPlayerBodyState extends State<VideoPlayerBody> {
+class _VideoPlayerBodyState extends State<VideoPlayerBody>
+    with SingleTickerProviderStateMixin {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isPlaying = false;
@@ -46,9 +49,15 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
+  late final AnimationController _loadShimmerController;
+
   @override
   void initState() {
     super.initState();
+    _loadShimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    )..repeat();
     _initializeVideo();
     // Ocultar controles después de 3 segundos
     _hideControlsAfterDelay();
@@ -73,37 +82,75 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
     }
   }
 
+  /// Completa la caché en disco sin bloquear la reproducción.
+  void _precacheInBackground(String videoUrl, Map<String, String> headers) {
+    unawaited(() async {
+      try {
+        await TrainingVideoCache.instance.ensureCached(
+          videoUrl,
+          headers: headers.isEmpty ? null : headers,
+        );
+      } catch (e) {
+        debugPrint('[VideoPlayerBody] precache: $e');
+      }
+    }());
+  }
+
   Future<void> _initializeVideo() async {
     try {
-      final videoUrl = widget.video.urlSource;
+      final videoUrl = widget.video.urlSource.trim();
       if (videoUrl.isEmpty) {
+        _loadShimmerController.stop();
         if (mounted) setState(() => _isInitialized = false);
         return;
       }
 
-      final ctrl = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
-      _controller = ctrl;
+      final headers = _videoHttpHeaders();
+      late final VideoPlayerController controller;
 
-      ctrl
+      if (TrainingVideoCache.isStreamUrl(videoUrl)) {
+        controller = VideoPlayerController.networkUrl(
+          Uri.parse(videoUrl),
+          httpHeaders: headers,
+        );
+      } else {
+        final cached =
+            await TrainingVideoCache.instance.getLocalFileIfCached(videoUrl);
+        if (cached != null) {
+          controller = VideoPlayerController.file(cached);
+        } else {
+          _precacheInBackground(videoUrl, headers);
+          controller = VideoPlayerController.networkUrl(
+            Uri.parse(videoUrl),
+            httpHeaders: headers,
+          );
+        }
+      }
+
+      _controller = controller;
+
+      controller
           .initialize()
           .then((_) {
-            if (_disposed || !mounted || _controller != ctrl) {
-              ctrl.dispose();
+            if (_disposed || !mounted || _controller != controller) {
+              controller.dispose();
               return;
             }
-            if (!ctrl.value.isInitialized) return;
+            if (!controller.value.isInitialized) return;
+            _loadShimmerController.stop();
             setState(() {
               _isInitialized = true;
-              _duration = ctrl.value.duration;
+              _duration = controller.value.duration;
             });
-            ctrl.addListener(_videoListener);
-            ctrl.play();
+            controller.addListener(_videoListener);
+            controller.play();
             _isPlaying = true;
           })
           .catchError((error) {
             if (_disposed || !mounted) return;
-            ctrl.dispose();
-            if (_controller == ctrl) _controller = null;
+            _loadShimmerController.stop();
+            controller.dispose();
+            if (_controller == controller) _controller = null;
             if (mounted) {
               setState(() => _isInitialized = false);
               ScaffoldMessenger.of(context).showSnackBar(
@@ -120,6 +167,7 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
           });
     } catch (e) {
       debugPrint('Error: $e');
+      _loadShimmerController.stop();
       if (mounted) {
         setState(() {
           _isInitialized = false;
@@ -136,6 +184,12 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
         );
       }
     }
+  }
+
+  Map<String, String> _videoHttpHeaders() {
+    final token = TokenService().getToken();
+    if (token == null || token.isEmpty) return {};
+    return {'Authorization': 'Bearer $token'};
   }
 
   void _videoListener() {
@@ -180,6 +234,7 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
   @override
   void dispose() {
     _disposed = true;
+    _loadShimmerController.dispose();
     final c = _controller;
     _controller = null;
     if (c != null) {
@@ -277,17 +332,48 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody> {
 
   Widget _buildVideoPlayer() {
     if (!_isInitialized || _controller == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: VcomColors.oroLujoso),
-            const SizedBox(height: 16),
-            Text(
-              'Cargando video...',
-              style: TextStyle(color: VcomColors.blancoCrema, fontSize: 16),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedBuilder(
+              animation: _loadShimmerController,
+              builder: (context, child) {
+                final t = _loadShimmerController.value;
+                return ShaderMask(
+                  blendMode: BlendMode.srcATop,
+                  shaderCallback: (bounds) {
+                    return LinearGradient(
+                      begin: Alignment(-1.2 + t * 2.4, 0),
+                      end: Alignment(0.2 + t * 2.4, 0),
+                      colors: const [
+                        Color(0xFF152036),
+                        Color(0xFF2E4168),
+                        Color(0xFF152036),
+                      ],
+                      stops: const [0.25, 0.5, 0.75],
+                    ).createShader(bounds);
+                  },
+                  child: child,
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                color: Colors.white,
+                alignment: Alignment.center,
+                child: Text(
+                  'Preparando reproducción…',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             ),
-          ],
+          ),
         ),
       );
     }

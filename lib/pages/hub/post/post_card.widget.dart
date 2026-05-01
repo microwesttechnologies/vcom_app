@@ -3,6 +3,7 @@ import 'package:vcom_app/core/hub/hub_post_media.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/pages/hub/hub_helpers.dart';
+import 'package:vcom_app/pages/hub/hub_shimmer.dart';
 import 'package:vcom_app/pages/hub/post/hub_post_media_viewer.page.dart';
 import 'package:vcom_app/pages/hub/post/hub_video_preview_tile.widget.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
@@ -510,18 +511,7 @@ class PostCardWidget extends StatelessWidget {
       headers: headers,
       loadingBuilder: (_, child, progress) {
         if (progress == null) return child;
-        return Container(
-          color: const Color(0xFF1A2740),
-          alignment: Alignment.center,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: VcomColors.oroLujoso.withValues(alpha: 0.5),
-            value: progress.expectedTotalBytes != null
-                ? progress.cumulativeBytesLoaded /
-                      progress.expectedTotalBytes!
-                : null,
-          ),
-        );
+        return const HubMediaLoadingPlaceholder();
       },
       errorBuilder: (context, error, stackTrace) {
         debugPrint('[Hub PostCard] Error cargando imagen: $url | $error');

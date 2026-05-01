@@ -3,6 +3,7 @@ import 'package:vcom_app/pages/training/training.component.dart';
 import 'package:vcom_app/pages/training/video_player.page.dart'
     show VideoPlayerBody;
 import 'package:vcom_app/core/models/video.model.dart';
+import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/components/shared/video_thumbnail.widget.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
@@ -43,6 +44,12 @@ class _TrainingPageState extends State<TrainingPage> {
 
   void _onSearchChanged() {
     _trainingComponent.setSearchQuery(_searchController.text);
+  }
+
+  Map<String, String>? _trainingVideoHeaders() {
+    final token = TokenService().getToken();
+    if (token == null || token.isEmpty) return null;
+    return {'Authorization': 'Bearer $token'};
   }
 
   void _openVideo(VideoModel video) {
@@ -305,6 +312,7 @@ class _TrainingPageState extends State<TrainingPage> {
       color: VcomColors.oroLujoso,
       backgroundColor: const Color(0xFF1a2847),
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         itemCount: _trainingComponent.videos.length,
         itemBuilder: (context, index) {
@@ -343,21 +351,13 @@ class _TrainingPageState extends State<TrainingPage> {
                     height: 80,
                     child: VideoThumbnail(
                       key: ValueKey(
-                        'thumb-${_trainingComponent.thumbnailVersion}-${video.idVideo}',
+                        'training-thumb-${video.idVideo}-${video.urlSource.hashCode}',
                       ),
                       videoUrl: video.urlSource,
+                      httpHeaders: _trainingVideoHeaders(),
                       width: 80,
                       height: 80,
                       fit: BoxFit.cover,
-                      placeholder: Container(
-                        color: const Color(0xFF1a2847),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: VcomColors.oroLujoso,
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
                       errorWidget: Container(
                         color: const Color(0xFF1a2847),
                         child: Icon(
