@@ -68,7 +68,7 @@ class PostCardWidget extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (images.isNotEmpty) _buildImage(images.first),
+                    if (images.isNotEmpty) _buildMediaPreview(images),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
                       child: Column(
@@ -277,47 +277,209 @@ class PostCardWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildImage(String url) {
-    final headers = hubImageRequestHeadersForUrl(url, TokenService());
+  static const double _mediaAspect = 4 / 3;
+  static const double _gridGap = 2;
+
+  Widget _buildMediaPreview(List<String> urls) {
+    final n = urls.length;
+    if (n == 1) return _buildSingleImage(urls.first);
+    if (n == 2) return _buildTwoImagesRow(urls);
+    if (n == 3) return _buildThreeImagesRow(urls);
+    return _buildFourQuadrantGrid(urls);
+  }
+
+  Widget _buildSingleImage(String url) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(topRight: Radius.circular(15)),
       child: AspectRatio(
-        aspectRatio: 4 / 3,
-        child: Image.network(
-          url,
-          fit: BoxFit.cover,
-          headers: headers,
-          loadingBuilder: (_, child, progress) {
-            if (progress == null) return child;
-            return Container(
-              color: const Color(0xFF1A2740),
-              child: Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: VcomColors.oroLujoso.withValues(alpha: 0.5),
-                  value: progress.expectedTotalBytes != null
-                      ? progress.cumulativeBytesLoaded /
-                            progress.expectedTotalBytes!
-                      : null,
-                ),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint(
-              '[Hub PostCard] Error cargando imagen: $url | $error',
-            );
-            return Container(
-              color: const Color(0xFF1A2740),
-              child: Icon(
-                Icons.image_not_supported_outlined,
-                size: 52,
-                color: Colors.white.withValues(alpha: 0.25),
-              ),
-            );
-          },
+        aspectRatio: _mediaAspect,
+        child: _buildNetworkImage(url),
+      ),
+    );
+  }
+
+  /// Dos recursos: 50% · 50% (ancho).
+  Widget _buildTwoImagesRow(List<String> urls) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(topRight: Radius.circular(15)),
+      child: AspectRatio(
+        aspectRatio: _mediaAspect,
+        child: Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: ClipRect(child: _buildNetworkImage(urls[0])),
+            ),
+            SizedBox(width: _gridGap),
+            Expanded(
+              flex: 1,
+              child: ClipRect(child: _buildNetworkImage(urls[1])),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  /// Tres recursos: mitad izquierda con dos miniaturas apiladas (25%+25% del área),
+  /// mitad derecha una miniatura a altura completa (50% del ancho).
+  Widget _buildThreeImagesRow(List<String> urls) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(topRight: Radius.circular(15)),
+      child: AspectRatio(
+        aspectRatio: _mediaAspect,
+        child: Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ClipRect(child: _buildNetworkImage(urls[0])),
+                  ),
+                  SizedBox(height: _gridGap),
+                  Expanded(
+                    child: ClipRect(child: _buildNetworkImage(urls[1])),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: _gridGap),
+            Expanded(
+              flex: 1,
+              child: ClipRect(child: _buildNetworkImage(urls[2])),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Cuatro o más: cuadrícula 2×2 (máx. 4 miniaturas); "+N" abajo a la derecha si hay más.
+  Widget _buildFourQuadrantGrid(List<String> urls) {
+    final total = urls.length;
+    final visible = urls.take(4).toList(growable: false);
+    final extra = total > 4 ? total - 4 : 0;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(topRight: Radius.circular(15)),
+      child: AspectRatio(
+        aspectRatio: _mediaAspect,
+        child: Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: _gridCell(visible, 0)),
+                  SizedBox(width: _gridGap),
+                  Expanded(child: _gridCell(visible, 1)),
+                ],
+              ),
+            ),
+            SizedBox(height: _gridGap),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: _gridCell(visible, 2)),
+                  SizedBox(width: _gridGap),
+                  Expanded(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        _gridCell(visible, 3),
+                        if (extra > 0)
+                          Positioned(
+                            right: 6,
+                            bottom: 6,
+                            child: _moreResourcesBadge(extra),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _gridCell(List<String> visible, int index) {
+    if (index < visible.length) {
+      return ClipRect(
+        child: _buildNetworkImage(visible[index]),
+      );
+    }
+    return ColoredBox(color: const Color(0xFF1A2740));
+  }
+
+  Widget _moreResourcesBadge(int n) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: VcomColors.oroLujoso.withValues(alpha: 0.55),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        '+$n',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          height: 1.1,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNetworkImage(String url) {
+    final headers = hubImageRequestHeadersForUrl(url, TokenService());
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      headers: headers,
+      loadingBuilder: (_, child, progress) {
+        if (progress == null) return child;
+        return Container(
+          color: const Color(0xFF1A2740),
+          alignment: Alignment.center,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: VcomColors.oroLujoso.withValues(alpha: 0.5),
+            value: progress.expectedTotalBytes != null
+                ? progress.cumulativeBytesLoaded /
+                      progress.expectedTotalBytes!
+                : null,
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('[Hub PostCard] Error cargando imagen: $url | $error');
+        return Container(
+          color: const Color(0xFF1A2740),
+          alignment: Alignment.center,
+          child: Icon(
+            Icons.image_not_supported_outlined,
+            size: 28,
+            color: Colors.white.withValues(alpha: 0.25),
+          ),
+        );
+      },
     );
   }
 

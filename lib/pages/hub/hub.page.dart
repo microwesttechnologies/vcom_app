@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/pages/hub/comments_by_post/comments_by_post.page.dart';
@@ -52,6 +52,12 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
   // ── Crear post ─────────────────────────────────────────────
 
   Future<void> _openCreatePostSheet() async {
+    final hubMessenger = ScaffoldMessenger.of(context);
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    // Altura aproximada de [MenuBarComponent] + separación para SnackBar flotante.
+    const menuBarBodyHeight = 76.0;
+    final snackBarBottomMargin = safeBottom + menuBarBodyHeight + 12;
+
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -63,6 +69,8 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
         postComponent: PostComponent(),
         tags: _component.tags,
         initialTag: _component.selectedTag,
+        scaffoldMessenger: hubMessenger,
+        snackBarBottomMargin: snackBarBottomMargin,
       ),
     );
     if (result == true) await _component.refresh();

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -15,12 +16,17 @@ class CreatePostSheet extends StatefulWidget {
     required this.postComponent,
     required this.tags,
     required this.initialTag,
+    this.scaffoldMessenger,
+    this.snackBarBottomMargin,
     super.key,
   });
 
   final PostComponent postComponent;
   final List<HubTag> tags;
   final HubTag? initialTag;
+  final ScaffoldMessengerState? scaffoldMessenger;
+  /// Margen inferior del SnackBar flotante (encima del menú inferior del Hub).
+  final double? snackBarBottomMargin;
 
   @override
   State<CreatePostSheet> createState() => _CreatePostSheetState();
@@ -33,6 +39,9 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
   List<PickedMedia> _pickedMedia = [];
   bool _isSubmitting = false;
   String? _progressMsg;
+  OverlayEntry? _errorOverlayEntry;
+  Timer? _errorAutoHideTimer;
+  GlobalKey<_AnimatedScreenTopErrorBannerState>? _errorBannerKey;
 
   @override
   void initState() {
@@ -42,6 +51,8 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
 
   @override
   void dispose() {
+    _errorAutoHideTimer?.cancel();
+    _removeErrorOverlayImmediate();
     _titleCtrl.dispose();
     _contentCtrl.dispose();
     super.dispose();
@@ -52,10 +63,11 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     final content = _contentCtrl.text.trim();
 
     if (title.isEmpty || content.isEmpty) {
-      _showSnack('Completa título y contenido', isError: true);
+      _showSheetTopError('Completa título y contenido');
       return;
     }
 
+    _removeErrorOverlayImmediate();
     setState(() {
       _isSubmitting = true;
       _progressMsg = 'Preparando publicación...';
@@ -77,18 +89,16 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
       if (!mounted) return;
       if (ok) {
         Navigator.of(context).pop(true);
-        _showSnack('Publicación creada', isError: false);
+        _showSuccessSnack('Publicación creada');
       } else {
-        _showSnack(
+        _showSheetTopError(
           widget.postComponent.error ?? 'No se pudo crear la publicación',
-          isError: true,
         );
       }
     } catch (e) {
       if (mounted) {
-        _showSnack(
+        _showSheetTopError(
           'Error: ${e.toString().replaceFirst("Exception: ", "")}',
-          isError: true,
         );
       }
     } finally {
@@ -153,13 +163,81 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     }
   }
 
-  void _showSnack(String message, {required bool isError}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? VcomColors.error : VcomColors.success,
+  void _showSheetTopError(String message) {
+    if (!mounted) return;
+    _errorAutoHideTimer?.cancel();
+    _removeErrorOverlayImmediate();
+
+    final bannerKey = GlobalKey<_AnimatedScreenTopErrorBannerState>();
+    _errorBannerKey = bannerKey;
+
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (overlayCtx) => _AnimatedScreenTopErrorBanner(
+        key: bannerKey,
+        message: message,
+        entry: entry,
+        onRemoved: () {
+          if (!mounted) return;
+          _errorOverlayEntry = null;
+          _errorBannerKey = null;
+        },
       ),
     );
+    _errorOverlayEntry = entry;
+    Overlay.of(context).insert(entry);
+
+    _errorAutoHideTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      unawaited(_dismissErrorOverlayAnimated());
+    });
+  }
+
+  void _removeErrorOverlayImmediate() {
+    _errorAutoHideTimer?.cancel();
+    _errorAutoHideTimer = null;
+    final e = _errorOverlayEntry;
+    _errorOverlayEntry = null;
+    _errorBannerKey = null;
+    if (e != null) {
+      e.remove();
+      e.dispose();
+    }
+  }
+
+  Future<void> _dismissErrorOverlayAnimated() async {
+    _errorAutoHideTimer?.cancel();
+    _errorAutoHideTimer = null;
+    final state = _errorBannerKey?.currentState;
+    if (state != null) {
+      await state.dismissAndRemove();
+    } else {
+      _removeErrorOverlayImmediate();
+    }
+  }
+
+  void _showSuccessSnack(String message) {
+    final messenger =
+        widget.scaffoldMessenger ?? ScaffoldMessenger.of(context);
+    messenger.removeCurrentSnackBar();
+    final bottomMargin = widget.snackBarBottomMargin ??
+        (MediaQuery.paddingOf(context).bottom + 24);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: VcomColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _clearSheetErrorIfAny() {
+    if (_errorOverlayEntry != null) {
+      unawaited(_dismissErrorOverlayAnimated());
+    }
   }
 
   @override
@@ -249,6 +327,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     return TextField(
       controller: ctrl,
       enabled: !_isSubmitting,
+      onChanged: (_) => _clearSheetErrorIfAny(),
       style: const TextStyle(color: Colors.white),
       maxLines: maxLines,
       decoration: InputDecoration(
@@ -277,6 +356,120 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
         labelText: 'Tag (opcional)',
         labelStyle: TextStyle(color: Colors.white70),
         border: OutlineInputBorder(),
+      ),
+    );
+  }
+}
+
+class _AnimatedScreenTopErrorBanner extends StatefulWidget {
+  const _AnimatedScreenTopErrorBanner({
+    super.key,
+    required this.message,
+    required this.entry,
+    required this.onRemoved,
+  });
+
+  final String message;
+  final OverlayEntry entry;
+  final VoidCallback onRemoved;
+
+  @override
+  State<_AnimatedScreenTopErrorBanner> createState() =>
+      _AnimatedScreenTopErrorBannerState();
+}
+
+class _AnimatedScreenTopErrorBannerState extends State<_AnimatedScreenTopErrorBanner>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _slide;
+  bool _removing = false;
+
+  static const _inDuration = Duration(milliseconds: 380);
+  static const _outDuration = Duration(milliseconds: 280);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: _inDuration,
+      reverseDuration: _outDuration,
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -1.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    ));
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> dismissAndRemove() async {
+    if (_removing) return;
+    _removing = true;
+    await _controller.reverse();
+    if (!mounted) return;
+    widget.entry.remove();
+    widget.entry.dispose();
+    widget.onRemoved();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top + 8;
+    return Positioned(
+      top: top,
+      left: 16,
+      right: 16,
+      child: SlideTransition(
+        position: _slide,
+        child: FadeTransition(
+          opacity: CurvedAnimation(
+            parent: _controller,
+            curve: Curves.easeOut,
+            reverseCurve: Curves.easeIn,
+          ),
+          child: Material(
+            color: VcomColors.error,
+            elevation: 8,
+            shadowColor: Colors.black54,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.white, size: 24),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: dismissAndRemove,
+                    child: const Text(
+                      'OK',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
