@@ -94,7 +94,7 @@ class GlassNavbarComponent extends StatelessWidget
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [VcomColors.primaryPurple, VcomColors.oroLujoso],
+                colors: [VcomColors.azulNocheSombra, VcomColors.oroLujoso],
               ),
               shape: BoxShape.circle,
             ),

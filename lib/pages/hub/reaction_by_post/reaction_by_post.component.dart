@@ -18,9 +18,7 @@ class ReactionByPostComponent extends ChangeNotifier {
   Future<void> loadSummary(int localId, dynamic apiKey) async {
     try {
       final summary = await _reactionsService.fetchPostReactionsSummary(apiKey);
-      if (summary.isNotEmpty) {
-        _reactionsByPost[localId] = summary;
-      }
+      _reactionsByPost[localId] = summary;
     } catch (_) {}
   }
 
@@ -37,9 +35,7 @@ class ReactionByPostComponent extends ChangeNotifier {
       await _reactionsService.reactToPost(localId, type);
 
       final summary = await _reactionsService.fetchPostReactionsSummary(apiKey);
-      if (summary.isNotEmpty) {
-        _reactionsByPost[localId] = summary;
-      }
+      _reactionsByPost[localId] = summary;
       return true;
     } catch (e) {
       _rollback(localId, previous);

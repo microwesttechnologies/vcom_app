@@ -5,25 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "App_Vcom (Flutter)",
-            "request": "launch",
-            "type": "dart",
-            "exceptionPauseMode": "Unhandled"
-        },
-        {
-            "name": "App_Vcom (Flutter Pixel 8a)",
-            "request": "launch",
-            "type": "dart",
-            "deviceId": "emulator-5556",
-            "flutterMode": "debug",
-            "program": "lib/main.dart",
-            "cwd": "${workspaceFolder}",
-            "toolArgs": [],
-            "args": [],
-            "exceptionPauseMode": "Unhandled"
-        },
-        {
-            "name": "App_Vcom (Flutter Pixel 9a)",
+            "name": "App_Vcom (Flutter · gphone16k x86_64 · emulator-5554)",
             "request": "launch",
             "type": "dart",
             "deviceId": "emulator-5554",

@@ -1,3 +1,5 @@
+import 'package:vcom_app/core/hub/hub_post_media.dart';
+
 class HubPostModel {
   final int id;
   final String title;
@@ -86,24 +88,7 @@ class HubPostModel {
     }
     final createdAt = (json['created_at'] ?? json['date'] ?? '').toString();
 
-    final dynamic imagesRaw = json['images'] ?? json['media'] ?? json['photos'];
-    List<String> images = [];
-    if (imagesRaw is List) {
-      images = imagesRaw
-          .map(
-            (e) => e is String
-                ? e
-                : (e is Map<String, dynamic>
-                      ? (e['url'] ?? e['src'] ?? '')
-                      : ''),
-          )
-          .whereType<String>()
-          .where((s) => s.isNotEmpty)
-          .toList();
-    } else {
-      final cover = json['cover'] ?? json['image'] ?? json['picture'];
-      if (cover is String && cover.isNotEmpty) images = [cover];
-    }
+    final images = extractPostImageUrls(json);
 
     final rawReactionsCount = json['reactions_count'] ?? json['likes'] ?? 0;
     final reactions = json['reactions'] is Map<String, dynamic>

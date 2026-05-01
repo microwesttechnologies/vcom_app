@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vcom_app/core/hub/hub_post_media.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/pages/hub/hub_helpers.dart';
@@ -36,7 +37,7 @@ class PostCardWidget extends StatelessWidget {
     );
     final title = (post['title_post'] ?? post['title'] ?? '').toString();
     final createdAt = (post['created_at'] ?? post['date'] ?? '').toString();
-    final images = _extractImages(post);
+    final images = extractPostImageUrls(post);
     final category = _extractCategory(post);
 
     return Padding(
@@ -277,6 +278,7 @@ class PostCardWidget extends StatelessWidget {
   }
 
   Widget _buildImage(String url) {
+    final headers = hubImageRequestHeaders(TokenService());
     return ClipRRect(
       borderRadius: const BorderRadius.only(topRight: Radius.circular(15)),
       child: AspectRatio(
@@ -284,6 +286,7 @@ class PostCardWidget extends StatelessWidget {
         child: Image.network(
           url,
           fit: BoxFit.cover,
+          headers: headers,
           loadingBuilder: (_, child, progress) {
             if (progress == null) return child;
             return Container(
@@ -300,37 +303,22 @@ class PostCardWidget extends StatelessWidget {
               ),
             );
           },
-          errorBuilder: (_, _, _) => Container(
-            color: const Color(0xFF1A2740),
-            child: Icon(
-              Icons.image_not_supported_outlined,
-              size: 52,
-              color: Colors.white.withValues(alpha: 0.25),
-            ),
-          ),
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint(
+              '[Hub PostCard] Error cargando imagen: $url | $error',
+            );
+            return Container(
+              color: const Color(0xFF1A2740),
+              child: Icon(
+                Icons.image_not_supported_outlined,
+                size: 52,
+                color: Colors.white.withValues(alpha: 0.25),
+              ),
+            );
+          },
         ),
       ),
     );
-  }
-
-  static List<String> _extractImages(Map<String, dynamic> post) {
-    final dynamic images = post['images'] ?? post['media'] ?? post['photos'];
-    if (images is List) {
-      return images
-          .map(
-            (e) => e is String
-                ? e
-                : (e is Map<String, dynamic>
-                      ? (e['url'] ?? e['src'] ?? '')
-                      : ''),
-          )
-          .whereType<String>()
-          .where((s) => s.isNotEmpty)
-          .toList();
-    }
-    final cover = post['cover'] ?? post['image'] ?? post['picture'];
-    if (cover is String && cover.isNotEmpty) return [cover];
-    return const [];
   }
 
   static String _extractCategory(Map<String, dynamic> post) {

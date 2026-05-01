@@ -149,8 +149,20 @@ class HubComponent extends ChangeNotifier {
 
   // ── Comentarios ────────────────────────────────────────────
 
+  /// Recarga comentarios del servidor para un post específico.
+  Future<void> refreshComments(int localId) async {
+    final apiKey = _postComponent.apiKeyByLocalId[localId] ?? localId;
+    await _commentsComponent.loadComments(localId: localId, apiKey: apiKey);
+    notifyListeners();
+  }
+
   Future<bool> addComment(int localId, String content) async {
-    final ok = await _commentsComponent.addComment(localId, content);
+    final apiKey = _postComponent.apiKeyByLocalId[localId] ?? localId;
+    final ok = await _commentsComponent.addComment(
+      localId,
+      content,
+      apiKey: apiKey,
+    );
     if (!ok) _error = 'No se pudo crear el comentario';
     notifyListeners();
     return ok;

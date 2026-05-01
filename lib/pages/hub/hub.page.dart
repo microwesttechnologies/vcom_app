@@ -71,6 +71,9 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
   // ── Comentarios ────────────────────────────────────────────
 
   Future<void> _openCommentsSheet(int postId) async {
+    // Recargar comentarios del servidor al abrir el sheet.
+    _component.refreshComments(postId);
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,

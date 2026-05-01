@@ -36,7 +36,7 @@ class CommentsByPostComponent extends ChangeNotifier {
   }
 
   /// Crea un comentario en el post.
-  Future<bool> addComment(int localId, String content) async {
+  Future<bool> addComment(int localId, String content, {dynamic apiKey}) async {
     final trimmed = content.trim();
     if (trimmed.isEmpty) return false;
     if (_inFlightCreate.contains(localId)) return false;
@@ -44,10 +44,10 @@ class CommentsByPostComponent extends ChangeNotifier {
     _inFlightCreate.add(localId);
     notifyListeners();
 
+    final resolvedKey = apiKey ?? localId;
     try {
-      final apiKey = localId;
-      await _commentsService.createPostComment(localId, trimmed);
-      await loadComments(localId: localId, apiKey: apiKey);
+      await _commentsService.createPostComment(resolvedKey, trimmed);
+      await loadComments(localId: localId, apiKey: resolvedKey);
       return true;
     } catch (e) {
       return false;
