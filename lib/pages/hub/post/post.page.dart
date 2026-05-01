@@ -16,17 +16,12 @@ class CreatePostSheet extends StatefulWidget {
     required this.postComponent,
     required this.tags,
     required this.initialTag,
-    this.scaffoldMessenger,
-    this.snackBarBottomMargin,
     super.key,
   });
 
   final PostComponent postComponent;
   final List<HubTag> tags;
   final HubTag? initialTag;
-  final ScaffoldMessengerState? scaffoldMessenger;
-  /// Margen inferior del SnackBar flotante (encima del menú inferior del Hub).
-  final double? snackBarBottomMargin;
 
   @override
   State<CreatePostSheet> createState() => _CreatePostSheetState();
@@ -89,7 +84,6 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
       if (!mounted) return;
       if (ok) {
         Navigator.of(context).pop(true);
-        _showSuccessSnack('Publicación creada');
       } else {
         _showSheetTopError(
           widget.postComponent.error ?? 'No se pudo crear la publicación',
@@ -214,24 +208,6 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     } else {
       _removeErrorOverlayImmediate();
     }
-  }
-
-  void _showSuccessSnack(String message) {
-    final messenger =
-        widget.scaffoldMessenger ?? ScaffoldMessenger.of(context);
-    messenger.removeCurrentSnackBar();
-    final bottomMargin = widget.snackBarBottomMargin ??
-        (MediaQuery.paddingOf(context).bottom + 24);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: VcomColors.success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
-        duration: const Duration(seconds: 3),
-      ),
-    );
   }
 
   void _clearSheetErrorIfAny() {

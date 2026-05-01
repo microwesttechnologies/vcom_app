@@ -20,6 +20,7 @@ class HubPage extends StatefulWidget {
 class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
   static final HubComponent _component = HubComponent();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final Set<int> _expandedPostReactions = <int>{};
 
   @override
@@ -27,6 +28,7 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _component.addListener(_onChanged);
+    _scrollController.addListener(_onHubScroll);
     _component.initialize();
   }
 
@@ -34,8 +36,18 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _component.removeListener(_onChanged);
+    _scrollController.removeListener(_onHubScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onHubScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 380) {
+      _component.loadMorePosts();
+    }
   }
 
   @override
@@ -52,12 +64,6 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
   // ── Crear post ─────────────────────────────────────────────
 
   Future<void> _openCreatePostSheet() async {
-    final hubMessenger = ScaffoldMessenger.of(context);
-    final safeBottom = MediaQuery.paddingOf(context).bottom;
-    // Altura aproximada de [MenuBarComponent] + separación para SnackBar flotante.
-    const menuBarBodyHeight = 76.0;
-    final snackBarBottomMargin = safeBottom + menuBarBodyHeight + 12;
-
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -69,11 +75,20 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
         postComponent: PostComponent(),
         tags: _component.tags,
         initialTag: _component.selectedTag,
-        scaffoldMessenger: hubMessenger,
-        snackBarBottomMargin: snackBarBottomMargin,
       ),
     );
-    if (result == true) await _component.refresh();
+    if (result != true || !mounted) return;
+    await _component.refresh();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Publicación creada'),
+        backgroundColor: VcomColors.success,
+        behavior: SnackBarBehavior.fixed,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   // ── Comentarios ────────────────────────────────────────────
@@ -152,10 +167,15 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
         ? <Map<String, dynamic>>[]
         : _applyUiFilters(_component.posts);
     final hasItems = list.isNotEmpty;
+    final showLoadFooter = hasItems && _component.hasMorePosts;
+    final itemCount =
+        hasItems ? list.length + 2 + (showLoadFooter ? 1 : 0) : 3;
 
     return ListView.builder(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-      itemCount: hasItems ? list.length + 2 : 3,
+      itemCount: itemCount,
       itemBuilder: (_, index) {
         if (index == 0) return _buildSearchBar();
         if (index == 1) {
@@ -166,8 +186,30 @@ class _HubPageState extends State<HubPage> with WidgetsBindingObserver {
           );
         }
         if (!hasItems) return _buildEmpty();
+        if (showLoadFooter && index == list.length + 2) {
+          return _buildLoadMoreFooter();
+        }
         return _buildPostItem(list[index - 2]);
       },
+    );
+  }
+
+  Widget _buildLoadMoreFooter() {
+    if (!_component.isLoadingMorePosts) {
+      return const SizedBox(height: 56);
+    }
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: VcomColors.oroLujoso,
+          ),
+        ),
+      ),
     );
   }
 

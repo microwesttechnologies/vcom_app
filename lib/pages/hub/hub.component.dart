@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -31,6 +32,8 @@ class HubComponent extends ChangeNotifier {
   // ── Getters delegados ──────────────────────────────────────
 
   bool get isLoading => _postComponent.isLoading;
+  bool get isLoadingMorePosts => _postComponent.isLoadingMore;
+  bool get hasMorePosts => _postComponent.hasMore;
   String? get error => _error ?? _postComponent.error;
   List<Map<String, dynamic>> get posts => _postComponent.posts;
   Map<int, dynamic> get apiKeyByLocalId => _postComponent.apiKeyByLocalId;
@@ -93,6 +96,29 @@ class HubComponent extends ChangeNotifier {
     await fetchPosts(tag: _tagsComponent.selectedTag?.slug);
     await _tagsComponent.loadTags();
     _lastFetchTime = DateTime.now();
+    notifyListeners();
+  }
+
+  /// Carga la siguiente página de publicaciones (scroll infinito).
+  Future<void> loadMorePosts() async {
+    if (!_postComponent.hasMore ||
+        _postComponent.isLoadingMore ||
+        _postComponent.isLoading) {
+      return;
+    }
+    _error = null;
+    final newPosts = await _postComponent.fetchNextPage(
+      tag: _tagsComponent.selectedTag?.slug,
+    );
+    for (final post in newPosts) {
+      final localId = PostComponent.extractLocalPostId(post);
+      if (localId == null) continue;
+      final apiKey = _postComponent.apiKeyByLocalId[localId] ?? localId;
+      unawaited(_loadPostMeta(localId, apiKey));
+    }
+    if (_postComponent.error != null) {
+      _error = _postComponent.error;
+    }
     notifyListeners();
   }
 

@@ -6,6 +6,13 @@ import 'package:http_parser/http_parser.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 
+int? _readInt(dynamic v) {
+  if (v == null) return null;
+  if (v is int) return v;
+  if (v is num) return v.round();
+  return int.tryParse(v.toString());
+}
+
 class HubPostsService {
   final TokenService _tokenService = TokenService();
 
@@ -57,9 +64,9 @@ class HubPostsService {
 
       final meta = body['meta'] ?? body['pagination'] ?? body['page'];
       if (meta is Map<String, dynamic>) {
-        total = (meta['total'] ?? meta['total_items']) as int?;
-        currentPage = (meta['current_page'] ?? meta['page']) as int?;
-        lastPage = (meta['last_page'] ?? meta['pages']) as int?;
+        total = _readInt(meta['total'] ?? meta['total_items']);
+        currentPage = _readInt(meta['current_page'] ?? meta['page']);
+        lastPage = _readInt(meta['last_page'] ?? meta['pages']);
       }
     } else {
       posts = const [];
