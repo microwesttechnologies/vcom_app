@@ -14,7 +14,26 @@ String resolveHubMediaUrl(String raw) {
   if (s.startsWith('http://') || s.startsWith('https://')) {
     return s;
   }
+
   final base = EnvironmentDev.baseUrl.replaceAll(RegExp(r'/$'), '');
+
+  // Legacy: enlace simbólico /storage/... que en hosting suele dar 404 → mismo origen que el backend
+  if (s.startsWith('/storage/')) {
+    final rest = s.substring('/storage/'.length);
+    return '$base/api/v1/storage/$rest';
+  }
+  if (s.startsWith('storage/')) {
+    return '$base/api/v1/storage/${s.substring('storage/'.length)}';
+  }
+
+  // Contenido en disco "public" servido por GET /api/v1/storage/{path}
+  if (!s.startsWith('/') &&
+      (s.startsWith('hub/') ||
+          s.startsWith('products/') ||
+          s.startsWith('chat/'))) {
+    return '$base/api/v1/storage/$s';
+  }
+
   final path = s.startsWith('/') ? s : '/$s';
   return '$base$path';
 }
@@ -26,6 +45,18 @@ Map<String, String> hubImageRequestHeaders(TokenService tokenService) {
     'X-Requested-With': 'XMLHttpRequest',
     ...tokenService.getAuthHeaders(),
   };
+}
+
+/// [Image.network] para URLs del storage API público: sin Bearer para evitar 401 por token en rutas sin auth.
+Map<String, String> hubImageRequestHeadersForUrl(String url, TokenService tokenService) {
+  final lower = url.toLowerCase();
+  if (lower.contains('/api/v1/storage/')) {
+    return {
+      'Accept': 'image/*,*/*;q=0.8',
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+  }
+  return hubImageRequestHeaders(tokenService);
 }
 
 /// Aplana JSON tipo JSON:API / Laravel API Resource (`attributes`).
@@ -160,6 +191,8 @@ String? _firstUrlFromMediaMap(Map<String, dynamic> m) {
     'src',
     'href',
     'path',
+    'file_path',
+    'filePath',
     'file_url',
     'fileUrl',
     'media_url',

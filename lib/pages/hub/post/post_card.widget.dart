@@ -278,7 +278,7 @@ class PostCardWidget extends StatelessWidget {
   }
 
   Widget _buildImage(String url) {
-    final headers = hubImageRequestHeaders(TokenService());
+    final headers = hubImageRequestHeadersForUrl(url, TokenService());
     return ClipRRect(
       borderRadius: const BorderRadius.only(topRight: Radius.circular(15)),
       child: AspectRatio(
