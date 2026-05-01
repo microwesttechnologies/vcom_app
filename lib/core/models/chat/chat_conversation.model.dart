@@ -37,6 +37,29 @@ class ChatConversationModel {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    final lastMessage = <String, dynamic>{};
+    if (lastMessageContent != null && lastMessageContent!.isNotEmpty) {
+      lastMessage['content'] = lastMessageContent;
+    }
+    if (lastMessageType != null && lastMessageType!.isNotEmpty) {
+      lastMessage['message_type'] = lastMessageType;
+    }
+    if (lastMessageSenderId != null && lastMessageSenderId!.isNotEmpty) {
+      lastMessage['sender_id'] = lastMessageSenderId;
+    }
+
+    return {
+      'id_conversation': idConversation,
+      'other_user_id': otherUserId,
+      'created_at': createdAt.toIso8601String(),
+      if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
+      if (lastMessageAt != null) 'last_message_at': lastMessageAt!.toIso8601String(),
+      'unread_count': unreadCount,
+      if (lastMessage.isNotEmpty) 'last_message': lastMessage,
+    };
+  }
+
   ChatConversationModel copyWith({
     int? idConversation,
     String? otherUserId,

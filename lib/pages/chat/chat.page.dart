@@ -58,6 +58,9 @@ class _ChatPageState extends State<ChatPage> {
 
   void _onChanged() {
     if (!mounted) return;
+    _chatUiStateService.setOpenConversationId(
+      _component.selectedConversation?.idConversation,
+    );
     setState(() {});
 
     if (_component.selectedConversation != null) {

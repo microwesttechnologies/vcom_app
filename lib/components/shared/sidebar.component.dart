@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:vcom_app/core/chat/chat_module_cache.dart';
 import 'package:vcom_app/core/chat/chat_push.service.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 import 'package:vcom_app/core/common/token.service.dart';
@@ -190,6 +191,7 @@ class SidebarComponent extends StatelessWidget {
                 }
                 
                 // 2. Limpiar el token y datos del usuario
+                await ChatModuleCache.instance.clear();
                 await ChatPushService().unregisterCurrentDevice();
                 await userStatusService.setOffline();
                 tokenService.clear();

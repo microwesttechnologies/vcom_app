@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:web_socket_channel/io.dart';
@@ -8,6 +8,14 @@ class ChatSocketService {
   static final ChatSocketService _instance = ChatSocketService._internal();
   factory ChatSocketService() => _instance;
   ChatSocketService._internal();
+
+  /// Tras cerrar el chat se llama desde [notifyChatUiClosed] (p. ej. reconectar WS sin `chat.screen.open`).
+  static Future<void> Function()? afterChatUiClosed;
+
+  static Future<void> notifyChatUiClosed() async {
+    final fn = afterChatUiClosed;
+    if (fn != null) await fn();
+  }
 
   IOWebSocketChannel? _channel;
   StreamSubscription? _subscription;

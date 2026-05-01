@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:vcom_app/pages/auth/login.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
+import 'package:vcom_app/core/chat/chat_push.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 
 class AppIntroPage extends StatefulWidget {
@@ -97,6 +100,10 @@ class _AppIntroPageState extends State<AppIntroPage>
     final nextPage = tokenService.hasToken()
         ? const DashboardPage()
         : const LoginPage();
+
+    if (nextPage is DashboardPage) {
+      unawaited(ChatPushService().initialize());
+    }
 
     // Fade out el video, luego transición a la app
     _fadeController.forward().then((_) {

@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugPrint, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -22,6 +26,21 @@ Future<void> main() async {
   await initializeDateFormatting('es_CO');
   Intl.defaultLocale = 'es_CO';
   await TokenService().initialize();
+
+  // FCM: el handler de segundo plano debe registrarse una sola vez y antes de runApp.
+  final useFcm = !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
+  if (useFcm) {
+    try {
+      await Firebase.initializeApp();
+    } catch (e, st) {
+      debugPrint('[main] Firebase.initializeApp: $e\n$st');
+    }
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
+
   runApp(const MyApp());
 }
 

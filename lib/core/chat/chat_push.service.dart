@@ -9,8 +9,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vcom_app/core/chat/chat_api.service.dart';
+import 'package:vcom_app/core/chat/chat_socket.service.dart';
 import 'package:vcom_app/core/chat/chat_ui_state.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/models/chat/chat_message.model.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
 
 final FlutterLocalNotificationsPlugin _backgroundLocalNotifications =
@@ -42,7 +44,15 @@ Future<void> _ensureBackgroundNotificationsConfigured() async {
   if (_backgroundNotificationsReady) return;
 
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const initSettings = InitializationSettings(android: androidSettings);
+  const iosSettings = DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+  const initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+  );
   await _backgroundLocalNotifications.initialize(initSettings);
 
   final androidPlatform = _backgroundLocalNotifications
@@ -50,6 +60,10 @@ Future<void> _ensureBackgroundNotificationsConfigured() async {
         AndroidFlutterLocalNotificationsPlugin
       >();
   await androidPlatform?.createNotificationChannel(_backgroundChatChannel);
+  await _backgroundLocalNotifications
+      .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>()
+      ?.requestPermissions(alert: true, badge: true, sound: true);
   _backgroundNotificationsReady = true;
 }
 
@@ -79,6 +93,11 @@ Future<void> _showBackgroundNotification(RemoteMessage message) async {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
       ),
     ),
     payload: jsonEncode(data),
@@ -118,6 +137,8 @@ class ChatPushService {
   bool _initialized = false;
   StreamSubscription<RemoteMessage>? _onMessageSubscription;
   StreamSubscription<String>? _tokenRefreshSubscription;
+  StreamSubscription<Map<String, dynamic>>? _socketTraySubscription;
+  final Map<int, DateTime> _trayDedupeByMessageId = {};
 
   Future<void> initialize() async {
     if (kIsWeb || Platform.isWindows) return;
@@ -125,16 +146,21 @@ class ChatPushService {
     await _tokenService.initialize();
 
     try {
-      await Firebase.initializeApp();
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
     } catch (e) {
       debugPrint('Push chat deshabilitado temporalmente: $e');
       return;
     }
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     final messaging = FirebaseMessaging.instance;
 
     if (!_initialized) {
       await _configureLocalNotifications();
+      ChatSocketService.afterChatUiClosed =
+          () => ChatPushService().resumeInboundSocketAfterChatClosed();
+      _socketTraySubscription ??=
+          ChatSocketService().events.listen(_onChatSocketTrayEvent);
       _onMessageSubscription = FirebaseMessaging.onMessage.listen(
         _handleForegroundMessage,
       );
@@ -173,6 +199,8 @@ class ChatPushService {
     final token = _tokenService.getToken();
     if (token == null || token.isEmpty) return;
 
+    unawaited(resumeInboundSocketAfterChatClosed());
+
     try {
       final fcmToken = await messaging.getToken();
       if (fcmToken != null && fcmToken.isNotEmpty) {
@@ -180,7 +208,15 @@ class ChatPushService {
         await _registerTokenWithBackend(fcmToken);
       }
     } catch (e) {
+      final msg = e.toString();
       debugPrint('Push chat: no se pudo obtener FCM token: $e');
+      if (msg.contains('AUTHENTICATION_FAILED')) {
+        debugPrint(
+          'Push chat: en Firebase Console, app Android com.example.vcom_app — '
+          'agrega SHA-1/SHA-256 del keystore debug, descarga google-services.json '
+          'y colócalo en android/app/.',
+        );
+      }
     }
 
     final initialMessage = await messaging.getInitialMessage();
@@ -206,6 +242,9 @@ class ChatPushService {
   }
 
   Future<void> dispose() async {
+    ChatSocketService.afterChatUiClosed = null;
+    await _socketTraySubscription?.cancel();
+    _socketTraySubscription = null;
     await _onMessageSubscription?.cancel();
     await _tokenRefreshSubscription?.cancel();
     _onMessageSubscription = null;
@@ -213,11 +252,115 @@ class ChatPushService {
     _initialized = false;
   }
 
+  /// Sin `chat.screen.open`: mantiene el WS vivo para `message.new` y avisos locales fuera del chat.
+  Future<void> resumeInboundSocketAfterChatClosed() async {
+    if (kIsWeb || Platform.isWindows) return;
+
+    await _tokenService.initialize();
+    final token = _tokenService.getToken();
+    if (token == null || token.isEmpty) return;
+
+    final socket = ChatSocketService();
+    if (socket.isConnected) return;
+
+    try {
+      await socket.connect(token);
+    } catch (e) {
+      debugPrint('Chat push: no se reconecto el socket tras salir del chat: $e');
+    }
+  }
+
+  void _onChatSocketTrayEvent(Map<String, dynamic> payload) {
+    if ((payload['event'] ?? '').toString() != 'message.new') return;
+    final data = payload['data'];
+    if (data is! Map<String, dynamic>) return;
+    try {
+      final msg = ChatMessageModel.fromJson(data);
+      unawaited(_maybeShowTrayForInboundSocketMessage(msg));
+    } catch (_) {}
+  }
+
+  Future<void> _maybeShowTrayForInboundSocketMessage(ChatMessageModel msg) async {
+    final me = (_tokenService.getUserId() ?? '').trim();
+    if (me.isEmpty) return;
+    if (msg.recipientId.trim() != me) return;
+    if (msg.senderId.trim() == me) return;
+    if (_chatUiStateService.shouldSuppressTrayForConversation(msg.idConversation)) {
+      return;
+    }
+    if (!_shouldShowTrayForDedupe(msg.idMessage)) return;
+
+    const title = 'Nuevo mensaje';
+    final body = _trayBodyForChatMessage(msg);
+    final payload = <String, dynamic>{
+      'conversation_id': msg.idConversation.toString(),
+      'sender_id': msg.senderId,
+      'other_user_id': msg.senderId.trim(),
+    };
+
+    try {
+      await _localNotifications.show(
+        _resolveNotificationId(payload),
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _chatChannel.id,
+            _chatChannel.name,
+            channelDescription: _chatChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        payload: jsonEncode(payload),
+      );
+    } catch (e) {
+      debugPrint('Chat push: notificación local (socket): $e');
+    }
+  }
+
+  String _trayBodyForChatMessage(ChatMessageModel msg) {
+    switch (msg.messageType) {
+      case 'image':
+        return 'Imagen';
+      case 'video':
+        return 'Video';
+      default:
+        final text = msg.content.trim();
+        return text.isEmpty ? 'Tienes un mensaje nuevo' : text;
+    }
+  }
+
+  bool _shouldShowTrayForDedupe(int messageId) {
+    if (messageId <= 0) return true;
+    final now = DateTime.now();
+    _trayDedupeByMessageId.removeWhere(
+      (_, t) => now.difference(t) > const Duration(seconds: 45),
+    );
+    if (_trayDedupeByMessageId.containsKey(messageId)) return false;
+    _trayDedupeByMessageId[messageId] = now;
+    return true;
+  }
+
   Future<void> _configureLocalNotifications() async {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
-    const initSettings = InitializationSettings(android: androidSettings);
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
     await _localNotifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (response) {
@@ -244,6 +387,11 @@ class ChatPushService {
           AndroidFlutterLocalNotificationsPlugin
         >();
     await androidPlatform?.createNotificationChannel(_chatChannel);
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
   Future<void> _registerTokenWithBackend(String pushToken) async {
@@ -288,14 +436,27 @@ class ChatPushService {
   }
 
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    if (_chatUiStateService.isInChatModule) {
+    final data = Map<String, dynamic>.from(message.data);
+    final convId = int.tryParse((data['conversation_id'] ?? '').toString());
+    if (convId != null &&
+        _chatUiStateService.shouldSuppressTrayForConversation(convId)) {
+      debugPrint(
+        'Push chat: omitido (esa conversación está abierta en pantalla).',
+      );
       return;
     }
 
-    final data = Map<String, dynamic>.from(message.data);
     final senderId = (data['sender_id'] ?? '').toString().trim();
     final currentUserId = (_tokenService.getUserId() ?? '').trim();
     if (senderId.isNotEmpty && senderId == currentUserId) return;
+
+    final dedupeId =
+        int.tryParse((data['id_message'] ?? data['message_id'] ?? '').toString());
+    if (dedupeId != null &&
+        dedupeId > 0 &&
+        !_shouldShowTrayForDedupe(dedupeId)) {
+      return;
+    }
 
     final title =
         message.notification?.title ??
@@ -321,6 +482,11 @@ class ChatPushService {
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
         ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
       payload: jsonEncode(data),
     );
@@ -334,7 +500,8 @@ class ChatPushService {
     final navigator = _tokenService.navigatorKey.currentState;
     if (navigator == null) return;
 
-    final otherUserId = (data['other_user_id'] ?? '').toString().trim();
+    final otherUserId =
+        (data['other_user_id'] ?? data['sender_id'] ?? '').toString().trim();
     final otherUserName = (data['other_user_name'] ?? '').toString().trim();
     final otherUserRole = (data['other_user_role'] ?? '').toString().trim();
 

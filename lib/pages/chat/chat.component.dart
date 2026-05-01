@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:vcom_app/core/chat/chat_api.service.dart';
+import 'package:vcom_app/core/chat/chat_module_cache.dart';
 import 'package:vcom_app/core/chat/chat_socket.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
@@ -51,12 +52,28 @@ class ChatComponent extends ChangeNotifier {
   bool get isOtherTyping => _isOtherTyping;
 
   Future<void> initialize() async {
-    _isLoading = true;
     _error = null;
+    await _tokenService.initialize();
+    final uid = (_tokenService.getUserId() ?? '').trim();
+
+    if (uid.isNotEmpty) {
+      final cached = await ChatModuleCache.instance.load(uid);
+      if (cached != null) {
+        _applyInboxCache(cached);
+        try {
+          await _connectSocketAndListen();
+        } catch (e) {
+          _error = e.toString();
+        }
+        notifyListeners();
+        return;
+      }
+    }
+
+    _isLoading = true;
     notifyListeners();
 
     try {
-      await _tokenService.initialize();
       final me = await _api.fetchMe();
       _currentUserId = (me['id_user'] ?? '').toString().trim();
       _currentUserName = (me['name_user'] ?? '').toString().trim();
@@ -86,17 +103,66 @@ class ChatComponent extends ChangeNotifier {
         throw Exception('Sesion invalida para chat');
       }
 
-      await _socket.connect(token);
-      _socket.emit('chat.screen.open', {});
-      _wsSubscription?.cancel();
-      _wsSubscription = _socket.events.listen(_handleSocketEvent);
-      _startSocketWatchdog();
+      await _connectSocketAndListen();
+      unawaited(_persistInboxCache(me));
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void _applyInboxCache(ChatListCacheData cached) {
+    final me = cached.me;
+    _currentUserId = (me['id_user'] ?? '').toString().trim();
+    _currentUserName = (me['name_user'] ?? '').toString().trim();
+    _currentRole = (me['role_user'] ?? '').toString().trim();
+    if (_currentUserId.isEmpty) {
+      _currentUserId = (_tokenService.getUserId() ?? '').trim();
+    }
+    if (_currentUserName.isEmpty) {
+      _currentUserName = (_tokenService.getUserName() ?? '').trim();
+    }
+    if (_currentRole.isEmpty) {
+      _currentRole = (_tokenService.getRole() ?? '').trim();
+    }
+    _hydratePresenceCache();
+    _contacts = _mergePresenceIntoContacts(cached.contacts);
+    _conversations = cached.conversations;
+  }
+
+  Future<void> _connectSocketAndListen() async {
+    final token = _tokenService.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Sesion invalida para chat');
+    }
+    await _socket.connect(token);
+    _socket.emit('chat.screen.open', {});
+    _wsSubscription?.cancel();
+    _wsSubscription = _socket.events.listen(_handleSocketEvent);
+    _startSocketWatchdog();
+  }
+
+  Future<void> _persistInboxCache(Map<String, dynamic> me) async {
+    final uid = _currentUserId.trim().isNotEmpty
+        ? _currentUserId.trim()
+        : (_tokenService.getUserId() ?? '').trim();
+    if (uid.isEmpty) return;
+    await ChatModuleCache.instance.save(
+      userId: uid,
+      me: me,
+      contacts: _contacts,
+      conversations: _conversations,
+    );
+  }
+
+  Future<void> _persistInboxFromState() async {
+    await _persistInboxCache({
+      'id_user': _currentUserId,
+      'name_user': _currentUserName,
+      'role_user': _currentRole,
+    });
   }
 
   void _hydratePresenceCache() {
@@ -113,6 +179,7 @@ class ChatComponent extends ChangeNotifier {
       );
       _contacts = _mergePresenceIntoContacts(fetchedContacts);
       _conversations = await _api.fetchConversations();
+      unawaited(_persistInboxFromState());
       notifyListeners();
     } catch (_) {}
   }
@@ -157,6 +224,7 @@ class ChatComponent extends ChangeNotifier {
         'conversation_id': conversation.idConversation,
       });
       _isOtherTyping = false;
+      unawaited(_persistInboxFromState());
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -553,6 +621,13 @@ class ChatComponent extends ChangeNotifier {
     _typingInactivityTimer?.cancel();
     _typingInactivityTimer = null;
     _wsSubscription?.cancel();
+    _wsSubscription = null;
+    // Cierra el WebSocket: el backend suele no mandar FCM si la sesión WS sigue viva;
+    // luego [ChatSocketService.notifyChatUiClosed] reconecta en modo escucha para
+    // `message.new` y notificación local fuera del chat.
+    unawaited(
+      _socket.disconnect().then((_) => ChatSocketService.notifyChatUiClosed()),
+    );
     super.dispose();
   }
 

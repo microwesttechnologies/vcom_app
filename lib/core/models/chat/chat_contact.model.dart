@@ -22,6 +22,15 @@ class ChatContactModel {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id_user': idUser,
+      'name_user': nameUser,
+      'role_user': roleUser,
+      'is_online': isOnline,
+    };
+  }
+
   static bool _parseBool(dynamic value) {
     if (value is bool) return value;
     if (value is num) return value != 0;

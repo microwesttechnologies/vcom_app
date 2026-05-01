@@ -19,7 +19,8 @@ class ModeloMenuBar extends StatelessWidget {
       _ModeloMenuEntry(
         label: 'HUB',
         icon: Icons.hub,
-        hints: const ['dashboard', 'inicio', 'hub'],
+        // Solo "hub": el dashboard/inicio es otra pantalla (casita arriba), no debe resaltar HUB.
+        hints: const ['hub'],
         onTap: (context) =>
             _pushIfNotCurrent<HubPage>(context, () => const HubPage()),
       ),
