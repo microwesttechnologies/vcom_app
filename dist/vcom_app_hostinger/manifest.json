@@ -1,0 +1,49 @@
+{
+    "id": "/",
+    "name": "VCOM - Gestión de Modelaje",
+    "short_name": "VCOM",
+    "description": "Plataforma VCOM para gestión de modelaje, chat, entrenamiento y más.",
+    "start_url": "/?source=pwa",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": ["standalone", "minimal-ui", "browser"],
+    "background_color": "#08183A",
+    "theme_color": "#08183A",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "categories": ["business", "social"],
+    "lang": "es-CO",
+    "dir": "ltr",
+    "icons": [
+        {
+            "src": "icons/apple-touch-icon.png",
+            "sizes": "180x180",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

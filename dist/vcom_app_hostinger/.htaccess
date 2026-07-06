@@ -1,0 +1,18 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Archivos estaticos de Flutter: no reescribir a index.html
+  RewriteRule ^(assets|canvaskit|icons)/ - [L]
+  RewriteRule ^.+\.(js|css|png|jpg|jpeg|gif|ico|svg|webp|wasm|json|bin|ttf|otf|woff2?|map|mp4)$ - [L]
+
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+<IfModule mod_mime.c>
+  AddType application/javascript .js
+  AddType application/wasm .wasm
+</IfModule>
