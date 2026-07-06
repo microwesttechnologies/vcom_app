@@ -1,15 +1,25 @@
-import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:vcom_app/core/hub/hub_upload_media.dart';
 import 'package:vcom_app/pages/hub/hub_constants.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
-/// Archivo multimedia seleccionado con su tipo.
+/// Archivo multimedia seleccionado (bytes en memoria; compatible con web/PWA).
 class PickedMedia {
-  final File file;
-  final String type; // 'image' | 'video'
-  PickedMedia({required this.file, required this.type});
+  PickedMedia({
+    required this.bytes,
+    required this.filename,
+    required this.type,
+  });
+
+  final Uint8List bytes;
+  final String filename;
+
+  /// `image` | `video`
+  final String type;
 }
 
 /// Widget para seleccionar fotos y videos desde galería o cámara.
@@ -49,9 +59,14 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
         imageQuality: 80,
       );
       if (xFile == null) return;
+      final bytes = await xFile.readAsBytes();
       final updated = [
         ...widget.pickedMedia,
-        PickedMedia(file: File(xFile.path), type: 'image'),
+        PickedMedia(
+          bytes: bytes,
+          filename: HubUploadMedia.resolveFilename(xFile.name, type: 'image'),
+          type: 'image',
+        ),
       ];
       widget.onChanged(updated);
     } catch (e) {
@@ -70,9 +85,14 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
         maxDuration: Duration(seconds: HubConstants.maxVideoDurationSeconds),
       );
       if (xFile == null) return;
+      final bytes = await xFile.readAsBytes();
       final updated = [
         ...widget.pickedMedia,
-        PickedMedia(file: File(xFile.path), type: 'video'),
+        PickedMedia(
+          bytes: bytes,
+          filename: HubUploadMedia.resolveFilename(xFile.name, type: 'video'),
+          type: 'video',
+        ),
       ];
       widget.onChanged(updated);
     } catch (e) {
@@ -197,7 +217,7 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
                       size: 32,
                     ),
                   )
-                : Image.file(media.file, fit: BoxFit.cover),
+                : Image.memory(media.bytes, fit: BoxFit.cover),
           ),
         ),
         Positioned(
@@ -270,14 +290,15 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
                   _pickImage(ImageSource.gallery);
                 },
               ),
-              _optionTile(
-                icon: Icons.camera_alt_outlined,
-                label: 'Foto desde cámara',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.camera);
-                },
-              ),
+              if (!kIsWeb)
+                _optionTile(
+                  icon: Icons.camera_alt_outlined,
+                  label: 'Foto desde cámara',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
             ],
             if (_canAddVideo) ...[
               _optionTile(
@@ -288,14 +309,15 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
                   _pickVideo(ImageSource.gallery);
                 },
               ),
-              _optionTile(
-                icon: Icons.videocam_outlined,
-                label: 'Video desde cámara',
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickVideo(ImageSource.camera);
-                },
-              ),
+              if (!kIsWeb)
+                _optionTile(
+                  icon: Icons.videocam_outlined,
+                  label: 'Video desde cámara',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickVideo(ImageSource.camera);
+                  },
+                ),
             ],
             if (!_canAddImage && !_canAddVideo)
               Padding(

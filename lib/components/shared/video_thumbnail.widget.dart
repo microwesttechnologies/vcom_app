@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:vcom_app/core/training/training_video_cache.dart';
+import 'package:vcom_app/core/training/training_video_local.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 /// Miniatura del primer frame: usa archivo en caché si existe (sin red);
@@ -93,11 +94,9 @@ class _VideoThumbnailState extends State<VideoThumbnail>
       );
     }
     final trimmed = url.trim();
-    final cached = await TrainingVideoCache.instance.getLocalFileIfCached(
-      trimmed,
-    );
-    if (cached != null) {
-      return VideoPlayerController.file(cached);
+    final cachedController = await openCachedTrainingVideo(trimmed);
+    if (cachedController != null) {
+      return cachedController;
     }
     unawaited(_precacheForFullPlayer(trimmed));
     return VideoPlayerController.networkUrl(
@@ -108,7 +107,7 @@ class _VideoThumbnailState extends State<VideoThumbnail>
 
   Future<void> _precacheForFullPlayer(String url) async {
     try {
-      await TrainingVideoCache.instance.ensureCached(
+      await precacheTrainingVideo(
         url,
         headers: widget.httpHeaders,
       );

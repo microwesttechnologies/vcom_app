@@ -1,9 +1,37 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        {
+            "name": "VCOM Web (red local · celular)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "web-server",
+            "flutterMode": "release",
+            "program": "lib/main.dart",
+            "toolArgs": [
+                "--web-port=8080",
+                "--web-hostname=0.0.0.0"
+            ]
+        },
+        {
+            "name": "VCOM Web (PWA · Chrome)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "chrome",
+            "flutterMode": "debug",
+            "program": "lib/main.dart",
+            "toolArgs": [
+                "--web-port=8080",
+                "--web-hostname=localhost",
+                "--dart-define=FIREBASE_API_KEY=TU_API_KEY",
+                "--dart-define=FIREBASE_APP_ID=TU_APP_ID",
+                "--dart-define=FIREBASE_MESSAGING_SENDER_ID=TU_SENDER_ID",
+                "--dart-define=FIREBASE_PROJECT_ID=TU_PROJECT_ID",
+                "--dart-define=FIREBASE_AUTH_DOMAIN=TU_PROJECT.firebaseapp.com",
+                "--dart-define=FIREBASE_STORAGE_BUCKET=TU_PROJECT.appspot.com",
+                "--dart-define=FIREBASE_VAPID_KEY=TU_VAPID_KEY"
+            ]
+        },
         {
             "name": "App_Vcom (Flutter · gphone16k x86_64 · emulator-5554)",
             "request": "launch",
@@ -20,13 +48,6 @@
             "name": "Launch Chrome",
             "request": "launch",
             "type": "chrome",
-            "url": "http://localhost:9090",
-            "webRoot": "${workspaceFolder}"
-        },
-        {
-            "type": "chrome",
-            "request": "launch",
-            "name": "Launch Chrome against localhost",
             "url": "http://localhost:9090",
             "webRoot": "${workspaceFolder}"
         }

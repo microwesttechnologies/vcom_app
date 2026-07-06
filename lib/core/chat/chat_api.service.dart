@@ -118,6 +118,52 @@ class ChatApiService {
         .toList(growable: false);
   }
 
+  Future<ChatMessageModel> sendMessage({
+    required int conversationId,
+    required String content,
+    required String messageType,
+    String? mediaUrl,
+    String? mediaThumbnailUrl,
+    String? mediaContentType,
+    Map<String, dynamic>? mediaMetadata,
+  }) async {
+    final payload = <String, dynamic>{
+      'conversation_id': conversationId,
+      'content': content,
+      'message_type': messageType,
+      if ((mediaUrl ?? '').trim().isNotEmpty) 'media_url': mediaUrl!.trim(),
+      if ((mediaThumbnailUrl ?? '').trim().isNotEmpty)
+        'media_thumbnail_url': mediaThumbnailUrl!.trim(),
+      if ((mediaContentType ?? '').trim().isNotEmpty)
+        'media_content_type': mediaContentType!.trim(),
+      if (mediaMetadata != null && mediaMetadata.isNotEmpty)
+        'media_metadata': mediaMetadata,
+    };
+
+    final response = await http.post(
+      _uri('/conversations/$conversationId/messages'),
+      headers: _headers(),
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode >= 400) {
+      throw Exception(
+        'No fue posible enviar mensaje (${response.statusCode})',
+      );
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final raw = body['message'] as Map<String, dynamic>? ??
+        (body['data'] is Map<String, dynamic>
+            ? body['data'] as Map<String, dynamic>
+            : null);
+    if (raw == null) {
+      throw Exception('Respuesta invalida al enviar mensaje');
+    }
+
+    return ChatMessageModel.fromJson(raw);
+  }
+
   Future<List<ChatMessageModel>> fetchMessages(
     int conversationId, {
     int limit = 60,

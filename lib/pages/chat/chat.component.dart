@@ -9,6 +9,7 @@ import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/core/models/chat/chat_contact.model.dart';
 import 'package:vcom_app/core/models/chat/chat_conversation.model.dart';
 import 'package:vcom_app/core/models/chat/chat_message.model.dart';
+import 'package:vcom_app/core/pwa/pwa_platform.dart';
 
 class ChatComponent extends ChangeNotifier {
   final ChatApiService _api = ChatApiService();
@@ -37,7 +38,15 @@ class ChatComponent extends ChangeNotifier {
   Map<String, bool> _presenceOnlineByRoleAndName = const {};
   Timer? _typingInactivityTimer;
   Timer? _socketWatchdogTimer;
+  Timer? _httpPollingTimer;
   bool _typingEmitted = false;
+
+  /// Polling HTTP solo en Safari iOS real o PWA instalada (WS inestable para recibir).
+  bool get _useHttpPolling =>
+      kIsWeb && isIosDevice && (isIosSafari || isStandalonePwa);
+
+  /// Envío HTTP preferido en Safari iOS/PWA; el resto usa WebSocket.
+  bool get _preferHttpSend => _useHttpPolling;
 
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -137,11 +146,20 @@ class ChatComponent extends ChangeNotifier {
     if (token == null || token.isEmpty) {
       throw Exception('Sesion invalida para chat');
     }
-    await _socket.connect(token);
-    _socket.emit('chat.screen.open', {});
-    _wsSubscription?.cancel();
-    _wsSubscription = _socket.events.listen(_handleSocketEvent);
-    _startSocketWatchdog();
+
+    if (_useHttpPolling) {
+      _startHttpPolling();
+    }
+
+    try {
+      await _socket.connect(token);
+      _socket.emit('chat.screen.open', {});
+      _wsSubscription?.cancel();
+      _wsSubscription = _socket.events.listen(_handleSocketEvent);
+      _startSocketWatchdog();
+    } catch (e) {
+      if (!_useHttpPolling) rethrow;
+    }
   }
 
   Future<void> _persistInboxCache(Map<String, dynamic> me) async {
@@ -304,50 +322,125 @@ class ChatComponent extends ChangeNotifier {
 
   void sendText(String text) {
     final id = _selectedConversation?.idConversation;
-    if (id == null || text.trim().isEmpty) return;
+    if (id == null || id <= 0 || text.trim().isEmpty) return;
     emitTypingStop();
 
-    _socket.emit('message.send', {
-      'conversation_id': id,
-      'content': text.trim(),
-      'message_type': 'text',
-    });
+    unawaited(
+      _dispatchMessageSend(
+        conversationId: id,
+        socketPayload: {
+          'conversation_id': id,
+          'content': text.trim(),
+          'message_type': 'text',
+        },
+        httpSend: () => _api.sendMessage(
+          conversationId: id,
+          content: text.trim(),
+          messageType: 'text',
+        ),
+      ),
+    );
   }
 
-  void sendImageUrl(String imageUrl) {
+  Future<bool> sendImageUrl(String imageUrl) async {
     final id = _selectedConversation?.idConversation;
-    if (id == null || imageUrl.trim().isEmpty) return;
+    if (id == null || id <= 0 || imageUrl.trim().isEmpty) return false;
     emitTypingStop();
 
-    _socket.emit('message.send', {
-      'conversation_id': id,
-      'content': imageUrl.trim(),
-      'message_type': 'image',
-      'media_url': imageUrl.trim(),
-    });
+    return _dispatchMessageSend(
+      conversationId: id,
+      socketPayload: {
+        'conversation_id': id,
+        'content': imageUrl.trim(),
+        'message_type': 'image',
+        'media_url': imageUrl.trim(),
+      },
+      httpSend: () => _api.sendMessage(
+        conversationId: id,
+        content: imageUrl.trim(),
+        messageType: 'image',
+        mediaUrl: imageUrl.trim(),
+      ),
+    );
   }
 
-  void sendVideo({
+  Future<bool> sendVideo({
     required String videoUrl,
     String? thumbnailUrl,
     String? contentType,
     Map<String, dynamic>? metadata,
-  }) {
+  }) async {
     final id = _selectedConversation?.idConversation;
-    if (id == null || videoUrl.trim().isEmpty) return;
+    if (id == null || id <= 0 || videoUrl.trim().isEmpty) return false;
     emitTypingStop();
 
-    _socket.emit('message.send', {
-      'conversation_id': id,
-      'content': videoUrl.trim(),
-      'message_type': 'video',
-      'media_url': videoUrl.trim(),
-      if ((thumbnailUrl ?? '').trim().isNotEmpty)
-        'media_thumbnail_url': thumbnailUrl!.trim(),
-      if ((contentType ?? '').trim().isNotEmpty)
-        'media_content_type': contentType!.trim(),
-      if (metadata != null) 'media_metadata': metadata,
-    });
+    return _dispatchMessageSend(
+      conversationId: id,
+      socketPayload: {
+        'conversation_id': id,
+        'content': videoUrl.trim(),
+        'message_type': 'video',
+        'media_url': videoUrl.trim(),
+        if ((thumbnailUrl ?? '').trim().isNotEmpty)
+          'media_thumbnail_url': thumbnailUrl!.trim(),
+        if ((contentType ?? '').trim().isNotEmpty)
+          'media_content_type': contentType!.trim(),
+        if (metadata != null) 'media_metadata': metadata,
+      },
+      httpSend: () => _api.sendMessage(
+        conversationId: id,
+        content: videoUrl.trim(),
+        messageType: 'video',
+        mediaUrl: videoUrl.trim(),
+        mediaThumbnailUrl: thumbnailUrl,
+        mediaContentType: contentType,
+        mediaMetadata: metadata,
+      ),
+    );
+  }
+
+  Future<bool> _dispatchMessageSend({
+    required int conversationId,
+    required Map<String, dynamic> socketPayload,
+    required Future<ChatMessageModel> Function() httpSend,
+  }) async {
+    if (!_preferHttpSend) {
+      await _ensureSocketConnected();
+      if (_socket.isConnected) {
+        _socket.emit('message.send', socketPayload);
+        return true;
+      }
+    }
+
+    try {
+      final msg = await httpSend();
+      _appendMessageIfNew(msg);
+      unawaited(refresh());
+      return true;
+    } catch (e) {
+      if (!_preferHttpSend) {
+        await _ensureSocketConnected();
+        if (_socket.isConnected) {
+          _socket.emit('message.send', socketPayload);
+          return true;
+        }
+      } else {
+        await _ensureSocketConnected();
+        if (_socket.isConnected) {
+          _socket.emit('message.send', socketPayload);
+          return true;
+        }
+      }
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void _appendMessageIfNew(ChatMessageModel msg) {
+    if (_messages.any((m) => m.idMessage == msg.idMessage)) return;
+    _messages = [..._messages, msg];
+    notifyListeners();
   }
 
   void _handleSocketEvent(Map<String, dynamic> payload) {
@@ -618,6 +711,8 @@ class ChatComponent extends ChangeNotifier {
     _socket.emit('chat.screen.close', {});
     _socketWatchdogTimer?.cancel();
     _socketWatchdogTimer = null;
+    _httpPollingTimer?.cancel();
+    _httpPollingTimer = null;
     _typingInactivityTimer?.cancel();
     _typingInactivityTimer = null;
     _wsSubscription?.cancel();
@@ -656,5 +751,81 @@ class ChatComponent extends ChangeNotifier {
     } catch (_) {
       // noop: reintento en siguiente ciclo del watchdog
     }
+  }
+
+  void _startHttpPolling() {
+    if (!_useHttpPolling) return;
+
+    listenPageVisibility((visible) {
+      if (visible) {
+        unawaited(_pollHttpChat());
+        _scheduleHttpPollingTimer();
+      } else {
+        _httpPollingTimer?.cancel();
+        _httpPollingTimer = null;
+      }
+    });
+
+    if (isPageVisible) {
+      unawaited(_pollHttpChat());
+      _scheduleHttpPollingTimer();
+    }
+  }
+
+  void _scheduleHttpPollingTimer() {
+    _httpPollingTimer?.cancel();
+    _httpPollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      unawaited(_pollHttpChat());
+    });
+  }
+
+  Future<void> _pollHttpChat() async {
+    if (!isPageVisible) return;
+
+    if (_selectedConversation != null) {
+      await _pollActiveConversationMessages();
+      return;
+    }
+
+    await refresh();
+  }
+
+  Future<void> _pollActiveConversationMessages() async {
+    final conversation = _selectedConversation;
+    if (conversation == null) return;
+
+    final conversationId = conversation.idConversation;
+    try {
+      final fresh = await _api.fetchMessages(conversationId);
+      if (_sameMessageList(_messages, fresh)) return;
+
+      final previousIds = _messages.map((m) => m.idMessage).toSet();
+      final hasIncoming = fresh.any(
+        (m) => !previousIds.contains(m.idMessage) && m.senderId != _currentUserId,
+      );
+
+      _messages = fresh;
+      if (hasIncoming) {
+        await _api.markConversationRead(conversationId);
+        _conversations = _conversations
+            .map(
+              (item) => item.idConversation == conversationId
+                  ? item.copyWith(unreadCount: 0)
+                  : item,
+            )
+            .toList(growable: false);
+      }
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  bool _sameMessageList(List<ChatMessageModel> a, List<ChatMessageModel> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].idMessage != b[i].idMessage || a[i].status != b[i].status) {
+        return false;
+      }
+    }
+    return true;
   }
 }

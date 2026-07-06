@@ -8,7 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:vcom_app/core/chat/chat_push_background_stub.dart'
+    if (dart.library.io) 'package:vcom_app/core/chat/chat_push_background_native.dart';
 import 'package:vcom_app/core/chat/chat_push.service.dart';
+import 'package:vcom_app/core/common/firebase_env.dart';
+import 'package:vcom_app/core/pwa/pwa_audio_permission.service.dart';
+import 'package:vcom_app/core/pwa/pwa_install.service.dart';
+import 'package:vcom_app/firebase_options.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/pages/app_launch/app_intro.page.dart';
@@ -27,21 +33,41 @@ Future<void> main() async {
   Intl.defaultLocale = 'es_CO';
   await TokenService().initialize();
 
-  // FCM: el handler de segundo plano debe registrarse una sola vez y antes de runApp.
-  final useFcm = !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS ||
-          defaultTargetPlatform == TargetPlatform.macOS);
-  if (useFcm) {
-    try {
-      await Firebase.initializeApp();
-    } catch (e, st) {
-      debugPrint('[main] Firebase.initializeApp: $e\n$st');
-    }
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await _initializeFirebaseMessaging();
+  if (kIsWeb) {
+    await PwaInstallService.instance.initialize();
+    await PwaAudioPermissionService.instance.initialize();
   }
 
   runApp(const MyApp());
+}
+
+Future<void> _initializeFirebaseMessaging() async {
+  try {
+    if (kIsWeb) {
+      if (!FirebaseEnv.isConfigured) {
+        debugPrint(
+          '[main] Firebase web: define FIREBASE_* con --dart-define para push PWA.',
+        );
+        return;
+      }
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      return;
+    }
+
+    final useNativeFcm =
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+    if (!useNativeFcm) return;
+
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  } catch (e, st) {
+    debugPrint('[main] Firebase.initializeApp: $e\n$st');
+  }
 }
 
 class MyApp extends StatefulWidget {

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -11,106 +10,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vcom_app/core/chat/chat_api.service.dart';
 import 'package:vcom_app/core/chat/chat_socket.service.dart';
 import 'package:vcom_app/core/chat/chat_ui_state.service.dart';
+import 'package:vcom_app/core/common/firebase_env.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/models/chat/chat_message.model.dart';
+import 'package:vcom_app/core/pwa/pwa_platform.dart';
+import 'package:vcom_app/firebase_options.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
 
-final FlutterLocalNotificationsPlugin _backgroundLocalNotifications =
-    FlutterLocalNotificationsPlugin();
-
-const AndroidNotificationChannel _backgroundChatChannel =
-    AndroidNotificationChannel(
-      'chat_messages',
-      'Mensajes de chat',
-      description: 'Notificaciones push del modulo de chat',
-      importance: Importance.high,
-    );
-
-bool _backgroundNotificationsReady = false;
-
-@pragma('vm:entry-point')
-Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  if (kIsWeb || Platform.isWindows) return;
-  try {
-    await Firebase.initializeApp();
-  } catch (_) {}
-
-  await _ensureBackgroundNotificationsConfigured();
-  await _showBackgroundNotification(message);
-}
-
-@pragma('vm:entry-point')
-Future<void> _ensureBackgroundNotificationsConfigured() async {
-  if (_backgroundNotificationsReady) return;
-
-  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const iosSettings = DarwinInitializationSettings(
-    requestAlertPermission: true,
-    requestBadgePermission: true,
-    requestSoundPermission: true,
-  );
-  const initSettings = InitializationSettings(
-    android: androidSettings,
-    iOS: iosSettings,
-  );
-  await _backgroundLocalNotifications.initialize(initSettings);
-
-  final androidPlatform = _backgroundLocalNotifications
-      .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin
-      >();
-  await androidPlatform?.createNotificationChannel(_backgroundChatChannel);
-  await _backgroundLocalNotifications
-      .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin>()
-      ?.requestPermissions(alert: true, badge: true, sound: true);
-  _backgroundNotificationsReady = true;
-}
-
-@pragma('vm:entry-point')
-Future<void> _showBackgroundNotification(RemoteMessage message) async {
-  final data = Map<String, dynamic>.from(message.data);
-  final title =
-      message.notification?.title ??
-      (data['title']?.toString().trim().isNotEmpty == true
-          ? data['title'].toString().trim()
-          : 'Nuevo mensaje');
-  final body =
-      message.notification?.body ??
-      (data['body']?.toString().trim().isNotEmpty == true
-          ? data['body'].toString().trim()
-          : (data['content'] ?? 'Tienes un mensaje nuevo').toString());
-
-  await _backgroundLocalNotifications.show(
-    _resolveNotificationId(data),
-    title,
-    body,
-    NotificationDetails(
-      android: AndroidNotificationDetails(
-        _backgroundChatChannel.id,
-        _backgroundChatChannel.name,
-        channelDescription: _backgroundChatChannel.description,
-        importance: Importance.high,
-        priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
-      ),
-      iOS: const DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      ),
-    ),
-    payload: jsonEncode(data),
-  );
-}
-
-int _resolveNotificationId(Map<String, dynamic> data) {
+int resolveChatNotificationId(Map<String, dynamic> data) {
   final conversationId = (data['conversation_id'] ?? '').toString().trim();
   if (conversationId.isEmpty) {
     return DateTime.now().millisecondsSinceEpoch ~/ 1000;
   }
   return conversationId.hashCode;
 }
+
+bool _isWindowsDesktop() =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
 class ChatPushService {
   static final ChatPushService _instance = ChatPushService._internal();
@@ -141,10 +57,89 @@ class ChatPushService {
   final Map<int, DateTime> _trayDedupeByMessageId = {};
 
   Future<void> initialize() async {
-    if (kIsWeb || Platform.isWindows) return;
-
     await _tokenService.initialize();
 
+    if (kIsWeb) {
+      await _initializeWebPush();
+      return;
+    }
+
+    if (_isWindowsDesktop()) return;
+
+    await _initializeNativePush();
+  }
+
+  Future<void> _initializeWebPush() async {
+    if (!FirebaseEnv.isWebPushConfigured) {
+      debugPrint(
+        'Push web: configura FIREBASE_* y FIREBASE_VAPID_KEY con --dart-define.',
+      );
+      return;
+    }
+
+    try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
+    } catch (e) {
+      debugPrint('Push web deshabilitado temporalmente: $e');
+      return;
+    }
+
+    final messaging = FirebaseMessaging.instance;
+
+    if (!_initialized) {
+      ChatSocketService.afterChatUiClosed =
+          () => ChatPushService().resumeInboundSocketAfterChatClosed();
+      _socketTraySubscription ??=
+          ChatSocketService().events.listen(_onChatSocketTrayEvent);
+      _onMessageSubscription = FirebaseMessaging.onMessage.listen(
+        _handleWebForegroundMessage,
+      );
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageTap);
+      _tokenRefreshSubscription = messaging.onTokenRefresh.listen(
+        (token) => unawaited(_registerTokenWithBackend(token)),
+      );
+      listenNotificationClicks(_openChatFromPayload);
+      _initialized = true;
+    }
+
+    final settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    if (settings.authorizationStatus == AuthorizationStatus.denied) {
+      debugPrint('Push web: permisos denegados por el usuario.');
+      return;
+    }
+
+    await requestWebNotificationPermission();
+
+    final token = _tokenService.getToken();
+    if (token == null || token.isEmpty) return;
+
+    unawaited(resumeInboundSocketAfterChatClosed());
+
+    try {
+      final fcmToken = await messaging.getToken(vapidKey: FirebaseEnv.vapidKey);
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        debugPrint('FCM token web obtenido');
+        await _registerTokenWithBackend(fcmToken);
+      }
+    } catch (e) {
+      debugPrint('Push web: no se pudo obtener FCM token: $e');
+    }
+
+    final initialMessage = await messaging.getInitialMessage();
+    if (initialMessage != null) {
+      _handleMessageTap(initialMessage);
+    }
+  }
+
+  Future<void> _initializeNativePush() async {
     try {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
@@ -226,7 +221,7 @@ class ChatPushService {
   }
 
   Future<void> unregisterCurrentDevice() async {
-    if (kIsWeb || Platform.isWindows) return;
+    if (_isWindowsDesktop()) return;
 
     final prefs = await SharedPreferences.getInstance();
     final cachedToken = prefs.getString(_cachedPushTokenKey);
@@ -252,9 +247,8 @@ class ChatPushService {
     _initialized = false;
   }
 
-  /// Sin `chat.screen.open`: mantiene el WS vivo para `message.new` y avisos locales fuera del chat.
   Future<void> resumeInboundSocketAfterChatClosed() async {
-    if (kIsWeb || Platform.isWindows) return;
+    if (_isWindowsDesktop()) return;
 
     await _tokenService.initialize();
     final token = _tokenService.getToken();
@@ -299,8 +293,13 @@ class ChatPushService {
     };
 
     try {
+      if (kIsWeb) {
+        await showWebNotification(title: title, body: body, data: payload);
+        return;
+      }
+
       await _localNotifications.show(
-        _resolveNotificationId(payload),
+        resolveChatNotificationId(payload),
         title,
         body,
         NotificationDetails(
@@ -435,42 +434,25 @@ class ChatPushService {
     await prefs.remove(_cachedPushUserIdKey);
   }
 
+  Future<void> _handleWebForegroundMessage(RemoteMessage message) async {
+    final data = Map<String, dynamic>.from(message.data);
+    if (!_shouldDisplayTray(message, data)) return;
+
+    final title = _resolveTitle(message, data);
+    final body = _resolveBody(message, data);
+
+    await showWebNotification(title: title, body: body, data: data);
+  }
+
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
     final data = Map<String, dynamic>.from(message.data);
-    final convId = int.tryParse((data['conversation_id'] ?? '').toString());
-    if (convId != null &&
-        _chatUiStateService.shouldSuppressTrayForConversation(convId)) {
-      debugPrint(
-        'Push chat: omitido (esa conversación está abierta en pantalla).',
-      );
-      return;
-    }
+    if (!_shouldDisplayTray(message, data)) return;
 
-    final senderId = (data['sender_id'] ?? '').toString().trim();
-    final currentUserId = (_tokenService.getUserId() ?? '').trim();
-    if (senderId.isNotEmpty && senderId == currentUserId) return;
-
-    final dedupeId =
-        int.tryParse((data['id_message'] ?? data['message_id'] ?? '').toString());
-    if (dedupeId != null &&
-        dedupeId > 0 &&
-        !_shouldShowTrayForDedupe(dedupeId)) {
-      return;
-    }
-
-    final title =
-        message.notification?.title ??
-        (data['title']?.toString().trim().isNotEmpty == true
-            ? data['title'].toString().trim()
-            : 'Nuevo mensaje');
-    final body =
-        message.notification?.body ??
-        (data['body']?.toString().trim().isNotEmpty == true
-            ? data['body'].toString().trim()
-            : (data['content'] ?? 'Tienes un mensaje nuevo').toString());
+    final title = _resolveTitle(message, data);
+    final body = _resolveBody(message, data);
 
     await _localNotifications.show(
-      _resolveNotificationId(data),
+      resolveChatNotificationId(data),
       title,
       body,
       NotificationDetails(
@@ -490,6 +472,45 @@ class ChatPushService {
       ),
       payload: jsonEncode(data),
     );
+  }
+
+  bool _shouldDisplayTray(RemoteMessage message, Map<String, dynamic> data) {
+    final convId = int.tryParse((data['conversation_id'] ?? '').toString());
+    if (convId != null &&
+        _chatUiStateService.shouldSuppressTrayForConversation(convId)) {
+      debugPrint(
+        'Push chat: omitido (esa conversación está abierta en pantalla).',
+      );
+      return false;
+    }
+
+    final senderId = (data['sender_id'] ?? '').toString().trim();
+    final currentUserId = (_tokenService.getUserId() ?? '').trim();
+    if (senderId.isNotEmpty && senderId == currentUserId) return false;
+
+    final dedupeId =
+        int.tryParse((data['id_message'] ?? data['message_id'] ?? '').toString());
+    if (dedupeId != null &&
+        dedupeId > 0 &&
+        !_shouldShowTrayForDedupe(dedupeId)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  String _resolveTitle(RemoteMessage message, Map<String, dynamic> data) {
+    return message.notification?.title ??
+        (data['title']?.toString().trim().isNotEmpty == true
+            ? data['title'].toString().trim()
+            : 'Nuevo mensaje');
+  }
+
+  String _resolveBody(RemoteMessage message, Map<String, dynamic> data) {
+    return message.notification?.body ??
+        (data['body']?.toString().trim().isNotEmpty == true
+            ? data['body']?.toString().trim() ?? ''
+            : (data['content'] ?? 'Tienes un mensaje nuevo').toString());
   }
 
   void _handleMessageTap(RemoteMessage message) {

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 
 class ChatSocketService {
@@ -17,7 +17,7 @@ class ChatSocketService {
     if (fn != null) await fn();
   }
 
-  IOWebSocketChannel? _channel;
+  WebSocketChannel? _channel;
   StreamSubscription? _subscription;
   final StreamController<Map<String, dynamic>> _eventsController =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -39,7 +39,7 @@ class ChatSocketService {
 
     _connectedToken = token;
     try {
-      _channel = IOWebSocketChannel.connect(uri.toString());
+      _channel = WebSocketChannel.connect(uri);
     } catch (e) {
       _connectedToken = null;
       _isConnected = false;

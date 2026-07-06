@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:vcom_app/core/hub/hub_models.dart';
 import 'package:vcom_app/core/hub/hub_tags.service.dart';
+import 'package:vcom_app/core/hub/hub_upload_media.dart';
 import 'package:vcom_app/pages/hub/comments_by_post/comments_by_post.component.dart';
 import 'package:vcom_app/pages/hub/hub_constants.dart';
 import 'package:vcom_app/pages/hub/hub_helpers.dart';
@@ -128,7 +128,7 @@ class HubComponent extends ChangeNotifier {
     required String title,
     required String content,
     HubTag? tag,
-    List<File> mediaFiles = const [],
+    List<HubUploadMedia> mediaFiles = const [],
   }) async {
     final ok = await _postComponent.createPost(
       title: title,

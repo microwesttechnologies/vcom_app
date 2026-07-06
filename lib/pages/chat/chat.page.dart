@@ -38,6 +38,10 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  bool _isMediaUploading = false;
+  double? _uploadProgress;
+  String _uploadStatusLabel = '';
+
   @override
   void initState() {
     super.initState();
@@ -708,97 +712,258 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _composer() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.72),
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: _showAttachmentOptions,
-            icon: const Icon(Icons.add_photo_alternate_outlined, color: VcomColors.oroLujoso),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_isMediaUploading) _uploadProgressBar(),
+        Container(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.72),
+            border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
           ),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF0D1627),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.11)),
-              ),
-              child: TextField(
-                controller: _messageController,
-                maxLines: 4,
-                minLines: 1,
-                onChanged: (value) {
-                  if (value.trim().isEmpty) {
-                    _component.emitTypingStop();
-                  } else {
-                    _component.emitTypingStart();
-                  }
-                },
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Escribe un mensaje',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: _isMediaUploading ? null : _showAttachmentOptions,
+                icon: Icon(
+                  Icons.add_photo_alternate_outlined,
+                  color: _isMediaUploading
+                      ? Colors.white.withValues(alpha: 0.28)
+                      : VcomColors.oroLujoso,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: _sendMessage,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: VcomColors.oroLujoso,
-                boxShadow: [
-                  BoxShadow(
-                    color: VcomColors.oroLujoso.withValues(alpha: 0.35),
-                    blurRadius: 14,
-                    offset: const Offset(0, 4),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D1627),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.11)),
                   ),
-                ],
+                  child: TextField(
+                    controller: _messageController,
+                    enabled: !_isMediaUploading,
+                    maxLines: 4,
+                    minLines: 1,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) {
+                      if (!_isMediaUploading) _sendMessage();
+                    },
+                    onChanged: (value) {
+                      if (_isMediaUploading) return;
+                      if (value.trim().isEmpty) {
+                        _component.emitTypingStop();
+                      } else {
+                        _component.emitTypingStart();
+                      }
+                    },
+                    style: TextStyle(
+                      color: _isMediaUploading
+                          ? Colors.white.withValues(alpha: 0.45)
+                          : Colors.white,
+                    ),
+                    decoration: InputDecoration(
+                      hintText:
+                          _isMediaUploading ? 'Subiendo archivo...' : 'Escribe un mensaje',
+                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                      border: InputBorder.none,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                ),
               ),
-              child: const Icon(Icons.send_rounded, color: Colors.black, size: 21),
-            ),
+              const SizedBox(width: 6),
+              IconButton(
+                onPressed: _isMediaUploading ? null : _sendMessage,
+                icon: _isMediaUploading
+                    ? const SizedBox(
+                        width: 21,
+                        height: 21,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : const Icon(Icons.send_rounded, color: Colors.black, size: 21),
+                style: IconButton.styleFrom(
+                  backgroundColor: _isMediaUploading
+                      ? VcomColors.oroLujoso.withValues(alpha: 0.55)
+                      : VcomColors.oroLujoso,
+                  disabledBackgroundColor: VcomColors.oroLujoso.withValues(alpha: 0.55),
+                  fixedSize: const Size(44, 44),
+                  shape: const CircleBorder(),
+                  shadowColor: VcomColors.oroLujoso.withValues(alpha: 0.35),
+                  elevation: 4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _uploadProgressBar() {
+    final progress = _uploadProgress;
+    final percentLabel = progress == null
+        ? ''
+        : ' ${(progress.clamp(0.0, 1.0) * 100).round()}%';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1424),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: VcomColors.oroLujoso,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '$_uploadStatusLabel$percentLabel',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: progress == null
+                ? const LinearProgressIndicator(
+                    minHeight: 5,
+                    backgroundColor: Color(0xFF1A2740),
+                    color: VcomColors.oroLujoso,
+                  )
+                : LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    minHeight: 5,
+                    backgroundColor: const Color(0xFF1A2740),
+                    color: VcomColors.oroLujoso,
+                  ),
           ),
         ],
       ),
     );
   }
 
+  void _setUploadState({
+    required bool active,
+    double? progress,
+    String label = '',
+  }) {
+    if (!mounted) return;
+    setState(() {
+      _isMediaUploading = active;
+      _uploadProgress = active ? progress : null;
+      if (label.isNotEmpty) {
+        _uploadStatusLabel = label;
+      } else if (!active) {
+        _uploadStatusLabel = '';
+      }
+    });
+  }
+
+  void _onUploadProgress(String label, double progress) {
+    _setUploadState(active: true, progress: progress, label: label);
+  }
+
   Future<void> _uploadImage({bool fromCamera = false}) async {
+    if (_isMediaUploading) return;
+
     try {
+      final conversationId = _component.selectedConversation?.idConversation;
+      if (conversationId == null || conversationId <= 0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Abre una conversación antes de enviar')),
+        );
+        return;
+      }
+
+      _setUploadState(
+        active: true,
+        progress: null,
+        label: 'Preparando imagen...',
+      );
+
       final uploader = MediaUploadService();
       final url = await uploader.selectAndUploadImage(
         fromCamera: fromCamera,
-        conversationId: _component.selectedConversation?.idConversation,
+        conversationId: conversationId,
+        onProgress: (progress) => _onUploadProgress('Subiendo imagen...', progress),
       );
-      if (url == null) return;
-      _component.sendImageUrl(url);
+      if (url == null || url.trim().isEmpty) return;
+
+      _setUploadState(active: true, progress: 1, label: 'Enviando imagen...');
+
+      final sent = await _component.sendImageUrl(url);
+      if (!sent && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _component.error ?? 'No se pudo enviar la imagen',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No se pudo subir imagen: $e')),
       );
+    } finally {
+      _setUploadState(active: false);
     }
   }
 
   Future<void> _uploadVideo({bool fromCamera = false}) async {
+    if (_isMediaUploading) return;
+
     try {
+      final conversationId = _component.selectedConversation?.idConversation;
+      if (conversationId == null || conversationId <= 0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Abre una conversación antes de enviar')),
+        );
+        return;
+      }
+
+      _setUploadState(
+        active: true,
+        progress: null,
+        label: 'Preparando video...',
+      );
+
       final uploader = MediaUploadService();
       final upload = await uploader.selectAndUploadVideo(
         fromCamera: fromCamera,
-        conversationId: _component.selectedConversation?.idConversation,
+        conversationId: conversationId,
+        onProgress: (progress) => _onUploadProgress('Subiendo video...', progress),
       );
       if (upload == null) return;
-      _component.sendVideo(
+
+      _setUploadState(active: true, progress: 1, label: 'Enviando video...');
+
+      final sent = await _component.sendVideo(
         videoUrl: upload.url,
         thumbnailUrl: upload.thumbnailUrl,
         contentType: upload.contentType,
@@ -807,15 +972,27 @@ class _ChatPageState extends State<ChatPage> {
             'thumbnail_url': upload.thumbnailUrl,
         },
       );
+      if (!sent && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _component.error ?? 'No se pudo enviar el video',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No se pudo subir video: $e')),
       );
+    } finally {
+      _setUploadState(active: false);
     }
   }
 
   Future<void> _showAttachmentOptions() async {
+    if (_isMediaUploading) return;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF0E1727),
@@ -846,14 +1023,15 @@ class _ChatPageState extends State<ChatPage> {
                     _uploadImage();
                   },
                 ),
-                _attachmentTile(
-                  icon: Icons.photo_camera_outlined,
-                  title: 'Imagen desde camara',
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _uploadImage(fromCamera: true);
-                  },
-                ),
+                if (!kIsWeb)
+                  _attachmentTile(
+                    icon: Icons.photo_camera_outlined,
+                    title: 'Imagen desde camara',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _uploadImage(fromCamera: true);
+                    },
+                  ),
                 _attachmentTile(
                   icon: Icons.video_library_outlined,
                   title: 'Video desde galeria',
@@ -862,14 +1040,15 @@ class _ChatPageState extends State<ChatPage> {
                     _uploadVideo();
                   },
                 ),
-                _attachmentTile(
-                  icon: Icons.videocam_outlined,
-                  title: 'Video desde camara',
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _uploadVideo(fromCamera: true);
-                  },
-                ),
+                if (!kIsWeb)
+                  _attachmentTile(
+                    icon: Icons.videocam_outlined,
+                    title: 'Video desde camara',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      _uploadVideo(fromCamera: true);
+                    },
+                  ),
               ],
             ),
           ),
@@ -899,6 +1078,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _sendMessage() {
+    if (_isMediaUploading) return;
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     _component.emitTypingStop();

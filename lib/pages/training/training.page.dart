@@ -4,6 +4,7 @@ import 'package:vcom_app/pages/training/video_player.page.dart'
     show VideoPlayerBody;
 import 'package:vcom_app/core/models/video.model.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/training/training_video_media.dart';
 import 'package:vcom_app/components/shared/video_thumbnail.widget.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
@@ -46,10 +47,9 @@ class _TrainingPageState extends State<TrainingPage> {
     _trainingComponent.setSearchQuery(_searchController.text);
   }
 
-  Map<String, String>? _trainingVideoHeaders() {
-    final token = TokenService().getToken();
-    if (token == null || token.isEmpty) return null;
-    return {'Authorization': 'Bearer $token'};
+  Map<String, String>? _trainingVideoHeaders(String videoUrl) {
+    final resolved = resolveTrainingVideoUrl(videoUrl);
+    return trainingVideoRequestHeadersForUrl(resolved, TokenService());
   }
 
   void _openVideo(VideoModel video) {
@@ -354,7 +354,7 @@ class _TrainingPageState extends State<TrainingPage> {
                         'training-thumb-${video.idVideo}-${video.urlSource.hashCode}',
                       ),
                       videoUrl: video.urlSource,
-                      httpHeaders: _trainingVideoHeaders(),
+                      httpHeaders: _trainingVideoHeaders(video.urlSource),
                       width: 80,
                       height: 80,
                       fit: BoxFit.cover,

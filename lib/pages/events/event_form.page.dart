@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:dotted_border/dotted_border.dart';
@@ -33,7 +32,7 @@ class _EventFormPageState extends State<EventFormPage> {
   late String _startTime;
   late String _endTime;
   String? _imageUrl;
-  File? _pendingImageFile;
+  MediaUploadPayload? _pendingImagePayload;
   bool _stateEvent = true;
   bool _saving = false;
   bool _uploadingImage = false;
@@ -499,7 +498,7 @@ class _EventFormPageState extends State<EventFormPage> {
   }
 
   Widget _buildImagePicker() {
-    final hasPendingImage = _pendingImageFile != null;
+    final hasPendingImage = _pendingImagePayload != null;
     final hasRemoteImage = _imageUrl != null && _imageUrl!.trim().isNotEmpty;
     final hasImage = hasPendingImage || hasRemoteImage;
 
@@ -532,8 +531,8 @@ class _EventFormPageState extends State<EventFormPage> {
                           child: AspectRatio(
                             aspectRatio: 16 / 9,
                             child: hasPendingImage
-                                ? Image.file(
-                                    _pendingImageFile!,
+                                ? Image.memory(
+                                    _pendingImagePayload!.bytes,
                                     fit: BoxFit.cover,
                                     width: double.infinity,
                                   )
@@ -576,7 +575,7 @@ class _EventFormPageState extends State<EventFormPage> {
                               onPressed: _uploadingImage
                                   ? null
                                   : () => setState(() {
-                                      _pendingImageFile = null;
+                                      _pendingImagePayload = null;
                                       _imageUrl = null;
                                     }),
                               icon: const Icon(
@@ -705,9 +704,9 @@ class _EventFormPageState extends State<EventFormPage> {
 
     try {
       var imageUrl = _imageUrl?.trim().isEmpty == true ? null : _imageUrl;
-      if (_pendingImageFile != null) {
-        final upload = await _mediaUploadService.uploadFile(
-          file: _pendingImageFile!,
+      if (_pendingImagePayload != null) {
+        final upload = await _mediaUploadService.uploadPayload(
+          payload: _pendingImagePayload!,
           type: 'image',
         );
         imageUrl = upload.url;
@@ -1034,12 +1033,12 @@ class _EventFormPageState extends State<EventFormPage> {
     setState(() => _uploadingImage = true);
 
     try {
-      final file = await _mediaUploadService.pickImage(fromCamera: fromCamera);
+      final payload = await _mediaUploadService.pickImage(fromCamera: fromCamera);
 
-      if (!mounted || file == null) return;
+      if (!mounted || payload == null) return;
 
       setState(() {
-        _pendingImageFile = file;
+        _pendingImagePayload = payload;
       });
     } catch (e) {
       if (!mounted) return;

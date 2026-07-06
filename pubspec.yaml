@@ -52,6 +52,7 @@ dependencies:
   printing: ^5.14.2
   dotted_border: ^2.1.0
   web_socket_channel: ^3.0.3
+  web: ^1.1.1
   firebase_core: ^3.15.2
   firebase_messaging: ^15.2.10
   flutter_local_notifications: ^19.4.0
@@ -82,6 +83,8 @@ flutter:
   assets:
     - assets/image/VCOM_G_PNG.png
     - assets/image/VCOM_B_PNG.png
+    - assets/image/pwa/pwa_login_screen.png
+    - assets/image/pwa/pwa_android_install_banner.png
     - assets/video/ANIMACION_5_VCOM.mp4
 
   # An image asset can refer to one or more resolution-specific "variants", see

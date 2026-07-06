@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
@@ -8,6 +9,9 @@ import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/models/video.model.dart';
 import 'package:vcom_app/core/training/training_video_cache.dart';
+import 'package:vcom_app/core/training/training_video_local.dart';
+import 'package:vcom_app/core/training/training_video_media.dart';
+import 'package:vcom_app/core/training/training_video_seek.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 /// Página completa (uso con Navigator.push, ej. desde dashboard)
@@ -48,8 +52,11 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
   bool _disposed = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
+  bool _isScrubbing = false;
+  bool _wasPlayingBeforeScrub = false;
 
   late final AnimationController _loadShimmerController;
+  Timer? _hideControlsTimer;
 
   @override
   void initState() {
@@ -64,8 +71,9 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
   }
 
   void _hideControlsAfterDelay() {
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted && _isPlaying) {
+    _hideControlsTimer?.cancel();
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _isPlaying && _showControls) {
         setState(() {
           _showControls = false;
         });
@@ -82,11 +90,11 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
     }
   }
 
-  /// Completa la caché en disco sin bloquear la reproducción.
+  /// Completa la caché en disco sin bloquear la reproducción (solo nativo).
   void _precacheInBackground(String videoUrl, Map<String, String> headers) {
     unawaited(() async {
       try {
-        await TrainingVideoCache.instance.ensureCached(
+        await precacheTrainingVideo(
           videoUrl,
           headers: headers.isEmpty ? null : headers,
         );
@@ -98,14 +106,16 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
 
   Future<void> _initializeVideo() async {
     try {
-      final videoUrl = widget.video.urlSource.trim();
-      if (videoUrl.isEmpty) {
+      final rawUrl = widget.video.urlSource.trim();
+      if (rawUrl.isEmpty) {
         _loadShimmerController.stop();
         if (mounted) setState(() => _isInitialized = false);
         return;
       }
 
-      final headers = _videoHttpHeaders();
+      final tokenService = TokenService();
+      final videoUrl = resolveTrainingVideoUrl(rawUrl);
+      final headers = trainingVideoRequestHeadersForUrl(videoUrl, tokenService);
       late final VideoPlayerController controller;
 
       if (TrainingVideoCache.isStreamUrl(videoUrl)) {
@@ -114,10 +124,9 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
           httpHeaders: headers,
         );
       } else {
-        final cached =
-            await TrainingVideoCache.instance.getLocalFileIfCached(videoUrl);
-        if (cached != null) {
-          controller = VideoPlayerController.file(cached);
+        final cachedController = await openCachedTrainingVideo(videoUrl);
+        if (cachedController != null) {
+          controller = cachedController;
         } else {
           _precacheInBackground(videoUrl, headers);
           controller = VideoPlayerController.networkUrl(
@@ -186,10 +195,35 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
     }
   }
 
-  Map<String, String> _videoHttpHeaders() {
-    final token = TokenService().getToken();
-    if (token == null || token.isEmpty) return {};
-    return {'Authorization': 'Bearer $token'};
+  Future<bool> _seekWithWebFallback(
+    Duration target, {
+    required bool resumePlaying,
+  }) async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return false;
+
+    if (kIsWeb) {
+      final webOk = await seekTrainingHtmlVideo(
+        target,
+        playAfter: resumePlaying,
+      );
+      if (webOk) return true;
+    }
+
+    try {
+      await c.pause();
+      await c.seekTo(target);
+      if (resumePlaying) {
+        await c.play();
+        if (!c.value.isPlaying && kIsWeb) {
+          return playTrainingHtmlVideo();
+        }
+      }
+      return !resumePlaying || c.value.isPlaying;
+    } catch (e) {
+      debugPrint('[VideoPlayerBody] seek fallback: $e');
+      return false;
+    }
   }
 
   void _videoListener() {
@@ -201,11 +235,30 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
       final playing = c.value.isPlaying;
       if (mounted && !_disposed) {
         setState(() {
-          _position = pos;
+          if (!_isScrubbing) {
+            _position = pos;
+          }
           _isPlaying = playing;
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _seekToPosition(
+    Duration target, {
+    required bool resumePlaying,
+  }) async {
+    final ok = await _seekWithWebFallback(
+      target,
+      resumePlaying: resumePlaying,
+    );
+    if (mounted && !_disposed) {
+      setState(() {
+        _position = target;
+        _isPlaying = resumePlaying && ok;
+      });
+    }
+    _hideControlsAfterDelay();
   }
 
   String _formatDuration(Duration duration) {
@@ -215,18 +268,25 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
     return '$minutes:$seconds';
   }
 
-  void _safePausePlay(bool pause) {
+  Future<void> _safePausePlay(bool pause) async {
     if (_disposed || _controller == null) return;
     final c = _controller!;
     if (!c.value.isInitialized) return;
     try {
       if (pause) {
-        c.pause();
+        await c.pause();
       } else {
-        c.play();
+        await c.play();
+        if (!c.value.isPlaying && kIsWeb) {
+          await playTrainingHtmlVideo();
+        }
+        if (!c.value.isPlaying) {
+          await c.seekTo(_position);
+          await c.play();
+        }
       }
       if (mounted && !_disposed) {
-        setState(() => _isPlaying = !pause);
+        setState(() => _isPlaying = c.value.isPlaying);
       }
     } catch (_) {}
   }
@@ -234,6 +294,7 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
   @override
   void dispose() {
     _disposed = true;
+    _hideControlsTimer?.cancel();
     _loadShimmerController.dispose();
     final c = _controller;
     _controller = null;
@@ -389,150 +450,171 @@ class _VideoPlayerBodyState extends State<VideoPlayerBody>
       child: VideoPlayer(c),
     );
 
-    return GestureDetector(
-      onTap: _toggleControls,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          videoWidget,
-
-          // Botones arriba derecha: pantalla completa + más opciones
-          if (_showControls)
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Material(
-                color: Colors.black.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: _enterFullscreen,
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.all(10),
-                    child: Icon(
-                      Icons.fullscreen,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            IgnorePointer(
+              child: videoWidget,
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: _showControls,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _toggleControls,
                 ),
               ),
             ),
 
-          // Controles inferiores (estilo imagen: play + timestamp + barra)
-          if (_showControls)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.85),
-                      Colors.black.withValues(alpha: 0.5),
-                      Colors.transparent,
+            // Botones arriba derecha: pantalla completa + más opciones
+            if (_showControls)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Material(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    onTap: _enterFullscreen,
+                    borderRadius: BorderRadius.circular(8),
+                    child: const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Icon(
+                        Icons.fullscreen,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Controles inferiores (estilo imagen: play + timestamp + barra)
+            if (_showControls)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.85),
+                        Colors.black.withValues(alpha: 0.5),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Material(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          onTap: () {
+                            unawaited(_safePausePlay(_isPlaying));
+                            _hideControlsAfterDelay();
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Icon(
+                              _isPlaying ? Icons.pause : Icons.play_arrow,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _formatDuration(_position),
+                          style: const TextStyle(
+                            color: Colors.black87,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            activeTrackColor: const Color(0xFFB0B0B0),
+                            inactiveTrackColor: const Color(0xFF505050),
+                            thumbColor: Colors.white,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6,
+                            ),
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 14,
+                            ),
+                            trackHeight: 4,
+                          ),
+                          child: Slider(
+                            value: _duration.inMilliseconds > 0
+                                ? _position.inMilliseconds
+                                      .clamp(0, _duration.inMilliseconds)
+                                      .toDouble()
+                                : 0,
+                            min: 0,
+                            max: _duration.inMilliseconds > 0
+                                ? _duration.inMilliseconds.toDouble()
+                                : 1,
+                            onChangeStart: (_) {
+                              _wasPlayingBeforeScrub = _isPlaying;
+                              _isScrubbing = true;
+                              _hideControlsTimer?.cancel();
+                              _controller?.pause();
+                            },
+                            onChanged: (value) {
+                              setState(() {
+                                _position =
+                                    Duration(milliseconds: value.round());
+                              });
+                            },
+                            onChangeEnd: (value) {
+                              _isScrubbing = false;
+                              unawaited(_seekToPosition(
+                                Duration(milliseconds: value.round()),
+                                resumePlaying: _wasPlayingBeforeScrub,
+                              ));
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatDuration(_duration),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Botón play/pausa (negro redondeado, icono blanco)
-                    Material(
-                      color: Colors.black.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
-                        onTap: () {
-                          _safePausePlay(_isPlaying);
-                          _hideControlsAfterDelay();
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Icon(
-                            _isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Timestamp (burbuja blanca)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        _formatDuration(_position),
-                        style: const TextStyle(
-                          color: Colors.black87,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Barra de progreso
-                    Expanded(
-                      child: SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: const Color(0xFFB0B0B0),
-                          inactiveTrackColor: const Color(0xFF505050),
-                          thumbColor: Colors.white,
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 6,
-                          ),
-                          overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 14,
-                          ),
-                          trackHeight: 4,
-                        ),
-                        child: Slider(
-                          value: _duration.inSeconds > 0
-                              ? _position.inSeconds
-                                    .clamp(0, _duration.inSeconds)
-                                    .toDouble()
-                              : 0,
-                          min: 0,
-                          max: _duration.inSeconds > 0
-                              ? _duration.inSeconds.toDouble()
-                              : 1,
-                          onChanged: (value) {
-                            if (_disposed || _controller == null) return;
-                            final c = _controller!;
-                            if (!c.value.isInitialized) return;
-                            try {
-                              c.seekTo(Duration(seconds: value.toInt()));
-                            } catch (_) {}
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Tiempo total
-                    Text(
-                      _formatDuration(_duration),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -634,6 +716,8 @@ class _FullscreenVideoOverlayState extends State<_FullscreenVideoOverlay> {
   bool _isPlaying = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
+  bool _isScrubbing = false;
+  bool _wasPlayingBeforeScrub = false;
 
   VideoPlayerController get _controller => widget.controller;
 
@@ -669,7 +753,9 @@ class _FullscreenVideoOverlayState extends State<_FullscreenVideoOverlay> {
       setState(() {
         _isPlaying = isPlaying;
         _duration = duration;
-        _position = position;
+        if (!_isScrubbing) {
+          _position = position;
+        }
       });
     }
 
@@ -679,6 +765,45 @@ class _FullscreenVideoOverlayState extends State<_FullscreenVideoOverlay> {
         setState(() => _showControls = true);
       }
     }
+  }
+
+  Future<void> _seekToPosition(
+    Duration target, {
+    required bool resumePlaying,
+  }) async {
+    if (!_controller.value.isInitialized) return;
+
+    var ok = false;
+    if (kIsWeb) {
+      ok = await seekTrainingHtmlVideo(target, playAfter: resumePlaying);
+    }
+    if (!ok) {
+      try {
+        await _controller.pause();
+        await _controller.seekTo(target);
+        if (resumePlaying) {
+          await _controller.play();
+          if (!_controller.value.isPlaying && kIsWeb) {
+            ok = await playTrainingHtmlVideo();
+          } else {
+            ok = _controller.value.isPlaying;
+          }
+        } else {
+          ok = true;
+        }
+      } catch (e) {
+        debugPrint('[FullscreenVideo] seek: $e');
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _position = target;
+        _isPlaying = resumePlaying && ok;
+        _showControls = true;
+      });
+    }
+    _restartHideTimer();
   }
 
   void _restartHideTimer() {
@@ -699,14 +824,24 @@ class _FullscreenVideoOverlayState extends State<_FullscreenVideoOverlay> {
     }
   }
 
-  void _togglePlayback() {
+  Future<void> _togglePlayback() async {
     if (!_controller.value.isInitialized) return;
-    if (_isPlaying) {
-      _controller.pause();
+    if (_controller.value.isPlaying) {
+      await _controller.pause();
     } else {
-      _controller.play();
+      await _controller.play();
+      if (!_controller.value.isPlaying && kIsWeb) {
+        await playTrainingHtmlVideo();
+      }
+      if (!_controller.value.isPlaying) {
+        await _controller.seekTo(_position);
+        await _controller.play();
+      }
     }
-    setState(() => _showControls = true);
+    if (mounted) {
+      setState(() => _showControls = true);
+      _syncFromController();
+    }
     _restartHideTimer();
   }
 
@@ -716,9 +851,10 @@ class _FullscreenVideoOverlayState extends State<_FullscreenVideoOverlay> {
     final safeTarget = Duration(
       milliseconds: target.inMilliseconds.clamp(0, _duration.inMilliseconds),
     );
-    _controller.seekTo(safeTarget);
-    setState(() => _showControls = true);
-    _restartHideTimer();
+    unawaited(_seekToPosition(
+      safeTarget,
+      resumePlaying: _isPlaying,
+    ));
   }
 
   String _formatDuration(Duration duration) {
@@ -765,35 +901,45 @@ class _FullscreenVideoOverlayState extends State<_FullscreenVideoOverlay> {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            GestureDetector(
-              onTap: _toggleControls,
-              child: Center(
-                child: _controller.value.isInitialized
-                    ? AspectRatio(
+            Center(
+              child: _controller.value.isInitialized
+                  ? IgnorePointer(
+                      child: AspectRatio(
                         aspectRatio:
                             _controller.value.aspectRatio > 0 &&
                                 _controller.value.aspectRatio.isFinite
                             ? _controller.value.aspectRatio
                             : 16 / 9,
                         child: VideoPlayer(_controller),
-                      )
-                    : const SizedBox.shrink(),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: _showControls,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _toggleControls,
+                ),
               ),
             ),
             if (_showControls) ...[
               Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.45),
-                        Colors.transparent,
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.6),
-                      ],
-                      stops: const [0.0, 0.22, 0.62, 1.0],
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.45),
+                          Colors.transparent,
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.6),
+                        ],
+                        stops: const [0.0, 0.22, 0.62, 1.0],
+                      ),
                     ),
                   ),
                 ),
@@ -833,7 +979,7 @@ class _FullscreenVideoOverlayState extends State<_FullscreenVideoOverlay> {
                     const SizedBox(width: 20),
                     _buildControlButton(
                       icon: _isPlaying ? Icons.pause : Icons.play_arrow,
-                      onTap: _togglePlayback,
+                      onTap: () => unawaited(_togglePlayback()),
                       size: 72,
                       iconSize: 38,
                     ),
@@ -878,17 +1024,25 @@ class _FullscreenVideoOverlayState extends State<_FullscreenVideoOverlay> {
                             max: _duration.inMilliseconds > 0
                                 ? _duration.inMilliseconds.toDouble()
                                 : 1,
+                            onChangeStart: (_) {
+                              _wasPlayingBeforeScrub = _isPlaying;
+                              _isScrubbing = true;
+                              _hideControlsTimer?.cancel();
+                              _controller.pause();
+                            },
                             onChanged: (value) {
-                              if (!_controller.value.isInitialized) return;
-                              final target = Duration(
-                                milliseconds: value.round(),
-                              );
-                              _controller.seekTo(target);
                               setState(() {
-                                _position = target;
+                                _position =
+                                    Duration(milliseconds: value.round());
                                 _showControls = true;
                               });
-                              _restartHideTimer();
+                            },
+                            onChangeEnd: (value) {
+                              _isScrubbing = false;
+                              unawaited(_seekToPosition(
+                                Duration(milliseconds: value.round()),
+                                resumePlaying: _wasPlayingBeforeScrub,
+                              ));
                             },
                           ),
                         ),

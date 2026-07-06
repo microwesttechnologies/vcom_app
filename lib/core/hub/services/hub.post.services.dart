@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/hub/hub_upload_media.dart';
 
 int? _readInt(dynamic v) {
   if (v == null) return null;
@@ -96,7 +96,7 @@ class HubPostsService {
     required String titlePost,
     String? content,
     int? tagId,
-    List<File> mediaFiles = const [],
+    List<HubUploadMedia> mediaFiles = const [],
   }) async {
     final url = Uri.parse(
       '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostsList}',
@@ -112,13 +112,13 @@ class HubPostsService {
       request.fields['tag_id'] = tagId.toString();
     }
 
-    for (final file in mediaFiles) {
-      final mimeStr = _guessMimeType(file.path);
+    for (final media in mediaFiles) {
       request.files.add(
-        await http.MultipartFile.fromPath(
+        http.MultipartFile.fromBytes(
           'media[]',
-          file.path,
-          contentType: MediaType.parse(mimeStr),
+          media.bytes,
+          filename: media.filename,
+          contentType: MediaType.parse(media.mimeType),
         ),
       );
     }
@@ -132,24 +132,6 @@ class HubPostsService {
     }
   }
 
-  static String _guessMimeType(String path) {
-    final ext = path.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'webp':
-        return 'image/webp';
-      case 'mp4':
-        return 'video/mp4';
-      case 'mov':
-        return 'video/quicktime';
-      default:
-        return 'application/octet-stream';
-    }
-  }
 }
 
 class HubPostsResponse {

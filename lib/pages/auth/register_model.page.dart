@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,7 +27,7 @@ class _RegisterModelPageState extends State<RegisterModelPage> {
   bool _platformsLoading = false;
   bool _photoLoading = false;
   List<PlatformRecord> _platforms = [];
-  File? _profilePhotoFile;
+  Uint8List? _profilePhotoBytes;
   String? _profilePhotoDataUrl;
 
   // ---------- Step 1: Datos Personales ----------
@@ -178,14 +178,17 @@ class _RegisterModelPageState extends State<RegisterModelPage> {
     });
 
     try {
-      final file = await _mediaUploadService.pickImage(fromCamera: fromCamera);
-      if (!mounted || file == null) return;
+      final payload = await _mediaUploadService.pickImage(fromCamera: fromCamera);
+      if (!mounted || payload == null) return;
 
-      final encodedPhoto = await _encodeProfilePhoto(file);
+      final encodedPhoto = await _encodeProfilePhoto(
+        payload.bytes,
+        filename: payload.filename,
+      );
       if (!mounted) return;
 
       setState(() {
-        _profilePhotoFile = file;
+        _profilePhotoBytes = payload.bytes;
         _profilePhotoDataUrl = encodedPhoto;
         _photoError = '';
       });
@@ -201,8 +204,10 @@ class _RegisterModelPageState extends State<RegisterModelPage> {
     }
   }
 
-  Future<String> _encodeProfilePhoto(File file) async {
-    final bytes = await file.readAsBytes();
+  Future<String> _encodeProfilePhoto(
+    Uint8List bytes, {
+    String? filename,
+  }) async {
     const maxBytes = 5 * 1024 * 1024;
 
     if (bytes.length > maxBytes) {
@@ -211,7 +216,7 @@ class _RegisterModelPageState extends State<RegisterModelPage> {
       );
     }
 
-    final mimeType = _resolveProfilePhotoMimeType(file.path);
+    final mimeType = _resolveProfilePhotoMimeType(filename ?? 'photo.jpg');
     return 'data:$mimeType;base64,${base64Encode(bytes)}';
   }
 
@@ -1086,7 +1091,7 @@ class _RegisterModelPageState extends State<RegisterModelPage> {
   }
 
   Widget _buildProfilePhotoPicker() {
-    final hasPhoto = _profilePhotoFile != null && _profilePhotoDataUrl != null;
+    final hasPhoto = _profilePhotoBytes != null && _profilePhotoDataUrl != null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -1136,8 +1141,8 @@ class _RegisterModelPageState extends State<RegisterModelPage> {
                     ),
                     child: ClipOval(
                       child: hasPhoto
-                          ? Image.file(
-                              _profilePhotoFile!,
+                          ? Image.memory(
+                              _profilePhotoBytes!,
                               fit: BoxFit.cover,
                               width: 74,
                               height: 74,
@@ -1211,7 +1216,7 @@ class _RegisterModelPageState extends State<RegisterModelPage> {
                     ? null
                     : () {
                         setState(() {
-                          _profilePhotoFile = null;
+                          _profilePhotoBytes = null;
                           _profilePhotoDataUrl = null;
                           _photoError = '';
                         });

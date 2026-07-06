@@ -1,7 +1,10 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vcom_app/core/chat/chat_push.service.dart';
+import 'package:vcom_app/components/shared/pwa_install_guide_sheet.dart';
+import 'package:vcom_app/core/pwa/pwa_install.service.dart';
 import 'login.component.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 import '../dahsboard/dashboard.page.dart';
@@ -829,6 +832,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       ),
                       const SizedBox(height: 24),
 
+                      // Botón instalar PWA (oculto si ya se abre como app instalada)
+                      if (kIsWeb && PwaInstallService.instance.shouldShowInstallButton)
+                        const _PwaInstallButton(),
+
                       // Footer: ¿Necesitas una cuenta?
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
@@ -970,5 +977,100 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         ),
       ),
     );
+  }
+
+}
+
+class _PwaInstallButton extends StatefulWidget {
+  const _PwaInstallButton();
+
+  @override
+  State<_PwaInstallButton> createState() => _PwaInstallButtonState();
+}
+
+class _PwaInstallButtonState extends State<_PwaInstallButton> {
+  final _pwa = PwaInstallService.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _pwa.addListener(_onPwaChanged);
+  }
+
+  void _onPwaChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _pwa.removeListener();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_pwa.isInstalled) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GestureDetector(
+        onTap: _onInstallTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color.fromRGBO(212, 175, 55, 0.15),
+                Color.fromRGBO(212, 175, 55, 0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: VcomColors.oroLujoso.withValues(alpha: 0.4),
+              width: 1,
+            ),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.download_rounded, color: VcomColors.oroLujoso, size: 20),
+              SizedBox(width: 8),
+              Text(
+                '¿Deseas instalar la App?',
+                style: TextStyle(
+                  color: VcomColors.oroLujoso,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onInstallTap() async {
+    // Android Chrome con prompt nativo disponible
+    if (_pwa.canInstall) {
+      final accepted = await _pwa.install();
+      if (!mounted) return;
+      setState(() {});
+      if (!accepted) {
+        await showPwaInstallGuide(context, platform: _pwa.installPlatform);
+      }
+      return;
+    }
+
+    // iOS: abrir hoja de compartir y mostrar guía con capturas
+    if (_pwa.isOnIos) {
+      await showPwaInstallGuide(context, platform: _pwa.installPlatform);
+      final opened = await _pwa.openShareSheet();
+      if (opened) return;
+      return;
+    }
+
+    await showPwaInstallGuide(context, platform: _pwa.installPlatform);
   }
 }

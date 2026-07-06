@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
+import 'package:vcom_app/core/hub/hub_upload_media.dart';
 import 'package:vcom_app/core/hub/services/hub.post.services.dart';
 import 'package:vcom_app/pages/hub/hub_constants.dart';
 import 'package:vcom_app/pages/hub/hub_helpers.dart';
@@ -132,7 +131,7 @@ class PostComponent extends ChangeNotifier {
     required String title,
     required String content,
     int? tagId,
-    List<File> mediaFiles = const [],
+    List<HubUploadMedia> mediaFiles = const [],
   }) async {
     try {
       await _postsService.createPost(

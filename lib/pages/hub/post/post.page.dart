@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:vcom_app/core/hub/hub_tags.service.dart';
+import 'package:vcom_app/core/hub/hub_upload_media.dart';
 import 'package:vcom_app/pages/hub/hub_constants.dart';
 import 'package:vcom_app/pages/hub/post/media_picker.widget.dart';
 import 'package:vcom_app/pages/hub/post/post.component.dart';
@@ -69,7 +69,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     });
 
     try {
-      final files = await _prepareFiles();
+      final files = await _prepareMedia();
       if (!mounted) return;
 
       setState(() => _progressMsg = 'Publicando...');
@@ -105,56 +105,74 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     }
   }
 
-  Future<List<File>> _prepareFiles() async {
+  Future<List<HubUploadMedia>> _prepareMedia() async {
     if (_pickedMedia.isEmpty) return [];
-    final files = <File>[];
+    final result = <HubUploadMedia>[];
 
     for (var i = 0; i < _pickedMedia.length; i++) {
       final media = _pickedMedia[i];
       if (mounted) {
         setState(
-          () =>
-              _progressMsg = 'Comprimiendo ${i + 1}/${_pickedMedia.length}...',
+          () => _progressMsg = kIsWeb || media.type != 'image'
+              ? 'Preparando ${i + 1}/${_pickedMedia.length}...'
+              : 'Comprimiendo ${i + 1}/${_pickedMedia.length}...',
         );
       }
 
-      if (media.type == 'image') {
-        files.add(await _compressImage(media.file));
+      if (media.type == 'image' && !kIsWeb) {
+        result.add(await _compressImageMedia(media));
       } else {
-        files.add(media.file);
+        result.add(
+          HubUploadMedia(
+            bytes: media.bytes,
+            filename: media.filename,
+            mimeType: HubUploadMedia.guessMimeType(media.filename),
+            type: media.type,
+          ),
+        );
       }
     }
-    return files;
+    return result;
   }
 
-  Future<File> _compressImage(File original) async {
+  Future<HubUploadMedia> _compressImageMedia(PickedMedia media) async {
     try {
-      final tempDir = await getTemporaryDirectory();
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      final outPath = '${tempDir.path}${Platform.pathSeparator}hub_$ts.jpg';
-      final compressed = await FlutterImageCompress.compressAndGetFile(
-        original.absolute.path,
-        outPath,
+      final compressed = await FlutterImageCompress.compressWithList(
+        media.bytes,
         quality: HubConstants.mediaCompressionQuality,
         format: CompressFormat.jpeg,
         minWidth: 1280,
         minHeight: 1280,
         keepExif: false,
       );
-      if (compressed == null) return original;
-      final compFile = File(compressed.path);
-      final origSize = await original.length();
-      final compSize = await compFile.length();
-      debugPrint(
-        'Hub imagen comprimida: '
-        '${(origSize / 1024).toStringAsFixed(0)}KB → '
-        '${(compSize / 1024).toStringAsFixed(0)}KB',
-      );
-      return compSize > 0 && compSize < origSize ? compFile : original;
+      if (compressed.isNotEmpty && compressed.length < media.bytes.length) {
+        debugPrint(
+          'Hub imagen comprimida: '
+          '${(media.bytes.length / 1024).toStringAsFixed(0)}KB → '
+          '${(compressed.length / 1024).toStringAsFixed(0)}KB',
+        );
+        final name = media.filename.contains('.')
+            ? media.filename.replaceAll(
+                RegExp(r'\.[^.]+$'),
+                '.jpg',
+              )
+            : '${media.filename}.jpg';
+        return HubUploadMedia(
+          bytes: compressed,
+          filename: name,
+          mimeType: 'image/jpeg',
+          type: 'image',
+        );
+      }
     } catch (e) {
       debugPrint('Compresión falló, usando original: $e');
-      return original;
     }
+    return HubUploadMedia(
+      bytes: media.bytes,
+      filename: media.filename,
+      mimeType: HubUploadMedia.guessMimeType(media.filename),
+      type: media.type,
+    );
   }
 
   void _showSheetTopError(String message) {
