@@ -3,6 +3,7 @@ import 'package:vcom_app/components/shared/dynamic_sidebar_drawer.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/components/commons/card.component.dart';
+import 'package:vcom_app/core/chat/chat_push.service.dart';
 import 'package:vcom_app/core/common/icon.helper.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
@@ -37,6 +38,9 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ChatPushService().markAppShellReady();
+    });
     _dashboardComponent = DashboardComponent();
     _dashboardComponent.addListener(_onComponentChanged);
     _dashboardModeloComponent = DashboardModeloComponent();

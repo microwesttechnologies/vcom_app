@@ -281,6 +281,34 @@ class ChatComponent extends ChangeNotifier {
     await openConversation(contact);
   }
 
+  Future<void> openConversationByConversationId(int conversationId) async {
+    if (conversationId <= 0) return;
+
+    ChatConversationModel? conversation;
+    for (final item in _conversations) {
+      if (item.idConversation == conversationId) {
+        conversation = item;
+        break;
+      }
+    }
+
+    if (conversation == null) {
+      try {
+        _conversations = await _api.fetchConversations();
+        for (final item in _conversations) {
+          if (item.idConversation == conversationId) {
+            conversation = item;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (conversation == null) return;
+
+    await openConversationByUserId(userId: conversation.otherUserId);
+  }
+
   Future<void> backToList() async {
     emitTypingStop();
     final conversationId = _selectedConversation?.idConversation;

@@ -17,7 +17,9 @@ class FirebaseEnv {
   static const String storageBucket = String.fromEnvironment(
     'FIREBASE_STORAGE_BUCKET',
   );
-  static const String vapidKey = String.fromEnvironment('FIREBASE_VAPID_KEY');
+  static String get vapidKey => _vapidKeyRaw.trim();
+
+  static const String _vapidKeyRaw = String.fromEnvironment('FIREBASE_VAPID_KEY');
 
   static bool get isConfigured =>
       apiKey.isNotEmpty &&

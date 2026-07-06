@@ -17,12 +17,14 @@ import 'package:vcom_app/pages/shop/store_fullscreen_images.view.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 class ChatPage extends StatefulWidget {
+  final int? initialConversationId;
   final String? initialOtherUserId;
   final String? initialOtherUserName;
   final String? initialOtherUserRole;
 
   const ChatPage({
     super.key,
+    this.initialConversationId,
     this.initialOtherUserId,
     this.initialOtherUserName,
     this.initialOtherUserRole,
@@ -80,6 +82,12 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _openInitialConversationIfNeeded() async {
+    final conversationId = widget.initialConversationId;
+    if (conversationId != null && conversationId > 0) {
+      await _component.openConversationByConversationId(conversationId);
+      return;
+    }
+
     final userId = widget.initialOtherUserId?.trim() ?? '';
     if (userId.isEmpty || !mounted) return;
 

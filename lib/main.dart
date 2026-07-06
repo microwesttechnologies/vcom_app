@@ -106,6 +106,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       unawaited(TokenService().handleExpiredTokenIfNeeded());
       unawaited(UserStatusService().initialize());
       unawaited(ChatPushService().initialize());
+      ChatPushService().openPendingDeepLinkIfAny();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       unawaited(UserStatusService().setOffline());

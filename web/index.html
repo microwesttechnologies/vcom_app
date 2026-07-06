@@ -39,6 +39,16 @@
       -webkit-tap-highlight-color: transparent;
     }
   </style>
+  <script>
+    // Requerido por FCM Web (FlutterFire): SW dedicado para push en background.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('firebase-messaging-sw.js').catch(function (err) {
+          console.warn('[FCM] No se pudo registrar firebase-messaging-sw.js:', err);
+        });
+      });
+    }
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

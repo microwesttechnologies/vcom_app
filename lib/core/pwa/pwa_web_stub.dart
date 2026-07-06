@@ -28,6 +28,8 @@ Future<bool> openNativeShareSheet() async => false;
 
 void listenNotificationClicks(void Function(Map<String, dynamic> data) onClick) {}
 
+Future<void> ensureFcmServiceWorkerReady() async {}
+
 /// Sin efecto fuera de web.
 void unlockWebAudioFromUserGesture() {}
 

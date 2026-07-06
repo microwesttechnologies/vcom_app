@@ -101,6 +101,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
             context,
             MaterialPageRoute(builder: (_) => const DashboardPage()),
           );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ChatPushService().openPendingDeepLinkIfAny();
+          });
         }
       }
     } catch (e) {
@@ -142,6 +145,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           context,
           MaterialPageRoute(builder: (context) => const DashboardPage()),
         );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ChatPushService().openPendingDeepLinkIfAny();
+        });
       }
     } catch (e) {
       if (mounted) {

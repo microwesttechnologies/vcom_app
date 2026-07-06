@@ -55,6 +55,57 @@ class ChatPushService {
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<Map<String, dynamic>>? _socketTraySubscription;
   final Map<int, DateTime> _trayDedupeByMessageId = {};
+  Map<String, dynamic>? _pendingDeepLink;
+  String? _lastTraySignature;
+  DateTime? _lastTrayAt;
+  bool _appShellReady = false;
+
+  /// El dashboard (u otra pantalla principal) ya está montado.
+  void markAppShellReady() {
+    _appShellReady = true;
+    openPendingDeepLinkIfAny();
+  }
+
+  void markAppShellNotReady() {
+    _appShellReady = false;
+  }
+
+  /// Abre el chat pendiente tras login o arranque desde notificación.
+  void openPendingDeepLinkIfAny({int attempt = 0}) {
+    final pending = _pendingDeepLink;
+    if (pending == null || pending.isEmpty) return;
+
+    if (!_tokenService.hasToken() || !_appShellReady) {
+      if (attempt < 24) {
+        Future<void>.delayed(const Duration(milliseconds: 300), () {
+          openPendingDeepLinkIfAny(attempt: attempt + 1);
+        });
+      }
+      return;
+    }
+
+    final snapshot = Map<String, dynamic>.from(pending);
+    _pendingDeepLink = null;
+    _pushChatRoute(snapshot);
+  }
+
+  void captureLaunchDeepLink() {
+    if (!kIsWeb) return;
+
+    final merged = <String, dynamic>{};
+    for (final source in [Uri.base.queryParameters, _fragmentQueryParameters()]) {
+      for (final entry in source.entries) {
+        final value = entry.value.trim();
+        if (value.isNotEmpty) {
+          merged[entry.key] = value;
+        }
+      }
+    }
+
+    final normalized = _normalizeDeepLinkData(merged);
+    if (normalized.isEmpty) return;
+    _pendingDeepLink = normalized;
+  }
 
   Future<void> initialize() async {
     await _tokenService.initialize();
@@ -70,6 +121,8 @@ class ChatPushService {
   }
 
   Future<void> _initializeWebPush() async {
+    captureLaunchDeepLink();
+
     if (!FirebaseEnv.isWebPushConfigured) {
       debugPrint(
         'Push web: configura FIREBASE_* y FIREBASE_VAPID_KEY con --dart-define.',
@@ -117,6 +170,7 @@ class ChatPushService {
     }
 
     await requestWebNotificationPermission();
+    await ensureFcmServiceWorkerReady();
 
     final token = _tokenService.getToken();
     if (token == null || token.isEmpty) return;
@@ -124,19 +178,41 @@ class ChatPushService {
     unawaited(resumeInboundSocketAfterChatClosed());
 
     try {
-      final fcmToken = await messaging.getToken(vapidKey: FirebaseEnv.vapidKey);
+      final vapidKey = FirebaseEnv.vapidKey;
+      if (vapidKey.isEmpty) {
+        debugPrint('Push web: FIREBASE_VAPID_KEY vacía.');
+        return;
+      }
+
+      String? fcmToken;
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        try {
+          fcmToken = await messaging.getToken(vapidKey: vapidKey);
+          break;
+        } catch (e) {
+          if (attempt >= 3) rethrow;
+          debugPrint('Push web: reintento FCM token ($attempt/3): $e');
+          await Future<void>.delayed(Duration(seconds: attempt));
+        }
+      }
+
       if (fcmToken != null && fcmToken.isNotEmpty) {
         debugPrint('FCM token web obtenido');
         await _registerTokenWithBackend(fcmToken);
       }
     } catch (e) {
       debugPrint('Push web: no se pudo obtener FCM token: $e');
+      debugPrint(
+        'Push web: revisa API key sin restricciones en Google Cloud '
+        '(Credentials) y que VAPID sea del proyecto vcom-chat.',
+      );
     }
 
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
-      _handleMessageTap(initialMessage);
+      _storeDeepLinkFromRemoteMessage(initialMessage);
     }
+    openPendingDeepLinkIfAny();
   }
 
   Future<void> _initializeNativePush() async {
@@ -223,6 +299,8 @@ class ChatPushService {
   Future<void> unregisterCurrentDevice() async {
     if (_isWindowsDesktop()) return;
 
+    markAppShellNotReady();
+
     final prefs = await SharedPreferences.getInstance();
     final cachedToken = prefs.getString(_cachedPushTokenKey);
     try {
@@ -275,6 +353,9 @@ class ChatPushService {
   }
 
   Future<void> _maybeShowTrayForInboundSocketMessage(ChatMessageModel msg) async {
+    // En web/PWA las notificaciones las envía FCM; el socket duplicaba bandeja.
+    if (kIsWeb && FirebaseEnv.isWebPushConfigured) return;
+
     final me = (_tokenService.getUserId() ?? '').trim();
     if (me.isEmpty) return;
     if (msg.recipientId.trim() != me) return;
@@ -435,11 +516,16 @@ class ChatPushService {
   }
 
   Future<void> _handleWebForegroundMessage(RemoteMessage message) async {
+    // Con la pestaña en segundo plano el service worker ya muestra la notificación.
+    if (!isPageVisible) return;
+
     final data = Map<String, dynamic>.from(message.data);
     if (!_shouldDisplayTray(message, data)) return;
 
     final title = _resolveTitle(message, data);
     final body = _resolveBody(message, data);
+    final signature = _traySignature(data, body);
+    if (!_shouldShowTraySignature(signature)) return;
 
     await showWebNotification(title: title, body: body, data: data);
   }
@@ -514,26 +600,173 @@ class ChatPushService {
   }
 
   void _handleMessageTap(RemoteMessage message) {
-    _openChatFromPayload(Map<String, dynamic>.from(message.data));
+    _storeDeepLinkFromRemoteMessage(message);
+    openPendingDeepLinkIfAny();
+  }
+
+  void _storeDeepLinkFromRemoteMessage(RemoteMessage message) {
+    final data = Map<String, dynamic>.from(message.data);
+    if (message.notification?.title != null && data['title'] == null) {
+      data['title'] = message.notification!.title;
+    }
+    if (message.notification?.body != null && data['body'] == null) {
+      data['body'] = message.notification!.body;
+    }
+    final normalized = _normalizeDeepLinkData(data);
+    if (normalized.isEmpty) {
+      debugPrint('Push chat: mensaje sin datos de conversación: $data');
+      return;
+    }
+    _pendingDeepLink = normalized;
+  }
+
+  Map<String, dynamic> _normalizeDeepLinkData(Map<String, dynamic> raw) {
+    final normalized = <String, dynamic>{};
+
+    final conversationId = _firstNonEmptyString(raw, const [
+      'conversation_id',
+      'id_conversation',
+      'conversationId',
+    ]);
+    if (conversationId != null) {
+      normalized['conversation_id'] = conversationId;
+    }
+
+    final senderId = _firstNonEmptyString(raw, const [
+      'sender_id',
+      'senderId',
+      'user_id',
+      'from_user_id',
+    ]);
+    if (senderId != null) normalized['sender_id'] = senderId;
+
+    final otherUserId = _firstNonEmptyString(raw, const [
+      'other_user_id',
+      'otherUserId',
+    ]);
+    if (otherUserId != null) {
+      normalized['other_user_id'] = otherUserId;
+    } else if (senderId != null) {
+      normalized['other_user_id'] = senderId;
+    }
+
+    final otherUserName = _firstNonEmptyString(raw, const [
+      'other_user_name',
+      'otherUserName',
+      'sender_name',
+      'user_name',
+    ]);
+    if (otherUserName != null) {
+      normalized['other_user_name'] = otherUserName;
+    }
+
+    final otherUserRole = _firstNonEmptyString(raw, const [
+      'other_user_role',
+      'otherUserRole',
+      'sender_role',
+      'role_user',
+    ]);
+    if (otherUserRole != null) {
+      normalized['other_user_role'] = otherUserRole;
+    }
+
+    return normalized;
+  }
+
+  String? _firstNonEmptyString(
+    Map<String, dynamic> raw,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = (raw[key] ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  Map<String, String> _fragmentQueryParameters() {
+    final fragment = Uri.base.fragment.trim();
+    if (fragment.isEmpty) return const {};
+
+    final queryPart = fragment.contains('?')
+        ? fragment.split('?').last
+        : fragment;
+    try {
+      return Uri.splitQueryString(queryPart);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  String _traySignature(Map<String, dynamic> data, String body) {
+    final conversationId = (data['conversation_id'] ?? '').toString();
+    final messageId =
+        (data['id_message'] ?? data['message_id'] ?? '').toString();
+    return '$conversationId|$messageId|${body.trim()}';
+  }
+
+  bool _shouldShowTraySignature(String signature) {
+    final now = DateTime.now();
+    if (_lastTraySignature == signature &&
+        _lastTrayAt != null &&
+        now.difference(_lastTrayAt!) < const Duration(seconds: 8)) {
+      return false;
+    }
+    _lastTraySignature = signature;
+    _lastTrayAt = now;
+    return true;
   }
 
   void _openChatFromPayload(Map<String, dynamic> data) {
-    final navigator = _tokenService.navigatorKey.currentState;
-    if (navigator == null) return;
+    final normalized = _normalizeDeepLinkData(data);
+    if (normalized.isEmpty) {
+      debugPrint('Push chat: click sin datos de conversación: $data');
+      return;
+    }
 
-    final otherUserId =
-        (data['other_user_id'] ?? data['sender_id'] ?? '').toString().trim();
-    final otherUserName = (data['other_user_name'] ?? '').toString().trim();
-    final otherUserRole = (data['other_user_role'] ?? '').toString().trim();
+    if (!_tokenService.hasToken() || !_appShellReady) {
+      _pendingDeepLink = normalized;
+      openPendingDeepLinkIfAny();
+      return;
+    }
 
-    navigator.push(
-      MaterialPageRoute(
-        builder: (_) => ChatPage(
-          initialOtherUserId: otherUserId.isEmpty ? null : otherUserId,
-          initialOtherUserName: otherUserName.isEmpty ? null : otherUserName,
-          initialOtherUserRole: otherUserRole.isEmpty ? null : otherUserRole,
+    _pushChatRoute(normalized);
+  }
+
+  void _pushChatRoute(Map<String, dynamic> normalized) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final navigator = _tokenService.navigatorKey.currentState;
+      if (navigator == null) {
+        _pendingDeepLink = normalized;
+        openPendingDeepLinkIfAny();
+        return;
+      }
+
+      final conversationId =
+          int.tryParse((normalized['conversation_id'] ?? '').toString());
+      final otherUserId =
+          (normalized['other_user_id'] ?? normalized['sender_id'] ?? '')
+              .toString()
+              .trim();
+      if (conversationId == null && otherUserId.isEmpty) return;
+
+      final otherUserName =
+          (normalized['other_user_name'] ?? '').toString().trim();
+      final otherUserRole =
+          (normalized['other_user_role'] ?? '').toString().trim();
+
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ChatPage(
+            initialConversationId: conversationId,
+            initialOtherUserId: otherUserId.isEmpty ? null : otherUserId,
+            initialOtherUserName:
+                otherUserName.isEmpty ? null : otherUserName,
+            initialOtherUserRole:
+                otherUserRole.isEmpty ? null : otherUserRole,
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }

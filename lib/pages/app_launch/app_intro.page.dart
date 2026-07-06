@@ -238,7 +238,13 @@ class _AppIntroPageState extends State<AppIntroPage>
           );
         },
       ),
-    );
+    ).then((_) {
+      if (nextPage is DashboardPage) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ChatPushService().openPendingDeepLinkIfAny();
+        });
+      }
+    });
   }
 
   @override

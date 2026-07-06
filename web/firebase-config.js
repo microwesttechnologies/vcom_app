@@ -1,10 +1,10 @@
 // Debe coincidir con los valores de Firebase Console (misma app Web).
 // Sincroniza con --dart-define FIREBASE_* al compilar Flutter.
 self.FIREBASE_WEB_CONFIG = {
-  apiKey: 'REEMPLAZA_CON_TU_API_KEY',
-  authDomain: 'REEMPLAZA.firebaseapp.com',
-  projectId: 'REEMPLAZA_PROJECT_ID',
-  storageBucket: 'REEMPLAZA.appspot.com',
-  messagingSenderId: 'REEMPLAZA_SENDER_ID',
-  appId: 'REEMPLAZA_APP_ID',
+  apiKey: 'AIzaSyCAM3Ar85ckVjVI04l90rAX5zd9JfgnTYE',
+  authDomain: 'vcom-chat.firebaseapp.com',
+  projectId: 'vcom-chat',
+  storageBucket: 'vcom-chat.firebasestorage.app',
+  messagingSenderId: '395194182340',
+  appId: '1:395194182340:web:ca0f33b5c79d63dc833791',
 };

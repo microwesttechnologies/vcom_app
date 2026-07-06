@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 
 bool _readIosStandalone() {
@@ -118,19 +119,41 @@ final _notificationClickController =
 void listenNotificationClicks(void Function(Map<String, dynamic> data) onClick) {
   _notificationClickController.stream.listen(onClick);
 
+  void handleMessage(web.MessageEvent messageEvent) {
+    final payload = messageEvent.data?.dartify();
+    if (payload is Map && payload['type'] == 'NOTIFICATION_CLICK') {
+      final data = payload['data'];
+      if (data is Map) {
+        onClick(Map<String, dynamic>.from(data));
+      }
+    }
+  }
+
   web.window.navigator.serviceWorker.addEventListener(
     'message',
-    ((web.Event event) {
-      final messageEvent = event as web.MessageEvent;
-      final payload = messageEvent.data?.dartify();
-      if (payload is Map && payload['type'] == 'NOTIFICATION_CLICK') {
-        final data = payload['data'];
-        if (data is Map) {
-          onClick(Map<String, dynamic>.from(data));
-        }
-      }
-    }).toJS,
+    ((web.Event event) => handleMessage(event as web.MessageEvent)).toJS,
   );
+
+  web.window.addEventListener(
+    'message',
+    ((web.Event event) => handleMessage(event as web.MessageEvent)).toJS,
+  );
+}
+
+/// Registra y espera el SW de FCM antes de pedir el token.
+Future<void> ensureFcmServiceWorkerReady() async {
+  try {
+    final registration = await web.window.navigator.serviceWorker
+        .register('firebase-messaging-sw.js'.toJS)
+        .toDart;
+
+    for (var attempt = 0; attempt < 24; attempt++) {
+      if (registration.active != null) return;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+  } catch (e) {
+    debugPrint('[FCM] ensureFcmServiceWorkerReady: $e');
+  }
 }
 
 Future<void> registerPwaInstallListener(void Function() onPromptAvailable) async {
