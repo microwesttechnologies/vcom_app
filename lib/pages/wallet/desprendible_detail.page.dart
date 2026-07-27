@@ -65,12 +65,22 @@ class _DesprendibleDetailPageState extends State<DesprendibleDetailPage> {
     }
   }
 
+  /// Formatea YYYY-MM-DD como día de calendario local (sin shift UTC).
   String _fmtDate(String raw) {
     try {
-      final d = DateTime.parse(raw.length > 10 ? raw.substring(0, 10) : raw);
-      final day = d.day.toString().padLeft(2, '0');
-      final month = _monthNames[d.month - 1];
-      return '$day/$month/${d.year}';
+      final s = raw.length > 10 ? raw.substring(0, 10) : raw;
+      final parts = s.split('-');
+      if (parts.length == 3) {
+        final y = int.parse(parts[0]);
+        final m = int.parse(parts[1]);
+        final d = int.parse(parts[2]);
+        final day = d.toString().padLeft(2, '0');
+        return '$day/${_monthNames[m - 1]}/$y';
+      }
+      final parsed = DateTime.parse(s);
+      final local = DateTime(parsed.year, parsed.month, parsed.day);
+      final day = local.day.toString().padLeft(2, '0');
+      return '$day/${_monthNames[local.month - 1]}/${local.year}';
     } catch (_) {
       return raw;
     }
@@ -129,7 +139,7 @@ class _DesprendibleDetailPageState extends State<DesprendibleDetailPage> {
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
                     pw.Text(
-                      'Período: ${_fmtDate(d.periodStart)} – ${_fmtDate(d.periodEnd)}',
+                      'Período: ${_fmtDate(widget.startDate)} – ${_fmtDate(widget.endDate)}',
                       style: pw.TextStyle(fontSize: 11, color: dark),
                     ),
                     pw.SizedBox(height: 2),
@@ -638,7 +648,7 @@ class _DesprendibleDetailPageState extends State<DesprendibleDetailPage> {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        'Período: ${_fmtDate(d.periodStart)}  –  ${_fmtDate(d.periodEnd)}',
+                        'Período: ${_fmtDate(widget.startDate)}  –  ${_fmtDate(widget.endDate)}',
                         style: const TextStyle(
                             fontSize: 13, color: VcomColors.blancoCrema),
                         overflow: TextOverflow.ellipsis,

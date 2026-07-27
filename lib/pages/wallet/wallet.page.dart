@@ -131,16 +131,6 @@ class _WalletPageState extends State<WalletPage>
   String _copAmount(double v) => _fmtCop.format(v);
   String _usdAmount(double v) => _fmtUsd.format(v);
 
-  /// Formatea la fecha de producciÃ³n: "03/Ene/2026"
-  String _fmtDate(String raw) {
-    try {
-      final d = DateTime.parse(raw.length > 10 ? raw.substring(0, 10) : raw);
-      return DateFormat('dd/MMM/yyyy', 'es').format(d);
-    } catch (_) {
-      return raw;
-    }
-  }
-
   static const _monthNames = [
     'ene',
     'feb',
@@ -156,7 +146,23 @@ class _WalletPageState extends State<WalletPage>
     'dic',
   ];
 
-  /// Formatea fecha+hora ISO a "11/mar/2026 Â· 4:40 p.m."
+  /// Formatea YYYY-MM-DD como día de calendario (sin shift UTC → local).
+  String _fmtDate(String raw) {
+    try {
+      final s = raw.length > 10 ? raw.substring(0, 10) : raw;
+      final parts = s.split('-');
+      if (parts.length != 3) return raw;
+      final y = int.parse(parts[0]);
+      final m = int.parse(parts[1]);
+      final d = int.parse(parts[2]);
+      if (m < 1 || m > 12) return raw;
+      return '${d.toString().padLeft(2, '0')}/${_monthNames[m - 1]}/$y';
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  /// Formatea fecha+hora ISO a "11/mar/2026 · 4:40 p.m."
   String _fmtDateTime(String raw) {
     try {
       final d = DateTime.parse(raw).toLocal();
