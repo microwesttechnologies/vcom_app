@@ -91,17 +91,6 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
       if (xFile == null) return;
       final bytes = await xFile.readAsBytes();
 
-      // En web/PWA no hay compresión: limitar a 100 MB para subidas viables.
-      if (kIsWeb && bytes.length > HubConstants.maxWebVideoSizeBytes) {
-        if (mounted) {
-          _showError(
-            'En la app web los videos no pueden superar 100 MB. '
-            'Para videos más grandes usa la app móvil.',
-          );
-        }
-        return;
-      }
-
       if (bytes.length > HubConstants.maxVideoSizeBytes) {
         if (mounted) {
           _showError('El video supera el máximo de 500 MB');
