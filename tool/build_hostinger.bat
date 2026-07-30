@@ -18,6 +18,7 @@ echo Listo:
 echo   Carpeta: build\web
 echo   ZIP:     dist\vcom_app_hostinger.zip
 echo.
-echo Sube TODO el contenido de build\web a public_html en Hostinger.
+echo Sube TODO el contenido de build\web a public_html/vcom-app en Hostinger.
+echo O ejecuta: .\deploy-to-hostinger.ps1
 echo Verifica en Firebase dominios autorizados: vcom-app.microwesttechnologies.com
 endlocal

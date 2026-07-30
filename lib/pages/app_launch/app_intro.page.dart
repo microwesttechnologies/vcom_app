@@ -7,10 +7,9 @@ import 'package:video_player/video_player.dart';
 import 'package:vcom_app/components/shared/pwa_audio_permission_dialog.dart';
 import 'package:vcom_app/core/pwa/pwa_audio_permission.service.dart';
 import 'package:vcom_app/core/pwa/pwa_platform.dart';
-import 'package:vcom_app/pages/auth/login.page.dart';
+import 'package:vcom_app/pages/app_launch/post_intro_home.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
 import 'package:vcom_app/core/chat/chat_push.service.dart';
-import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
 class AppIntroPage extends StatefulWidget {
@@ -200,15 +199,9 @@ class _AppIntroPageState extends State<AppIntroPage>
     _navigated = true;
     _safetyTimer?.cancel();
     _playWatchdog?.cancel();
+    markIntroShownThisSession();
 
-    final tokenService = TokenService();
-    final nextPage = tokenService.hasToken()
-        ? const DashboardPage()
-        : const LoginPage();
-
-    if (nextPage is DashboardPage) {
-      unawaited(ChatPushService().initialize());
-    }
+    final nextPage = buildPostIntroHome();
 
     _fadeController.forward().then((_) => _navigateTo(nextPage));
     Timer(const Duration(milliseconds: 900), () => _navigateTo(nextPage));

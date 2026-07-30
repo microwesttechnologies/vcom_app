@@ -234,3 +234,21 @@ void unmuteHtmlVideosFromUserGesture() {
     }
   } catch (_) {}
 }
+
+const _introSessionKey = 'vcom_intro_shown';
+
+/// True si el intro ya se mostró en esta pestaña/sesión del navegador.
+/// Persiste ante F5/recarga; se limpia al cerrar la pestaña o la PWA.
+bool hasIntroBeenShownThisSession() {
+  try {
+    return web.window.sessionStorage.getItem(_introSessionKey) == '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+void markIntroShownThisSession() {
+  try {
+    web.window.sessionStorage.setItem(_introSessionKey, '1');
+  } catch (_) {}
+}

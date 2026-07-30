@@ -35,3 +35,8 @@ void unlockWebAudioFromUserGesture() {}
 
 /// Sin efecto fuera de web.
 void unmuteHtmlVideosFromUserGesture() {}
+
+/// En nativo no hay "recarga de página": el intro se muestra en cada cold start.
+bool hasIntroBeenShownThisSession() => false;
+
+void markIntroShownThisSession() {}

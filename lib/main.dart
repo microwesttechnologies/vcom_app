@@ -14,10 +14,12 @@ import 'package:vcom_app/core/chat/chat_push.service.dart';
 import 'package:vcom_app/core/common/firebase_env.dart';
 import 'package:vcom_app/core/pwa/pwa_audio_permission.service.dart';
 import 'package:vcom_app/core/pwa/pwa_install.service.dart';
+import 'package:vcom_app/core/pwa/pwa_platform.dart';
 import 'package:vcom_app/firebase_options.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/pages/app_launch/app_intro.page.dart';
+import 'package:vcom_app/pages/app_launch/post_intro_home.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard.page.dart';
@@ -122,7 +124,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         useMaterial3: true,
         scaffoldBackgroundColor: VcomColors.azulZafiroProfundo,
       ),
-      home: const AppIntroPage(),
+      home: hasIntroBeenShownThisSession()
+          ? buildPostIntroHome()
+          : const AppIntroPage(),
       routes: {
         '/dashboard': (context) => const DashboardPage(),
         '/categories': (context) => const ManagerCategoryPage(),
