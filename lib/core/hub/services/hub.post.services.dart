@@ -94,6 +94,9 @@ class HubPostsService {
 
   /// Crea un post con archivos multimedia.
   ///
+  /// - Si hay videos → usa el proxy Node (comprime con FFmpeg en VPS).
+  /// - Si es solo texto/imágenes → va directo a Laravel (más rápido).
+  ///
   /// Usa [dio] para multipart con progreso real de subida.
   /// [onProgress] recibe (bytesSent, totalBytes).
   Future<void> createPost({
@@ -103,7 +106,13 @@ class HubPostsService {
     List<HubUploadMedia> mediaFiles = const [],
     void Function(int sent, int total)? onProgress,
   }) async {
-    final url = '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostsList}';
+    final hasVideo = mediaFiles.any((f) => f.type == 'video');
+
+    // Posts con video → proxy Node (compresión FFmpeg en VPS)
+    // Posts sin video → directo a Laravel
+    final url = hasVideo
+        ? '${EnvironmentDev.hubProxyBaseUrl}/api/hub/posts'
+        : '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostsList}';
 
     final formData = FormData();
     formData.fields.add(MapEntry('title_post', titlePost));

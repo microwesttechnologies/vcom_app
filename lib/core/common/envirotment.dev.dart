@@ -221,6 +221,13 @@ class EnvironmentDev {
   // Endpoints para publicaciones estilo feed
   // ============================================================================
 
+  /// URL base del proxy Node para compresión de videos del Hub.
+  /// Los posts con video se envían aquí; Node comprime y reenvía a Laravel.
+  static const String hubProxyBaseUrl = String.fromEnvironment(
+    'HUB_PROXY_BASE_URL',
+    defaultValue: 'https://wschat.vcommunity.cloud',
+  );
+
   /// Listar publicaciones del Hub
   static const String hubPostsList = '/api/v1/hub/posts';
 
