@@ -127,11 +127,14 @@ class PostComponent extends ChangeNotifier {
   }
 
   /// Crea un post enviando archivos multimedia como multipart.
+  ///
+  /// [onProgress] recibe (bytesSent, totalBytes) durante la subida.
   Future<bool> createPost({
     required String title,
     required String content,
     int? tagId,
     List<HubUploadMedia> mediaFiles = const [],
+    void Function(int sent, int total)? onProgress,
   }) async {
     try {
       await _postsService.createPost(
@@ -139,6 +142,7 @@ class PostComponent extends ChangeNotifier {
         content: content,
         tagId: tagId,
         mediaFiles: mediaFiles,
+        onProgress: onProgress,
       );
       _error = null;
       return true;

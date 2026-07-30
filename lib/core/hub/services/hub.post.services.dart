@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -12,6 +13,9 @@ int? _readInt(dynamic v) {
   if (v is num) return v.round();
   return int.tryParse(v.toString());
 }
+
+/// Timeout generoso para subidas de video grandes (10 min).
+const _uploadTimeout = Duration(minutes: 10);
 
 class HubPostsService {
   final TokenService _tokenService = TokenService();
@@ -92,28 +96,34 @@ class HubPostsService {
     return {'statusCode': response.statusCode, 'body': response.body};
   }
 
+  /// Crea un post con archivos multimedia como multipart.
+  ///
+  /// [onProgress] recibe (bytesSent, totalBytes) en tiempo real mientras
+  /// se transmiten los datos al servidor.
   Future<void> createPost({
     required String titlePost,
     String? content,
     int? tagId,
     List<HubUploadMedia> mediaFiles = const [],
+    void Function(int sent, int total)? onProgress,
   }) async {
     final url = Uri.parse(
       '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostsList}',
     );
-    final request = http.MultipartRequest('POST', url)
+
+    final multipart = http.MultipartRequest('POST', url)
       ..headers.addAll(_headers());
 
-    request.fields['title_post'] = titlePost;
+    multipart.fields['title_post'] = titlePost;
     if (content != null && content.isNotEmpty) {
-      request.fields['content'] = content;
+      multipart.fields['content'] = content;
     }
     if (tagId != null) {
-      request.fields['tag_id'] = tagId.toString();
+      multipart.fields['tag_id'] = tagId.toString();
     }
 
     for (final media in mediaFiles) {
-      request.files.add(
+      multipart.files.add(
         http.MultipartFile.fromBytes(
           'media[]',
           media.bytes,
@@ -123,15 +133,61 @@ class HubPostsService {
       );
     }
 
-    final streamed = await request.send();
-    final responseBody = await streamed.stream.bytesToString();
-    if (streamed.statusCode >= 400) {
-      throw Exception(
-        'No fue posible crear la publicación (${streamed.statusCode}): $responseBody',
-      );
+    // Sin progreso: envío directo con timeout.
+    if (onProgress == null) {
+      final streamed = await multipart.send().timeout(_uploadTimeout);
+      final responseBody = await streamed.stream.bytesToString();
+      if (streamed.statusCode >= 400) {
+        throw Exception(
+          'No fue posible crear la publicación (${streamed.statusCode}): $responseBody',
+        );
+      }
+      return;
     }
-  }
 
+    // Con progreso: convertir el multipart a StreamedRequest para rastrear
+    // los bytes que salen hacia el servidor.
+    final byteStream = multipart.finalize();
+    final total = multipart.contentLength;
+
+    final tracked = http.StreamedRequest('POST', url);
+    tracked.headers.addAll(multipart.headers);
+    tracked.contentLength = total;
+
+    var sent = 0;
+    final completer = Completer<void>();
+
+    byteStream.listen(
+      (chunk) {
+        tracked.sink.add(chunk);
+        sent += chunk.length;
+        onProgress(sent, total);
+      },
+      onDone: () {
+        tracked.sink.close();
+        completer.complete();
+      },
+      onError: (Object e, StackTrace st) {
+        tracked.sink.addError(e, st);
+        if (!completer.isCompleted) completer.completeError(e, st);
+      },
+      cancelOnError: true,
+    );
+
+    // Lanzar el envío al servidor en paralelo con la escritura del stream.
+    final responseFuture = http.Client().send(tracked).timeout(_uploadTimeout);
+
+    // Esperar a que terminen tanto la escritura como la respuesta.
+    await Future.wait([completer.future, responseFuture]).then((results) async {
+      final streamed = results[1] as http.StreamedResponse;
+      final responseBody = await streamed.stream.bytesToString();
+      if (streamed.statusCode >= 400) {
+        throw Exception(
+          'No fue posible crear la publicación (${streamed.statusCode}): $responseBody',
+        );
+      }
+    });
+  }
 }
 
 class HubPostsResponse {

@@ -38,6 +38,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
   List<PickedMedia> _pickedMedia = [];
   bool _isSubmitting = false;
   String? _progressMsg;
+  Timer? _uploadHeartbeatTimer;
   OverlayEntry? _errorOverlayEntry;
   Timer? _errorAutoHideTimer;
   GlobalKey<_AnimatedScreenTopErrorBannerState>? _errorBannerKey;
@@ -50,6 +51,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
 
   @override
   void dispose() {
+    _uploadHeartbeatTimer?.cancel();
     _errorAutoHideTimer?.cancel();
     _removeErrorOverlayImmediate();
     _titleCtrl.dispose();
@@ -92,14 +94,46 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
       final files = await _prepareMedia();
       if (!mounted) return;
 
-      setState(() => _progressMsg = 'Publicando...');
+      final hasVideo = files.any((f) => f.type == 'video');
+      final totalVideoMb = files
+          .where((f) => f.type == 'video')
+          .fold(0, (sum, f) => sum + f.bytes.length);
+      final totalMb = (totalVideoMb / (1024 * 1024)).round();
+
+      if (mounted) {
+        setState(() => _progressMsg =
+            hasVideo ? 'Subiendo video ($totalMb MB)…' : 'Publicando…');
+      }
+
+      // Heartbeat periódico mientras el servidor procesa la subida.
+      _uploadHeartbeatTimer?.cancel();
+      var elapsed = 0;
+      _uploadHeartbeatTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        elapsed += 5;
+        if (!mounted) return;
+        setState(() => _progressMsg = hasVideo
+            ? 'Subiendo video ($totalMb MB) — ${elapsed}s…'
+            : 'Publicando — ${elapsed}s…');
+      });
 
       final ok = await widget.postComponent.createPost(
         title: title,
         content: content,
         tagId: _selectedTag?.id,
         mediaFiles: files,
+        onProgress: hasVideo
+            ? (sent, total) {
+                if (!mounted || total <= 0) return;
+                final pct = ((sent / total) * 100).round();
+                final sentMb = (sent / (1024 * 1024)).toStringAsFixed(1);
+                final totalMbStr =
+                    (total / (1024 * 1024)).toStringAsFixed(1);
+                setState(() =>
+                    _progressMsg = 'Subiendo $sentMb/$totalMbStr MB ($pct%)');
+              }
+            : null,
       );
+      _uploadHeartbeatTimer?.cancel();
 
       if (!mounted) return;
       if (ok) {
@@ -110,12 +144,17 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
         );
       }
     } catch (e) {
+      _uploadHeartbeatTimer?.cancel();
       if (mounted) {
+        final msg = e.toString().replaceFirst('Exception: ', '');
         _showSheetTopError(
-          'Error: ${e.toString().replaceFirst("Exception: ", "")}',
+          msg.contains('TimeoutException')
+              ? 'Tiempo agotado al subir el video. Intenta con un archivo más liviano.'
+              : 'Error: $msg',
         );
       }
     } finally {
+      _uploadHeartbeatTimer?.cancel();
       if (mounted) {
         setState(() {
           _isSubmitting = false;
