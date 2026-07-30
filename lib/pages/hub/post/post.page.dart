@@ -133,6 +133,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
                 }
                 // Al llegar al 100% el servidor empieza a comprimir con FFmpeg.
                 if (total > 0 && sent >= total && mounted) {
+                  _uploadHeartbeatTimer?.cancel();
                   setState(() => _progressMsg =
                       'El servidor está comprimiendo el video…');
                 }

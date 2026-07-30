@@ -1,8 +1,7 @@
-import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/hub/hub_upload_media.dart';
@@ -13,9 +12,6 @@ int? _readInt(dynamic v) {
   if (v is num) return v.round();
   return int.tryParse(v.toString());
 }
-
-/// Timeout generoso para subidas de video grandes (10 min).
-const _uploadTimeout = Duration(minutes: 10);
 
 class HubPostsService {
   final TokenService _tokenService = TokenService();
@@ -96,10 +92,10 @@ class HubPostsService {
     return {'statusCode': response.statusCode, 'body': response.body};
   }
 
-  /// Crea un post con archivos multimedia como multipart.
+  /// Crea un post con archivos multimedia.
   ///
-  /// [onProgress] recibe (bytesSent, totalBytes) en tiempo real mientras
-  /// se transmiten los datos al servidor.
+  /// Usa [dio] para multipart con progreso real de subida.
+  /// [onProgress] recibe (bytesSent, totalBytes).
   Future<void> createPost({
     required String titlePost,
     String? content,
@@ -107,86 +103,49 @@ class HubPostsService {
     List<HubUploadMedia> mediaFiles = const [],
     void Function(int sent, int total)? onProgress,
   }) async {
-    final url = Uri.parse(
-      '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostsList}',
-    );
+    final url = '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostsList}';
 
-    final multipart = http.MultipartRequest('POST', url)
-      ..headers.addAll(_headers());
-
-    multipart.fields['title_post'] = titlePost;
+    final formData = FormData();
+    formData.fields.add(MapEntry('title_post', titlePost));
     if (content != null && content.isNotEmpty) {
-      multipart.fields['content'] = content;
+      formData.fields.add(MapEntry('content', content));
     }
     if (tagId != null) {
-      multipart.fields['tag_id'] = tagId.toString();
+      formData.fields.add(MapEntry('tag_id', tagId.toString()));
     }
 
     for (final media in mediaFiles) {
-      multipart.files.add(
-        http.MultipartFile.fromBytes(
+      formData.files.add(
+        MapEntry(
           'media[]',
-          media.bytes,
-          filename: media.filename,
-          contentType: MediaType.parse(media.mimeType),
+          MultipartFile.fromBytes(
+            media.bytes,
+            filename: media.filename,
+            contentType: DioMediaType.parse(media.mimeType),
+          ),
         ),
       );
     }
 
-    // Sin progreso: envío directo con timeout.
-    if (onProgress == null) {
-      final streamed = await multipart.send().timeout(_uploadTimeout);
-      final responseBody = await streamed.stream.bytesToString();
-      if (streamed.statusCode >= 400) {
-        throw Exception(
-          'No fue posible crear la publicación (${streamed.statusCode}): $responseBody',
-        );
-      }
-      return;
-    }
+    final dio = Dio(BaseOptions(
+      headers: _headers(),
+      sendTimeout: const Duration(minutes: 10),
+      receiveTimeout: const Duration(minutes: 10),
+    ));
 
-    // Con progreso: convertir el multipart a StreamedRequest para rastrear
-    // los bytes que salen hacia el servidor.
-    final byteStream = multipart.finalize();
-    final total = multipart.contentLength;
-
-    final tracked = http.StreamedRequest('POST', url);
-    tracked.headers.addAll(multipart.headers);
-    tracked.contentLength = total;
-
-    var sent = 0;
-    final completer = Completer<void>();
-
-    byteStream.listen(
-      (chunk) {
-        tracked.sink.add(chunk);
-        sent += chunk.length;
-        onProgress(sent, total);
-      },
-      onDone: () {
-        tracked.sink.close();
-        completer.complete();
-      },
-      onError: (Object e, StackTrace st) {
-        tracked.sink.addError(e, st);
-        if (!completer.isCompleted) completer.completeError(e, st);
-      },
-      cancelOnError: true,
+    final response = await dio.post<dynamic>(
+      url,
+      data: formData,
+      onSendProgress: onProgress != null
+          ? (sent, total) => onProgress(sent, total)
+          : null,
     );
 
-    // Lanzar el envío al servidor en paralelo con la escritura del stream.
-    final responseFuture = http.Client().send(tracked).timeout(_uploadTimeout);
-
-    // Esperar a que terminen tanto la escritura como la respuesta.
-    await Future.wait([completer.future, responseFuture]).then((results) async {
-      final streamed = results[1] as http.StreamedResponse;
-      final responseBody = await streamed.stream.bytesToString();
-      if (streamed.statusCode >= 400) {
-        throw Exception(
-          'No fue posible crear la publicación (${streamed.statusCode}): $responseBody',
-        );
-      }
-    });
+    if (response.statusCode != null && response.statusCode! >= 400) {
+      throw Exception(
+        'No fue posible crear la publicación (${response.statusCode})',
+      );
+    }
   }
 }
 
