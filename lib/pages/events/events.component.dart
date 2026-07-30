@@ -6,6 +6,7 @@ import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/permission.service.dart';
 import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/core/models/event.model.dart';
 
 class EventsComponent extends ChangeNotifier {
@@ -39,17 +40,15 @@ class EventsComponent extends ChangeNotifier {
   }
 
   bool get _isMonitorOrAdmin {
-    final role = (_tokenService.getRole() ?? '').trim().toUpperCase();
-    return role == 'MONITOR' || role == 'ADMIN';
+    final role = UserRole.normalize(_tokenService.getRole());
+    return role == UserRole.monitor || role == UserRole.admin;
   }
 
   bool get _canReadByRole {
-    final role = (_tokenService.getRole() ?? '').trim().toUpperCase();
-    return role == 'MONITOR' ||
-        role == 'ADMIN' ||
-        role == 'MODELO' ||
-        role == 'MODEL' ||
-        role == 'MODAL';
+    final role = UserRole.normalize(_tokenService.getRole());
+    return role == UserRole.monitor ||
+        role == UserRole.admin ||
+        role == UserRole.modelo;
   }
 
   bool get canReadEvents =>

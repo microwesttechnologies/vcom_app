@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/core/common/permission.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/core/models/event.model.dart';
 import 'package:vcom_app/pages/events/event_form.page.dart';
 import 'package:vcom_app/pages/events/events.component.dart';
@@ -35,8 +36,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
   }
 
   bool get _canManageEvents {
-    final role = (_tokenService.getRole() ?? '').trim().toUpperCase();
-    return role == 'MONITOR' || role == 'ADMIN';
+    final role = UserRole.normalize(_tokenService.getRole());
+    return role == UserRole.monitor || role == UserRole.admin;
   }
 
   bool get _canUpdateEvents => _permissionService.canUpdateModule(

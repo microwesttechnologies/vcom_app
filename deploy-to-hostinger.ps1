@@ -115,13 +115,12 @@ Invoke-ExternalChecked -FilePath "scp" -Arguments ($scpArgs + @($archivePath, "$
 $remoteScript = @'
 set -e
 mkdir -p '__REMOTE_DIR__'
-# Limpia contenido previo sin borrar la carpeta
 find '__REMOTE_DIR__' -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 tar -xzf '__REMOTE_ARCHIVE__' -C '__REMOTE_DIR__'
 rm -f '__REMOTE_ARCHIVE__'
-find '__REMOTE_DIR__' -type d -exec chmod 755 {} \;
-find '__REMOTE_DIR__' -type f -exec chmod 644 {} \;
-echo "Deploy OK -> '__REMOTE_DIR__'"
+find '__REMOTE_DIR__' -type d -exec chmod 755 {} +
+find '__REMOTE_DIR__' -type f -exec chmod 644 {} +
+echo "Deploy OK -> __REMOTE_DIR__"
 ls -la '__REMOTE_DIR__' | head -n 25
 '@
 
@@ -130,8 +129,13 @@ $remoteScript = $remoteScript.Replace("__REMOTE_ARCHIVE__", $RemoteArchive)
 # Bash rechaza CRLF de Windows
 $remoteScript = $remoteScript -replace "`r`n", "`n" -replace "`r", "`n"
 
+# Se envia en base64 y una sola linea: evita que PowerShell/ssh alteren
+# comillas, saltos de linea o escapes al pasar el script remoto.
+$encodedScript = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($remoteScript))
+$remoteCommand = "echo $encodedScript | base64 -d | bash"
+
 Write-Host "Extrayendo en Hostinger..."
-Invoke-ExternalChecked -FilePath "ssh" -Arguments ($sshArgs + @("${UserName}@${HostName}", $remoteScript))
+Invoke-ExternalChecked -FilePath "ssh" -Arguments ($sshArgs + @("${UserName}@${HostName}", $remoteCommand))
 
 Write-Host "Proceso completado."
 Write-Host "Verifica: https://vcom-app.microwesttechnologies.com/"

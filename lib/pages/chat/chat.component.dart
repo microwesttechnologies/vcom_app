@@ -5,6 +5,7 @@ import 'package:vcom_app/core/chat/chat_api.service.dart';
 import 'package:vcom_app/core/chat/chat_module_cache.dart';
 import 'package:vcom_app/core/chat/chat_socket.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/core/models/chat/chat_contact.model.dart';
 import 'package:vcom_app/core/models/chat/chat_conversation.model.dart';
@@ -753,12 +754,7 @@ class ChatComponent extends ChangeNotifier {
     return value.trim().toLowerCase();
   }
 
-  static String _normalizeRole(String value) {
-    final role = value.trim().toUpperCase();
-    if (role == 'MODEL' || role == 'MODELO' || role == 'MODAL') return 'MODELO';
-    if (role == 'MONITOR') return 'MONITOR';
-    return role;
-  }
+  static String _normalizeRole(String value) => UserRole.normalize(value);
 
   static String _roleAndNameKey(String role, String name) {
     final normalizedName = _normalizeName(name);

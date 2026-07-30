@@ -9,6 +9,7 @@ import 'package:vcom_app/core/common/biometric.service.dart';
 import 'package:vcom_app/core/common/credentials.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
 import 'package:vcom_app/pages/auth/login.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
@@ -186,18 +187,16 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final token = TokenService();
     final role = token.getRole();
-    final normalizedRole = role?.toUpperCase() ?? '';
-    final usesModeloNavbar =
-        normalizedRole == 'MODELO' ||
-        normalizedRole == 'MODAL' ||
-        normalizedRole == 'MONITOR';
+    final normalizedRole = UserRole.normalize(role);
 
-    if (!usesModeloNavbar) {
+    if (!UserRole.usesModeloExperience(role)) {
       return const NavbarComponent();
     }
 
     final roleLabel = _buildRoleLabel(normalizedRole);
-    final fallbackName = normalizedRole == 'MONITOR' ? 'Monitor' : 'Modelo';
+    final fallbackName = normalizedRole == UserRole.monitor
+        ? 'Monitor'
+        : 'Modelo';
     final firstName = _resolveFirstName(token.getUserName(), fallbackName);
     final initial = firstName.isNotEmpty ? firstName[0].toUpperCase() : 'M';
 
@@ -216,7 +215,7 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
   // ── Menú emergente del icono persona ──────────────────────────────────────────
 
   String _buildRoleLabel(String normalizedRole) {
-    if (normalizedRole == 'MONITOR') {
+    if (normalizedRole == UserRole.monitor) {
       return 'ESPACIO MONITOR';
     }
 
@@ -294,9 +293,9 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
   @override
   Widget build(BuildContext context) {
     final token = TokenService();
-    final normalizedRole = token.getRole()?.toUpperCase() ?? '';
-    final roleLabel = normalizedRole == 'MONITOR' ? 'MONITOR' : 'MODELO';
-    final fallbackName = normalizedRole == 'MONITOR' ? 'Monitor' : 'Modelo';
+    final isMonitor = UserRole.isMonitor(token.getRole());
+    final roleLabel = isMonitor ? 'MONITOR' : 'MODELO';
+    final fallbackName = isMonitor ? 'Monitor' : 'Modelo';
     final name = token.getUserName() ?? fallbackName;
 
     return ClipRRect(

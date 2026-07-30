@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:vcom_app/core/chat/chat_socket.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_role.dart';
 
 /// Servicio global para gestionar el estado online/offline del usuario.
 class UserStatusService {
@@ -124,12 +125,7 @@ class UserStatusService {
     return value.trim().toLowerCase();
   }
 
-  static String _normalizeRole(String value) {
-    final role = value.trim().toUpperCase();
-    if (role == 'MODEL' || role == 'MODELO' || role == 'MODAL') return 'MODELO';
-    if (role == 'MONITOR') return 'MONITOR';
-    return role;
-  }
+  static String _normalizeRole(String value) => UserRole.normalize(value);
 
   static String _roleAndNameKey(String role, String name) {
     final normalizedName = _normalizeName(name);

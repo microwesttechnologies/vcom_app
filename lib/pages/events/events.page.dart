@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/core/models/event.model.dart';
 import 'package:vcom_app/pages/events/event_detail.page.dart';
 import 'package:vcom_app/pages/events/event_form.page.dart';
@@ -24,8 +25,8 @@ class _EventsPageState extends State<EventsPage> {
   final TextEditingController _searchController = TextEditingController();
 
   bool get _canManageEvents {
-    final role = (_tokenService.getRole() ?? '').trim().toUpperCase();
-    return role == 'MONITOR' || role == 'ADMIN';
+    final role = UserRole.normalize(_tokenService.getRole());
+    return role == UserRole.monitor || role == UserRole.admin;
   }
 
   @override

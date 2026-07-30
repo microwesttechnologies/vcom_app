@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/core/models/brand.model.dart';
 import 'package:vcom_app/core/models/category.model.dart';
 import 'package:vcom_app/core/models/product.model.dart';
@@ -35,8 +36,7 @@ class ShopComponent extends ChangeNotifier {
   int? get selectedCategoryId => _selectedCategoryId;
   String get searchQuery => _searchQuery;
 
-  bool get canManageProducts =>
-      (_tokenService.getRole() ?? '').trim().toUpperCase() == 'MONITOR';
+  bool get canManageProducts => UserRole.isMonitor(_tokenService.getRole());
 
   String _cacheKey(String namespace) {
     return _cache.scopedKey(

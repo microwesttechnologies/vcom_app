@@ -6,6 +6,7 @@ import 'package:vcom_app/components/commons/card.component.dart';
 import 'package:vcom_app/core/chat/chat_push.service.dart';
 import 'package:vcom_app/core/common/icon.helper.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/pages/brands/managerBrand.page.dart';
 import 'package:vcom_app/pages/categories/managerCategory.page.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
@@ -30,10 +31,8 @@ class _DashboardPageState extends State<DashboardPage> {
   late DashboardModeloComponent _dashboardModeloComponent;
   final TokenService _tokenService = TokenService();
 
-  bool get _usesModeloDashboard {
-    final role = _tokenService.getRole()?.toUpperCase() ?? '';
-    return role == 'MODELO' || role == 'MODAL' || role == 'MONITOR';
-  }
+  bool get _usesModeloDashboard =>
+      UserRole.usesModeloExperience(_tokenService.getRole());
 
   @override
   void initState() {
