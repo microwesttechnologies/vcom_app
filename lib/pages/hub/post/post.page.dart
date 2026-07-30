@@ -123,13 +123,19 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
         mediaFiles: files,
         onProgress: hasVideo
             ? (sent, total) {
-                if (!mounted || total <= 0) return;
-                final pct = ((sent / total) * 100).round();
-                final sentMb = (sent / (1024 * 1024)).toStringAsFixed(1);
-                final totalMbStr =
-                    (total / (1024 * 1024)).toStringAsFixed(1);
-                setState(() =>
-                    _progressMsg = 'Subiendo $sentMb/$totalMbStr MB ($pct%)');
+                if (!mounted) return;
+                if (total > 0) {
+                  final pct = ((sent / total) * 100).round();
+                  final sentMb = (sent / (1024 * 1024)).toStringAsFixed(1);
+                  final totalMbStr = (total / (1024 * 1024)).toStringAsFixed(1);
+                  setState(() => _progressMsg =
+                      'Subiendo $sentMb/$totalMbStr MB ($pct%)');
+                }
+                // Al llegar al 100% el servidor empieza a comprimir con FFmpeg.
+                if (total > 0 && sent >= total && mounted) {
+                  setState(() => _progressMsg =
+                      'El servidor está comprimiendo el video…');
+                }
               }
             : null,
       );
@@ -172,19 +178,25 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
       final media = _pickedMedia[i];
       if (mounted) {
         setState(() {
-          final compressingVideo = media.type == 'video' &&
-              !kIsWeb &&
-              media.bytes.length >=
-                  HubConstants.videoCompressionThresholdBytes;
-          final compressingImage = media.type == 'image' && !kIsWeb;
-          _progressMsg = compressingVideo || compressingImage
-              ? 'Comprimiendo ${i + 1}/${_pickedMedia.length}...'
-              : 'Preparando ${i + 1}/${_pickedMedia.length}...';
+          _progressMsg = 'Preparando archivo ${i + 1}/${_pickedMedia.length}…';
         });
       }
 
       if (media.type == 'video') {
+        // Siempre se comprime en nativo antes de subir.
+        if (mounted && !kIsWeb) {
+          final sizeMb = (media.bytes.length / (1024 * 1024)).toStringAsFixed(1);
+          setState(() => _progressMsg =
+              'Comprimiendo video ($sizeMb MB)…');
+        }
         result.add(await _videoCompress.prepareVideo(media));
+        if (mounted) {
+          final outMb =
+              (result.last.bytes.length / (1024 * 1024)).toStringAsFixed(1);
+          setState(() =>
+              _progressMsg = 'Video listo ($outMb MB) — preparando subida…');
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
       } else if (media.type == 'image' && !kIsWeb) {
         result.add(await _compressImageMedia(media));
       } else {

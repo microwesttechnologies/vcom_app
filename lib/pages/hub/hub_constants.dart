@@ -9,11 +9,15 @@ class HubConstants {
   static const int defaultPage = 1;
   static const int defaultPerPage = 15;
 
-  /// Peso máximo por video (500 MB).
+  /// Peso máximo por video en app nativa (500 MB).
   static const int maxVideoSizeBytes = 500 * 1024 * 1024;
 
-  /// Umbral a partir del cual se comprime el video (~50% objetivo).
-  static const int videoCompressionThresholdBytes = 200 * 1024 * 1024;
+  /// En web/PWA el navegador no puede comprimir; se limita a 100 MB
+  /// para que la subida sea tolerable sin compresión previa.
+  static const int maxWebVideoSizeBytes = 100 * 1024 * 1024;
+
+  /// Todo video se comprime antes de subir (umbral: 1 byte = siempre).
+  static const int videoCompressionThresholdBytes = 1;
 
   /// Tiempo máximo de caché antes de refrescar automáticamente.
   static const Duration cacheTtl = Duration(minutes: 5);
