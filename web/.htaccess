@@ -16,3 +16,26 @@
   AddType application/javascript .js
   AddType application/wasm .wasm
 </IfModule>
+
+# Puntos de entrada de la PWA: siempre revalidar contra el servidor.
+# Sin esto el navegador reutiliza el bundle viejo y el service worker
+# nunca detecta que hay un despliegue nuevo.
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|flutter_bootstrap\.js|flutter_service_worker\.js|firebase-messaging-sw\.js|firebase-config\.js|manifest\.json|version\.json|main\.dart\.js)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # El resto de recursos los versiona el service worker por hash.
+  <FilesMatch "\.(css|png|jpg|jpeg|gif|ico|svg|webp|wasm|bin|ttf|otf|woff2?|mp4)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# LiteSpeed (Hostinger) cachea del lado servidor; excluir los entry points.
+<IfModule LiteSpeed>
+  CacheDisable /index.html
+  CacheDisable /flutter_bootstrap.js
+  CacheDisable /flutter_service_worker.js
+</IfModule>

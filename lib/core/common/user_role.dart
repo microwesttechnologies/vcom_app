@@ -35,15 +35,8 @@ class UserRole {
 
   /// Experiencia visual de modelo/monitor.
   ///
-  /// Esta app es exclusiva para modelos y monitores, por lo que cualquier
-  /// sesion valida usa esta experiencia por defecto. Solo los roles de
-  /// backoffice (admin/store), que operan desde el panel web, quedan fuera.
-  /// Asi un monitor nunca cae en el dashboard generico aunque el claim
-  /// `role_user` del JWT llegue con un valor inesperado.
-  static bool usesModeloExperience(String? raw) {
-    final role = normalize(raw);
-    return role != admin && role != store;
-  }
+  /// Esta app es exclusiva para modelos y monitores: siempre la misma UI.
+  static bool usesModeloExperience(String? raw) => true;
 
   static String _stripAccents(String value) {
     const accented = 'áàäâãéèëêíìïîóòöôõúùüûñ';

@@ -30,23 +30,12 @@ void main() {
   });
 
   group('UserRole.usesModeloExperience', () {
-    test('aplica a modelo y monitor', () {
+    test('siempre true: app exclusiva de modelos y monitores', () {
       expect(UserRole.usesModeloExperience('Modelo'), isTrue);
       expect(UserRole.usesModeloExperience('Monitor'), isTrue);
-    });
-
-    test('app exclusiva de modelos/monitores: rol inesperado usa la vista', () {
-      // Un monitor cuyo token llega como "employee" (id_role nulo) igual
-      // debe recibir la experiencia de modelo/monitor.
       expect(UserRole.usesModeloExperience('employee'), isTrue);
-      expect(UserRole.usesModeloExperience(''), isTrue);
-      expect(UserRole.usesModeloExperience('Monitor de modelos'), isTrue);
-    });
-
-    test('excluye solo backoffice (admin/store)', () {
-      expect(UserRole.usesModeloExperience('Admin'), isFalse);
-      expect(UserRole.usesModeloExperience('Store'), isFalse);
-      expect(UserRole.usesModeloExperience('Tienda'), isFalse);
+      expect(UserRole.usesModeloExperience('Admin'), isTrue);
+      expect(UserRole.usesModeloExperience(null), isTrue);
     });
   });
 }

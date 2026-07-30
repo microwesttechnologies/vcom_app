@@ -2,23 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/dynamic_sidebar_drawer.dart';
 import 'package:vcom_app/components/shared/modelo_menubar.dart';
 import 'package:vcom_app/components/shared/navbar.component.dart';
-import 'package:vcom_app/components/commons/card.component.dart';
 import 'package:vcom_app/core/chat/chat_push.service.dart';
-import 'package:vcom_app/core/common/icon.helper.dart';
-import 'package:vcom_app/core/common/token.service.dart';
-import 'package:vcom_app/core/common/user_role.dart';
-import 'package:vcom_app/pages/brands/managerBrand.page.dart';
-import 'package:vcom_app/pages/categories/managerCategory.page.dart';
-import 'package:vcom_app/pages/chat/chat.page.dart';
-import 'package:vcom_app/pages/dahsboard/dashboard.component.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard_modelo.component.dart';
 import 'package:vcom_app/pages/dahsboard/dashboard_modelo.view.dart';
-import 'package:vcom_app/pages/events/events.page.dart';
-import 'package:vcom_app/pages/shop/shop.page.dart';
-import 'package:vcom_app/pages/training/training.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
-/// PÃ¡gina del dashboard
+/// Inicio unico para modelos y monitores (misma experiencia visual).
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -27,12 +16,7 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  late DashboardComponent _dashboardComponent;
-  late DashboardModeloComponent _dashboardModeloComponent;
-  final TokenService _tokenService = TokenService();
-
-  bool get _usesModeloDashboard =>
-      UserRole.usesModeloExperience(_tokenService.getRole());
+  late final DashboardModeloComponent _dashboardModeloComponent;
 
   @override
   void initState() {
@@ -40,41 +24,30 @@ class _DashboardPageState extends State<DashboardPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ChatPushService().markAppShellReady();
     });
-    _dashboardComponent = DashboardComponent();
-    _dashboardComponent.addListener(_onComponentChanged);
     _dashboardModeloComponent = DashboardModeloComponent();
     _dashboardModeloComponent.addListener(_onComponentChanged);
-
-    if (_usesModeloDashboard) {
-      _dashboardModeloComponent.initialize();
-    } else {
-      _dashboardComponent.fetchModules();
-    }
+    _dashboardModeloComponent.initialize();
   }
 
   @override
   void dispose() {
-    _dashboardComponent.removeListener(_onComponentChanged);
     _dashboardModeloComponent.removeListener(_onComponentChanged);
     super.dispose();
   }
 
   void _onComponentChanged() {
-    if (mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {});
-        }
-      });
-    }
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _usesModeloDashboard ? const Color(0xFF000000) : null,
-      extendBodyBehindAppBar: _usesModeloDashboard,
-      extendBody: _usesModeloDashboard,
+      backgroundColor: const Color(0xFF000000),
+      extendBodyBehindAppBar: true,
+      extendBody: true,
       appBar: const ModeloNavbar(),
       drawer: const Drawer(
         child: DynamicSidebarDrawer(selectedRouteHints: ['dashboard', 'inicio']),
@@ -82,215 +55,35 @@ class _DashboardPageState extends State<DashboardPage> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: _usesModeloDashboard
-            ? const BoxDecoration(
-                color: Color(0xFF000000),
-                gradient: RadialGradient(
-                  center: Alignment(0.0, -0.8),
-                  radius: 1.2,
-                  colors: [
-                    Color(0xFF273C67),
-                    Color(0xFF1a2847),
-                    Color(0xFF0d1525),
-                    Color(0xFF000000),
-                  ],
-                  stops: [0.0, 0.35, 0.7, 1.0],
-                ),
-              )
-            : const BoxDecoration(gradient: VcomColors.gradienteNocturno),
+        decoration: const BoxDecoration(
+          color: Color(0xFF000000),
+          gradient: RadialGradient(
+            center: Alignment(0.0, -0.8),
+            radius: 1.2,
+            colors: [
+              Color(0xFF273C67),
+              Color(0xFF1a2847),
+              Color(0xFF0d1525),
+              Color(0xFF000000),
+            ],
+            stops: [0.0, 0.35, 0.7, 1.0],
+          ),
+        ),
         child: SafeArea(
           bottom: false,
-          child: _usesModeloDashboard
-              ? _buildContent()
-              : Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: _buildContent(),
-                ),
+          child: _buildContent(),
         ),
       ),
       bottomNavigationBar: const ModeloMenuBar(activeRoute: 'dashboard'),
     );
   }
 
-  /// Navega a la ruta del mÃ³dulo
-  void _navigateToModule(String route) {
-    final routeLower = route.toLowerCase();
-    Widget? targetPage;
-
-    // Mapear rutas a pÃ¡ginas
-    if (routeLower.contains('dashboard') || routeLower.contains('inicio')) {
-      return;
-    } else if (routeLower.contains('categories') ||
-        routeLower.contains('categoria')) {
-      targetPage = const ManagerCategoryPage();
-    } else if (routeLower.contains('brand') || routeLower.contains('marca')) {
-      targetPage = const ManagerBrandPage();
-    } else if (routeLower.contains('shop') ||
-        routeLower.contains('tienda') ||
-        routeLower.contains('store')) {
-      targetPage = const ShopPage();
-    } else if (routeLower.contains('chat') || routeLower.contains('mensaje')) {
-      targetPage = const ChatPage();
-    } else if (routeLower.contains('event') ||
-        routeLower.contains('evento') ||
-        routeLower.contains('calendar') ||
-        routeLower.contains('calendario')) {
-      targetPage = const EventsPage();
-    } else if (routeLower.contains('training') ||
-        routeLower.contains('entrenamiento')) {
-      targetPage = const TrainingPage();
-    }
-
-    if (targetPage != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => targetPage!),
-      );
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  Icons.construction,
-                  color: VcomColors.blancoCrema,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'MÃ³dulo en desarrollo',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: VcomColors.oroLujoso,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            margin: const EdgeInsets.all(16),
-            duration: const Duration(seconds: 3),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: VcomColors.azulMedianocheTexto,
-              onPressed: () {},
-            ),
-          ),
-        );
-      }
-    }
-  }
-
   Widget _buildContent() {
-    if (_usesModeloDashboard) {
-      return _buildModeloContent();
-    }
-    return _buildDefaultContent();
-  }
-
-  Widget _buildModeloContent() {
     if (_dashboardModeloComponent.isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: VcomColors.oroLujoso),
       );
     }
     return DashboardModeloView(component: _dashboardModeloComponent);
-  }
-
-  Widget _buildDefaultContent() {
-    if (_dashboardComponent.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: VcomColors.oroLujoso),
-      );
-    }
-
-    if (_dashboardComponent.error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: VcomColors.error),
-            const SizedBox(height: 16),
-            Text(
-              'Error al cargar mÃ³dulos',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: VcomColors.blancoCrema,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _dashboardComponent.error!,
-              style: TextStyle(
-                fontSize: 14,
-                color: VcomColors.blancoCrema.withValues(alpha: 0.7),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => _dashboardComponent.fetchModules(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: VcomColors.oroLujoso,
-                foregroundColor: VcomColors.azulMedianocheTexto,
-              ),
-              child: const Text('Reintentar'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final visibleModules = _dashboardComponent.modules.where((module) {
-      final route = module.route.toLowerCase();
-      return !route.contains('product') && !route.contains('producto');
-    }).toList(growable: false);
-
-    if (visibleModules.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.folder_outlined, size: 64, color: VcomColors.oroLujoso),
-            const SizedBox(height: 16),
-            Text(
-              'No hay mÃ³dulos disponibles',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: VcomColors.blancoCrema,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: visibleModules.length,
-      itemBuilder: (context, index) {
-        final module = visibleModules[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: CardComponent(
-            label: module.nameModule,
-            description: module.descriptionModule,
-            icon: IconHelper.getIconFromString(module.icon),
-            size: CardSize.medium,
-            width: double.infinity,
-            onTap: () {
-              _navigateToModule(module.route);
-            },
-          ),
-        );
-      },
-    );
   }
 }

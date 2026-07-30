@@ -82,18 +82,19 @@ if (-not $SkipBuild) {
     finally {
         Pop-Location
     }
-
-    $htaccess = Join-Path $projectRoot "web\.htaccess"
-    $firebaseConfig = Join-Path $projectRoot "web\firebase-config.js"
-    $firebaseSw = Join-Path $projectRoot "web\firebase-messaging-sw.js"
-    if (Test-Path $htaccess) { Copy-Item $htaccess (Join-Path $webBuildDir ".htaccess") -Force }
-    if (Test-Path $firebaseConfig) { Copy-Item $firebaseConfig (Join-Path $webBuildDir "firebase-config.js") -Force }
-    if (Test-Path $firebaseSw) { Copy-Item $firebaseSw (Join-Path $webBuildDir "firebase-messaging-sw.js") -Force }
 }
 
 if (-not (Test-Path (Join-Path $webBuildDir "index.html"))) {
     throw "No existe build web en $webBuildDir. Corre sin -SkipBuild o ejecuta tool\build_hostinger.bat"
 }
+
+# Fuera del bloque de build: con -SkipBuild tambien deben viajar al servidor.
+$htaccess = Join-Path $projectRoot "web\.htaccess"
+$firebaseConfig = Join-Path $projectRoot "web\firebase-config.js"
+$firebaseSw = Join-Path $projectRoot "web\firebase-messaging-sw.js"
+if (Test-Path $htaccess) { Copy-Item $htaccess (Join-Path $webBuildDir ".htaccess") -Force }
+if (Test-Path $firebaseConfig) { Copy-Item $firebaseConfig (Join-Path $webBuildDir "firebase-config.js") -Force }
+if (Test-Path $firebaseSw) { Copy-Item $firebaseSw (Join-Path $webBuildDir "firebase-messaging-sw.js") -Force }
 
 if (Test-Path $tempRoot) {
     Remove-Item -LiteralPath $tempRoot -Recurse -Force
