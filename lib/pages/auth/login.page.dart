@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -91,21 +92,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
     try {
       final loggedIn = await _loginComponent.loginWithBiometric();
-      if (mounted) {
-        Navigator.of(context).pop(); // Cierra loading
-        if (!loggedIn) return; // Usuario canceló, no hacer nada
-        await UserStatusService().setOnline();
-        await ChatPushService().initialize();
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardPage()),
-          );
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            ChatPushService().openPendingDeepLinkIfAny();
-          });
-        }
-      }
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Cierra loading
+      if (!loggedIn) return; // Usuario canceló, no hacer nada
+      _enterAuthenticatedSession();
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
@@ -137,18 +127,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
     try {
       await _loginComponent.performLogin();
-      await UserStatusService().setOnline();
-      await ChatPushService().initialize();
-      if (mounted) {
-        Navigator.of(context).pop();
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const DashboardPage()),
-        );
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ChatPushService().openPendingDeepLinkIfAny();
-        });
-      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _enterAuthenticatedSession();
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
@@ -160,6 +141,19 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         );
       }
     }
+  }
+
+  /// Navega al dashboard de inmediato; status/push no deben bloquear el login.
+  void _enterAuthenticatedSession() {
+    unawaited(UserStatusService().setOnline());
+    unawaited(ChatPushService().initialize());
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const DashboardPage()),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ChatPushService().openPendingDeepLinkIfAny();
+    });
   }
 
   String _resolveDialogTitle(String message) {
@@ -796,40 +790,42 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                 ),
                                   const SizedBox(height: 24),
 
-                                  // ACCESO SEGURO
-                                  Row(
-                                    children: [
-                                      Expanded(child: _buildDivider()),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                                        child: Text(
-                                          'ACCESO SEGURO',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white.withValues(alpha: 0.3),
-                                            letterSpacing: 2,
+                                  if (!kIsWeb) ...[
+                                    // ACCESO SEGURO
+                                    Row(
+                                      children: [
+                                        Expanded(child: _buildDivider()),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text(
+                                            'ACCESO SEGURO',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white.withValues(alpha: 0.3),
+                                              letterSpacing: 2,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      Expanded(child: _buildDivider()),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 20),
+                                        Expanded(child: _buildDivider()),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
 
-                                  // Botones biométricos
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      _buildBiometricButton(icon: Icons.face, onTap: null),
-                                      const SizedBox(width: 24),
-                                      _buildBiometricButton(
-                                        icon: Icons.fingerprint,
-                                        onTap: _handleBiometric,
-                                        active: _loginComponent.biometricEnabled,
-                                      ),
-                                    ],
-                                  ),
+                                    // Botones biométricos
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        _buildBiometricButton(icon: Icons.face, onTap: null),
+                                        const SizedBox(width: 24),
+                                        _buildBiometricButton(
+                                          icon: Icons.fingerprint,
+                                          onTap: _handleBiometric,
+                                          active: _loginComponent.biometricEnabled,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

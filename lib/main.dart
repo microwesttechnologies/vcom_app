@@ -78,24 +78,16 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  Timer? _sessionCheckTimer;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(TokenService().handleExpiredTokenIfNeeded());
     unawaited(UserStatusService().initialize());
     unawaited(ChatPushService().initialize());
-    _sessionCheckTimer = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) => unawaited(TokenService().handleExpiredTokenIfNeeded()),
-    );
   }
 
   @override
   void dispose() {
-    _sessionCheckTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -103,7 +95,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(TokenService().handleExpiredTokenIfNeeded());
       unawaited(UserStatusService().initialize());
       unawaited(ChatPushService().initialize());
       ChatPushService().openPendingDeepLinkIfAny();

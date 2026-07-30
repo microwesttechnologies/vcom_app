@@ -66,13 +66,9 @@ class TokenService {
   }
 
   /// Obtiene el token de autenticación.
+  /// No cierra sesión por expiración del JWT: solo logout explícito limpia.
   String? getToken() {
-    if (isTokenExpired()) {
-      unawaited(
-        expireSession(message: 'Tu sesion expiro. Inicia sesion nuevamente.'),
-      );
-      return null;
-    }
+    if (_token == null || _token!.isEmpty) return null;
     return _token;
   }
 
@@ -185,7 +181,7 @@ class TokenService {
     return trimmed;
   }
 
-  /// Verifica si hay un token guardado.
+  /// Verifica si hay un token guardado (sin forzar cierre por `exp`).
   bool hasToken() {
     return getToken() != null;
   }
@@ -201,20 +197,16 @@ class TokenService {
     return nowInSeconds >= expValue.toInt();
   }
 
-  Future<void> handleExpiredTokenIfNeeded() async {
-    if (isTokenExpired()) {
-      await expireSession(
-        message: 'Tu sesion expiro. Inicia sesion nuevamente.',
-      );
-    }
-  }
+  /// No-op: la sesión solo se cierra con logout explícito.
+  Future<void> handleExpiredTokenIfNeeded() async {}
 
+  /// No-op ante 401: no limpia sesión ni navega a login.
   void handleUnauthorizedStatus(
     int statusCode, {
     String message = 'Tu sesion expiro. Inicia sesion nuevamente.',
   }) {
     if (statusCode != 401) return;
-    unawaited(expireSession(message: message));
+    // Intencionalmente vacío: solo el logout del usuario cierra sesión.
   }
 
   /// Limpia todos los datos de autenticación.

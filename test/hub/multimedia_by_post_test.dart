@@ -94,6 +94,32 @@ void main() {
       expect(validator.compressionQuality, 70);
     });
 
+    test('video under 500 MB is valid', () {
+      final media = [
+        {
+          'type': 'video',
+          'url': 'ok.mp4',
+          'mime_type': 'video/mp4',
+          'duration': 30,
+          'size': 200 * 1024 * 1024,
+        },
+      ];
+      expect(validator.validateMedia(media), isNull);
+    });
+
+    test('video over 500 MB is invalid', () {
+      final media = [
+        {
+          'type': 'video',
+          'url': 'big.mp4',
+          'mime_type': 'video/mp4',
+          'duration': 30,
+          'size': 500 * 1024 * 1024 + 1,
+        },
+      ];
+      expect(validator.validateMedia(media), contains('500'));
+    });
+
     test('mixed images and videos within limits is valid', () {
       final media = [
         {'type': 'image', 'url': 'a.jpg', 'mime_type': 'image/jpeg'},

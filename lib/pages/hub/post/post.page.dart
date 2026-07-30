@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:vcom_app/core/hub/hub_tags.service.dart';
 import 'package:vcom_app/core/hub/hub_upload_media.dart';
+import 'package:vcom_app/core/hub/services/hub_video_compress.service.dart';
 import 'package:vcom_app/pages/hub/hub_constants.dart';
+import 'package:vcom_app/pages/hub/multimedia_by_post/multimedia_by_post.component.dart';
 import 'package:vcom_app/pages/hub/post/media_picker.widget.dart';
 import 'package:vcom_app/pages/hub/post/post.component.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
@@ -30,6 +32,8 @@ class CreatePostSheet extends StatefulWidget {
 class _CreatePostSheetState extends State<CreatePostSheet> {
   final _titleCtrl = TextEditingController();
   final _contentCtrl = TextEditingController();
+  final _mediaValidator = MultimediaByPostComponent();
+  final _videoCompress = const HubVideoCompressService();
   HubTag? _selectedTag;
   List<PickedMedia> _pickedMedia = [];
   bool _isSubmitting = false;
@@ -59,6 +63,22 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
 
     if (title.isEmpty || content.isEmpty) {
       _showSheetTopError('Completa título y contenido');
+      return;
+    }
+
+    final mediaError = _mediaValidator.validateMedia(
+      _pickedMedia
+          .map(
+            (m) => {
+              'type': m.type,
+              'mime_type': HubUploadMedia.guessMimeType(m.filename),
+              'size': m.bytes.length,
+            },
+          )
+          .toList(),
+    );
+    if (mediaError != null) {
+      _showSheetTopError(mediaError);
       return;
     }
 
@@ -112,14 +132,21 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     for (var i = 0; i < _pickedMedia.length; i++) {
       final media = _pickedMedia[i];
       if (mounted) {
-        setState(
-          () => _progressMsg = kIsWeb || media.type != 'image'
-              ? 'Preparando ${i + 1}/${_pickedMedia.length}...'
-              : 'Comprimiendo ${i + 1}/${_pickedMedia.length}...',
-        );
+        setState(() {
+          final compressingVideo = media.type == 'video' &&
+              !kIsWeb &&
+              media.bytes.length >=
+                  HubConstants.videoCompressionThresholdBytes;
+          final compressingImage = media.type == 'image' && !kIsWeb;
+          _progressMsg = compressingVideo || compressingImage
+              ? 'Comprimiendo ${i + 1}/${_pickedMedia.length}...'
+              : 'Preparando ${i + 1}/${_pickedMedia.length}...';
+        });
       }
 
-      if (media.type == 'image' && !kIsWeb) {
+      if (media.type == 'video') {
+        result.add(await _videoCompress.prepareVideo(media));
+      } else if (media.type == 'image' && !kIsWeb) {
         result.add(await _compressImageMedia(media));
       } else {
         result.add(

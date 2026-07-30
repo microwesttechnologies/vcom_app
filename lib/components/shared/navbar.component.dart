@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -272,6 +273,15 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
   }
 
   Future<void> _checkBiometricStatus() async {
+    if (kIsWeb) {
+      if (mounted) {
+        setState(() {
+          _biometricActive = false;
+          _loadingBiometric = false;
+        });
+      }
+      return;
+    }
     final active = await CredentialsService().isBiometricEnabled();
     if (mounted) {
       setState(() {
@@ -378,52 +388,53 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
               Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
               const SizedBox(height: 16),
 
-              // Botón biométrico
-              _loadingBiometric
-                  ? const SizedBox(height: 48)
-                  : SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _onBiometricTap(context),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _biometricActive
-                              ? VcomColors.oroLujoso
-                              : Colors.white70,
-                          side: BorderSide(
-                            color: _biometricActive
-                                ? VcomColors.oroLujoso.withValues(alpha: 0.6)
-                                : Colors.white.withValues(alpha: 0.2),
+              // Botón biométrico (oculto en web/PWA)
+              if (!kIsWeb) ...[
+                _loadingBiometric
+                    ? const SizedBox(height: 48)
+                    : SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _onBiometricTap(context),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _biometricActive
+                                ? VcomColors.oroLujoso
+                                : Colors.white70,
+                            side: BorderSide(
+                              color: _biometricActive
+                                  ? VcomColors.oroLujoso.withValues(alpha: 0.6)
+                                  : Colors.white.withValues(alpha: 0.2),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: Icon(
-                          _biometricActive
-                              ? Icons.fingerprint
-                              : Icons.fingerprint,
-                          size: 20,
-                          color: _biometricActive
-                              ? VcomColors.oroLujoso
-                              : Colors.white38,
-                        ),
-                        label: Text(
-                          _biometricActive
-                              ? 'Huella activa  ·  Desactivar'
-                              : 'Activar autenticación por huella',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                          icon: Icon(
+                            _biometricActive
+                                ? Icons.fingerprint
+                                : Icons.fingerprint,
+                            size: 20,
                             color: _biometricActive
                                 ? VcomColors.oroLujoso
-                                : Colors.white60,
+                                : Colors.white38,
+                          ),
+                          label: Text(
+                            _biometricActive
+                                ? 'Huella activa  ·  Desactivar'
+                                : 'Activar autenticación por huella',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _biometricActive
+                                  ? VcomColors.oroLujoso
+                                  : Colors.white60,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-
-              const SizedBox(height: 10),
+                const SizedBox(height: 10),
+              ],
 
               // Botón cerrar sesión
               SizedBox(

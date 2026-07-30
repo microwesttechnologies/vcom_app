@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vcom_app/core/auth/login/login.services.dart';
@@ -44,6 +45,13 @@ class LoginComponent extends ChangeNotifier {
   /// Inicializa el componente cargando las credenciales guardadas
   Future<void> initialize() async {
     await _loadSavedCredentials();
+    // Biometría no aplica en web/PWA (local_auth no es usable ahí).
+    if (kIsWeb) {
+      _hasSavedCredentials = false;
+      _biometricAvailable = false;
+      notifyListeners();
+      return;
+    }
     // El botón de huella se muestra activo si el usuario lo activó
     // explícitamente desde el menú, independiente del sensor.
     _hasSavedCredentials = await _credentialsService.isBiometricEnabled();
@@ -57,6 +65,9 @@ class LoginComponent extends ChangeNotifier {
   /// Retorna true si el login se completó, false si el usuario canceló.
   /// Lanza excepción con mensaje claro si hay un error real.
   Future<bool> loginWithBiometric() async {
+    if (kIsWeb) {
+      throw Exception('La autenticación por huella no está disponible en web/PWA');
+    }
     if (!_hasSavedCredentials) {
       throw Exception(
         'Primero inicia sesión con usuario y contraseña\ny activa "Recordar credenciales"',
@@ -93,8 +104,10 @@ class LoginComponent extends ChangeNotifier {
   /// Obtiene si se deben recordar las credenciales
   bool get rememberCredentials => _rememberCredentials;
 
-  /// True si el dispositivo soporta biometría Y hay credenciales guardadas
-  bool get biometricEnabled => _biometricAvailable && _hasSavedCredentials;
+  /// True si el dispositivo soporta biometría Y hay credenciales guardadas.
+  /// Siempre false en web/PWA.
+  bool get biometricEnabled =>
+      !kIsWeb && _biometricAvailable && _hasSavedCredentials;
 
   /// Alterna la visibilidad de la contraseña
   void togglePasswordVisibility() {

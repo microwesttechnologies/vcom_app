@@ -63,6 +63,7 @@ class ChatComponent extends ChangeNotifier {
   Future<void> initialize() async {
     _error = null;
     await _tokenService.initialize();
+    _applyTokenIdentity();
     final uid = (_tokenService.getUserId() ?? '').trim();
 
     if (uid.isNotEmpty) {
@@ -72,7 +73,11 @@ class ChatComponent extends ChangeNotifier {
         try {
           await _connectSocketAndListen();
         } catch (e) {
-          _error = e.toString();
+          if (!_isModelRole) {
+            _error = e.toString();
+          } else {
+            debugPrint('Chat MODELO: socket no disponible: $e');
+          }
         }
         notifyListeners();
         return;
@@ -83,42 +88,76 @@ class ChatComponent extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final me = await _api.fetchMe();
-      _currentUserId = (me['id_user'] ?? '').toString().trim();
-      _currentUserName = (me['name_user'] ?? '').toString().trim();
-      _currentRole = (me['role_user'] ?? '').toString().trim();
-
-      if (_currentUserId.isEmpty) {
-        _currentUserId = (_tokenService.getUserId() ?? '').trim();
-      }
-      if (_currentUserName.isEmpty) {
-        _currentUserName = (_tokenService.getUserName() ?? '').trim();
-      }
-      if (_currentRole.isEmpty) {
-        _currentRole = (_tokenService.getRole() ?? '').trim();
-      }
+      final me = await _fetchRemoteIdentity();
 
       _hydratePresenceCache();
 
-      final fetchedContacts = await _api.fetchContacts(
-        currentRole: _currentRole,
-        currentUserId: _currentUserId,
-      );
-      _contacts = _mergePresenceIntoContacts(fetchedContacts);
-      _conversations = await _api.fetchConversations();
+      await _loadInbox();
 
       final token = _tokenService.getToken();
       if (token == null || token.isEmpty) {
         throw Exception('Sesion invalida para chat');
       }
 
-      await _connectSocketAndListen();
+      try {
+        await _connectSocketAndListen();
+      } catch (error) {
+        if (!_isModelRole) rethrow;
+        debugPrint('Chat MODELO: socket no disponible: $error');
+      }
       unawaited(_persistInboxCache(me));
     } catch (e) {
       _error = e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  void _applyTokenIdentity() {
+    _currentUserId = (_tokenService.getUserId() ?? '').trim();
+    _currentUserName = (_tokenService.getUserName() ?? '').trim();
+    _currentRole = (_tokenService.getRole() ?? '').trim();
+  }
+
+  bool get _isModelRole => _normalizeRole(_currentRole) == 'MODELO';
+
+  Future<Map<String, dynamic>> _fetchRemoteIdentity() async {
+    try {
+      final me = await _api.fetchMe();
+      _currentUserId =
+          (me['id_user'] ?? _currentUserId).toString().trim();
+      _currentUserName =
+          (me['name_user'] ?? _currentUserName).toString().trim();
+      _currentRole =
+          (me['role_user'] ?? _currentRole).toString().trim();
+      return me;
+    } catch (error) {
+      if (!_isModelRole || _currentUserId.isEmpty) rethrow;
+      debugPrint(
+        'Chat MODELO: /me no disponible; se usa identidad del JWT: $error',
+      );
+      return {
+        'id_user': _currentUserId,
+        'name_user': _currentUserName,
+        'role_user': _currentRole,
+      };
+    }
+  }
+
+  Future<void> _loadInbox() async {
+    try {
+      final fetchedContacts = await _api.fetchContacts(
+        currentRole: _currentRole,
+        currentUserId: _currentUserId,
+      );
+      _contacts = _mergePresenceIntoContacts(fetchedContacts);
+      _conversations = await _api.fetchConversations();
+    } catch (error) {
+      if (!_isModelRole) rethrow;
+      debugPrint(
+        'Chat MODELO: bandeja remota no disponible; se conserva caché: $error',
+      );
     }
   }
 

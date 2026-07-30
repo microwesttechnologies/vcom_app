@@ -25,6 +25,11 @@ class MultimediaByPostComponent {
         return 'Cada video debe durar máximo '
             '${HubConstants.maxVideoDurationSeconds} segundos';
       }
+
+      final size = _extractSizeBytes(video);
+      if (size != null && size > HubConstants.maxVideoSizeBytes) {
+        return 'Cada video debe pesar máximo 500 MB';
+      }
     }
 
     return null;
@@ -50,6 +55,16 @@ class MultimediaByPostComponent {
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();
     if (raw is String) return int.tryParse(raw);
+    return null;
+  }
+
+  int? _extractSizeBytes(Map<String, dynamic> m) {
+    final raw = m['size'] ?? m['size_bytes'] ?? m['bytes_length'];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    final bytes = m['bytes'];
+    if (bytes is List) return bytes.length;
     return null;
   }
 }

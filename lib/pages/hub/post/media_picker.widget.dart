@@ -13,6 +13,7 @@ class PickedMedia {
     required this.bytes,
     required this.filename,
     required this.type,
+    this.path,
   });
 
   final Uint8List bytes;
@@ -20,6 +21,9 @@ class PickedMedia {
 
   /// `image` | `video`
   final String type;
+
+  /// Ruta local nativa (útil para compresión de video). Null en web.
+  final String? path;
 }
 
 /// Widget para seleccionar fotos y videos desde galería o cámara.
@@ -86,12 +90,19 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
       );
       if (xFile == null) return;
       final bytes = await xFile.readAsBytes();
+      if (bytes.length > HubConstants.maxVideoSizeBytes) {
+        if (mounted) {
+          _showError('El video supera el máximo de 500 MB');
+        }
+        return;
+      }
       final updated = [
         ...widget.pickedMedia,
         PickedMedia(
           bytes: bytes,
           filename: HubUploadMedia.resolveFilename(xFile.name, type: 'video'),
           type: 'video',
+          path: kIsWeb ? null : xFile.path,
         ),
       ];
       widget.onChanged(updated);
@@ -265,7 +276,8 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
       padding: const EdgeInsets.only(top: 6),
       child: Text(
         'Fotos: $_imageCount/${HubConstants.maxImagesPerPost}  ·  '
-        'Videos: $_videoCount/${HubConstants.maxVideosPerPost}',
+        'Videos: $_videoCount/${HubConstants.maxVideosPerPost}  ·  '
+        'Máx. 500 MB/video',
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.4),
           fontSize: 11,
