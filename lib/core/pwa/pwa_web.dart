@@ -235,6 +235,30 @@ void unmuteHtmlVideosFromUserGesture() {
   } catch (_) {}
 }
 
+/// Borra toda la caché del navegador (Cache API + Service Workers) y recarga.
+Future<void> clearPwaCacheAndReload() async {
+  try {
+    final cacheNames = await web.window.caches.keys().toDart;
+    for (final name in cacheNames.toDart) {
+      await web.window.caches.delete(name.toDart).toDart;
+    }
+  } catch (e) {
+    debugPrint('[PWA] Error limpiando Cache API: $e');
+  }
+
+  try {
+    final registrations =
+        await web.window.navigator.serviceWorker.getRegistrations().toDart;
+    for (final reg in registrations.toDart) {
+      await reg.unregister().toDart;
+    }
+  } catch (e) {
+    debugPrint('[PWA] Error desregistrando SW: $e');
+  }
+
+  web.window.location.reload();
+}
+
 const _introSessionKey = 'vcom_intro_shown';
 
 /// True si el intro ya se mostró en esta pestaña/sesión del navegador.

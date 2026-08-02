@@ -9,9 +9,11 @@ import 'package:vcom_app/core/chat/chat_unread_badge.service.dart';
 import 'package:vcom_app/core/common/biometric.service.dart';
 import 'package:vcom_app/core/common/credentials.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
+import 'package:vcom_app/core/common/session_cache.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
+import 'package:vcom_app/core/pwa/pwa_platform.dart' as pwa;
 import 'package:vcom_app/pages/auth/login.page.dart';
 import 'package:vcom_app/style/vcom_colors.dart';
 
@@ -421,6 +423,33 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
                 const SizedBox(height: 10),
               ],
 
+              // Botón borrar caché (solo PWA)
+              if (kIsWeb) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _confirmClearCache(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.amberAccent,
+                      side: BorderSide(
+                        color: Colors.amberAccent.withValues(alpha: 0.4),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.cached, size: 18),
+                    label: const Text(
+                      'Borrar caché',
+                      style:
+                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+
               // Botón cerrar sesión
               SizedBox(
                 width: double.infinity,
@@ -451,6 +480,47 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
         ),
       ),
     );
+  }
+
+  // ── Borrar caché PWA ─────────────────────────────────────────────────────────
+
+  void _confirmClearCache(BuildContext sheetContext) {
+    Navigator.of(sheetContext).pop();
+    showDialog(
+      context: widget.parentContext,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0d1525),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text(
+          'Borrar caché',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Se eliminará la caché de la aplicación y la página '
+          'se recargará para aplicar las actualizaciones.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _doClearCache();
+            },
+            child: const Text('Borrar', style: TextStyle(color: Colors.amberAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _doClearCache() async {
+    await SessionCacheService().clearSession();
+    await ChatModuleCache.instance.clear();
+    await pwa.clearPwaCacheAndReload();
   }
 
   // ── Huella dactilar ────────────────────────────────────────────────────────────

@@ -36,6 +36,9 @@ void unlockWebAudioFromUserGesture() {}
 /// Sin efecto fuera de web.
 void unmuteHtmlVideosFromUserGesture() {}
 
+/// No-op en nativo: no hay caché PWA que borrar.
+Future<void> clearPwaCacheAndReload() async {}
+
 /// En nativo no hay "recarga de página": el intro se muestra en cada cold start.
 bool hasIntroBeenShownThisSession() => false;
 
