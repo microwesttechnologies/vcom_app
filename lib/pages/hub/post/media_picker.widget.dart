@@ -91,9 +91,9 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
       if (xFile == null) return;
       final bytes = await xFile.readAsBytes();
 
-      if (bytes.length > HubConstants.maxVideoSizeBytes) {
+      if (bytes.length > HubConstants.maxVideoPickSizeBytes) {
         if (mounted) {
-          _showError('El video supera el máximo de 500 MB');
+          _showError('El video supera el máximo de 200 MB');
         }
         return;
       }
@@ -278,7 +278,7 @@ class _MediaPickerWidgetState extends State<MediaPickerWidget> {
       child: Text(
         'Fotos: $_imageCount/${HubConstants.maxImagesPerPost}  ·  '
         'Videos: $_videoCount/${HubConstants.maxVideosPerPost}  ·  '
-        'Máx. 500 MB/video',
+        'Máx. 200 MB/video (se comprime a 100 MB)',
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.4),
           fontSize: 11,

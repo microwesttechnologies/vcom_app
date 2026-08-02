@@ -7,11 +7,14 @@ class MenuBarItem {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  /// Badge rojo circular (p. ej. no leídos de chat). Null/empty = sin badge.
+  final String? badge;
 
   const MenuBarItem({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.badge,
   });
 }
 
@@ -95,7 +98,41 @@ class _MenuBarItemWidget extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(item.icon, color: color, size: 22),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(item.icon, color: color, size: 22),
+                  if ((item.badge ?? '').trim().isNotEmpty)
+                    Positioned(
+                      right: -10,
+                      top: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE53935),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          item.badge!.trim(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(height: 3),
               Text(
                 item.label,

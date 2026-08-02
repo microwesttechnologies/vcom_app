@@ -181,25 +181,21 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
+    final conversationUserIds = _component.conversations
+        .map((c) => c.otherUserId.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final availableContacts = _component.contacts
+        .where((c) => !conversationUserIds.contains(c.idUser.trim()))
+        .toList(growable: false);
+
     return RefreshIndicator(
       onRefresh: _component.refresh,
       color: VcomColors.oroLujoso,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
         children: [
-          const Text(
-            'Contactos disponibles',
-            style: TextStyle(
-              color: Color(0xFFD7DCE6),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (_component.contacts.isEmpty)
-            _emptyCard('No hay usuarios compatibles para chatear.'),
-          for (final contact in _component.contacts) _buildContactTile(contact),
-          const SizedBox(height: 14),
+          // Conversaciones siempre primero (bandeja activa).
           const Text(
             'Conversaciones',
             style: TextStyle(
@@ -213,22 +209,41 @@ class _ChatPageState extends State<ChatPage> {
             _emptyCard('Aun no tienes conversaciones.'),
           for (final conversation in _component.conversations)
             _buildConversationTile(conversation),
+          const SizedBox(height: 18),
+          const Text(
+            'Contactos disponibles',
+            style: TextStyle(
+              color: Color(0xFFD7DCE6),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (availableContacts.isEmpty)
+            _emptyCard('No hay usuarios compatibles para chatear.'),
+          for (final contact in availableContacts) _buildContactTile(contact),
         ],
       ),
     );
   }
 
   Widget _buildConversationTile(ChatConversationModel conversation) {
-    final userId = conversation.otherUserId;
+    final userId = conversation.otherUserId.trim();
     ChatContactModel? contact;
     for (final item in _component.contacts) {
-      if (item.idUser == userId) {
+      if (item.idUser.trim() == userId) {
         contact = item;
         break;
       }
     }
 
-    if (contact == null) return const SizedBox.shrink();
+    contact ??= ChatContactModel(
+      idUser: userId.isEmpty ? 'unknown' : userId,
+      nameUser: 'Usuario',
+      roleUser: '',
+      isOnline: false,
+    );
+
     return _buildContactTile(contact, unreadCount: conversation.unreadCount);
   }
 

@@ -26,8 +26,8 @@ class MultimediaByPostInfo extends StatelessWidget {
           'Duración máx. por video: '
           '${HubConstants.maxVideoDurationSeconds}s',
         ),
-        _rule('Peso máx. por video: 500 MB'),
-        _rule('Compresión automática si el video pesa ≥ 200 MB'),
+        _rule('Peso máx. por video: 200 MB (se comprime a 100 MB)'),
+        _rule('Compresión automática en todos los videos'),
         _rule(
           'Compresión de imágenes al ${HubConstants.mediaCompressionQuality}%',
         ),

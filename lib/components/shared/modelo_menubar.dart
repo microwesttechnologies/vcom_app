@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vcom_app/components/shared/menubar.component.dart';
+import 'package:vcom_app/core/chat/chat_unread_badge.service.dart';
 import 'package:vcom_app/pages/chat/chat.page.dart';
 import 'package:vcom_app/pages/events/events.page.dart';
 import 'package:vcom_app/pages/shop/shop.page.dart';
@@ -15,65 +16,74 @@ class ModeloMenuBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = <_ModeloMenuEntry>[
-      _ModeloMenuEntry(
-        label: 'HUB',
-        icon: Icons.hub,
-        // Solo "hub": el dashboard/inicio es otra pantalla (casita arriba), no debe resaltar HUB.
-        hints: const ['hub'],
-        onTap: (context) =>
-            _pushIfNotCurrent<HubPage>(context, () => const HubPage()),
-      ),
-      _ModeloMenuEntry(
-        label: 'STORE',
-        icon: Icons.shopping_bag,
-        hints: const ['shop', 'tienda', 'store'],
-        onTap: (context) =>
-            _pushIfNotCurrent<ShopPage>(context, () => const ShopPage()),
-      ),
-      _ModeloMenuEntry(
-        label: 'TRAINING',
-        icon: Icons.diamond_outlined,
-        hints: const ['training', 'entrenamiento'],
-        onTap: (context) => _pushIfNotCurrent<TrainingPage>(
-          context,
-          () => const TrainingPage(),
-        ),
-      ),
-      _ModeloMenuEntry(
-        label: 'CALENDAR',
-        icon: Icons.event,
-        hints: const ['event', 'evento', 'calendar', 'calendario'],
-        onTap: (context) =>
-            _pushIfNotCurrent<EventsPage>(context, () => const EventsPage()),
-      ),
-      _ModeloMenuEntry(
-        label: 'MY WALLET',
-        icon: Icons.account_balance_wallet_outlined,
-        hints: const ['wallet', 'cartera', 'billetera'],
-        onTap: (context) =>
-            _pushIfNotCurrent<WalletPage>(context, () => const WalletPage()),
-      ),
-      _ModeloMenuEntry(
-        label: 'CHAT',
-        icon: Icons.forum_outlined,
-        hints: const ['chat', 'mensaje', 'mensajes'],
-        onTap: (context) =>
-            _pushIfNotCurrent<ChatPage>(context, () => const ChatPage()),
-      ),
-    ];
-
-    return MenuBarComponent(
-      activeIndex: _resolveActiveIndex(entries),
-      items: entries
-          .map(
-            (entry) => MenuBarItem(
-              icon: entry.icon,
-              label: entry.label,
-              onTap: () => entry.onTap(context),
+    return ListenableBuilder(
+      listenable: ChatUnreadBadgeService(),
+      builder: (context, _) {
+        final entries = <_ModeloMenuEntry>[
+          _ModeloMenuEntry(
+            label: 'HUB',
+            icon: Icons.hub,
+            // Solo "hub": el dashboard/inicio es otra pantalla (casita arriba), no debe resaltar HUB.
+            hints: const ['hub'],
+            onTap: (context) =>
+                _pushIfNotCurrent<HubPage>(context, () => const HubPage()),
+          ),
+          _ModeloMenuEntry(
+            label: 'STORE',
+            icon: Icons.shopping_bag,
+            hints: const ['shop', 'tienda', 'store'],
+            onTap: (context) =>
+                _pushIfNotCurrent<ShopPage>(context, () => const ShopPage()),
+          ),
+          _ModeloMenuEntry(
+            label: 'TRAINING',
+            icon: Icons.diamond_outlined,
+            hints: const ['training', 'entrenamiento'],
+            onTap: (context) => _pushIfNotCurrent<TrainingPage>(
+              context,
+              () => const TrainingPage(),
             ),
-          )
-          .toList(growable: false),
+          ),
+          _ModeloMenuEntry(
+            label: 'CALENDAR',
+            icon: Icons.event,
+            hints: const ['event', 'evento', 'calendar', 'calendario'],
+            onTap: (context) => _pushIfNotCurrent<EventsPage>(
+              context,
+              () => const EventsPage(),
+            ),
+          ),
+          _ModeloMenuEntry(
+            label: 'MY WALLET',
+            icon: Icons.account_balance_wallet_outlined,
+            hints: const ['wallet', 'cartera', 'billetera'],
+            onTap: (context) =>
+                _pushIfNotCurrent<WalletPage>(context, () => const WalletPage()),
+          ),
+          _ModeloMenuEntry(
+            label: 'CHAT',
+            icon: Icons.forum_outlined,
+            hints: const ['chat', 'mensaje', 'mensajes'],
+            badge: ChatUnreadBadgeService().badgeLabel,
+            onTap: (context) =>
+                _pushIfNotCurrent<ChatPage>(context, () => const ChatPage()),
+          ),
+        ];
+
+        return MenuBarComponent(
+          activeIndex: _resolveActiveIndex(entries),
+          items: entries
+              .map(
+                (entry) => MenuBarItem(
+                  icon: entry.icon,
+                  label: entry.label,
+                  badge: entry.badge,
+                  onTap: () => entry.onTap(context),
+                ),
+              )
+              .toList(growable: false),
+        );
+      },
     );
   }
 
@@ -116,11 +126,13 @@ class _ModeloMenuEntry {
   final IconData icon;
   final List<String> hints;
   final void Function(BuildContext context) onTap;
+  final String? badge;
 
   const _ModeloMenuEntry({
     required this.label,
     required this.icon,
     required this.hints,
     required this.onTap,
+    this.badge,
   });
 }

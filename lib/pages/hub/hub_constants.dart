@@ -9,12 +9,14 @@ class HubConstants {
   static const int defaultPage = 1;
   static const int defaultPerPage = 15;
 
-  /// Peso máximo por video (500 MB) — aplica tanto en nativo como en PWA.
-  /// En PWA el proxy Node comprime antes de guardar en Laravel.
-  static const int maxVideoSizeBytes = 500 * 1024 * 1024;
+  /// Peso máximo final por video (100 MB) — después de compresión.
+  static const int maxVideoSizeBytes = 100 * 1024 * 1024;
 
-  /// Alias para PWA — mismo límite ya que el proxy Node maneja la compresión.
-  static const int maxWebVideoSizeBytes = maxVideoSizeBytes;
+  /// Peso máximo al seleccionar (200 MB) — se comprime antes de subir.
+  static const int maxVideoPickSizeBytes = 200 * 1024 * 1024;
+
+  /// Alias para PWA — mismo límite de selección.
+  static const int maxWebVideoSizeBytes = maxVideoPickSizeBytes;
 
   /// Todo video se comprime antes de subir (umbral: 1 byte = siempre).
   static const int videoCompressionThresholdBytes = 1;

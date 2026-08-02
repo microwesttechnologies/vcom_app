@@ -27,8 +27,8 @@ class MultimediaByPostComponent {
       }
 
       final size = _extractSizeBytes(video);
-      if (size != null && size > HubConstants.maxVideoSizeBytes) {
-        return 'Cada video debe pesar máximo 500 MB';
+      if (size != null && size > HubConstants.maxVideoPickSizeBytes) {
+        return 'Cada video debe pesar máximo 200 MB (se comprime automáticamente)';
       }
     }
 

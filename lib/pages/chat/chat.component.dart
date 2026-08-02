@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:vcom_app/core/chat/chat_api.service.dart';
 import 'package:vcom_app/core/chat/chat_module_cache.dart';
 import 'package:vcom_app/core/chat/chat_socket.service.dart';
+import 'package:vcom_app/core/chat/chat_unread_badge.service.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/core/common/user_status.service.dart';
@@ -17,6 +18,7 @@ class ChatComponent extends ChangeNotifier {
   final ChatSocketService _socket = ChatSocketService();
   final TokenService _tokenService = TokenService();
   final UserStatusService _userStatusService = UserStatusService();
+  final ChatUnreadBadgeService _unreadBadge = ChatUnreadBadgeService();
 
   bool _isLoading = false;
   String? _error;
@@ -154,6 +156,7 @@ class ChatComponent extends ChangeNotifier {
       );
       _contacts = _mergePresenceIntoContacts(fetchedContacts);
       _conversations = await _api.fetchConversations();
+      _syncUnreadBadge();
     } catch (error) {
       if (!_isModelRole) rethrow;
       debugPrint(
@@ -179,6 +182,7 @@ class ChatComponent extends ChangeNotifier {
     _hydratePresenceCache();
     _contacts = _mergePresenceIntoContacts(cached.contacts);
     _conversations = cached.conversations;
+    _syncUnreadBadge();
   }
 
   Future<void> _connectSocketAndListen() async {
@@ -237,6 +241,7 @@ class ChatComponent extends ChangeNotifier {
       );
       _contacts = _mergePresenceIntoContacts(fetchedContacts);
       _conversations = await _api.fetchConversations();
+      _syncUnreadBadge();
       unawaited(_persistInboxFromState());
       notifyListeners();
     } catch (_) {}
@@ -278,6 +283,7 @@ class ChatComponent extends ChangeNotifier {
               ? item.copyWith(unreadCount: 0)
               : item)
           .toList(growable: false);
+      _syncUnreadBadge();
       _socket.emit('message.seen', {
         'conversation_id': conversation.idConversation,
       });
@@ -335,6 +341,7 @@ class ChatComponent extends ChangeNotifier {
     if (conversation == null) {
       try {
         _conversations = await _api.fetchConversations();
+        _syncUnreadBadge();
         for (final item in _conversations) {
           if (item.idConversation == conversationId) {
             conversation = item;
@@ -877,9 +884,14 @@ class ChatComponent extends ChangeNotifier {
                   : item,
             )
             .toList(growable: false);
+        _syncUnreadBadge();
       }
       notifyListeners();
     } catch (_) {}
+  }
+
+  void _syncUnreadBadge() {
+    _unreadBadge.syncFromConversations(_conversations);
   }
 
   bool _sameMessageList(List<ChatMessageModel> a, List<ChatMessageModel> b) {

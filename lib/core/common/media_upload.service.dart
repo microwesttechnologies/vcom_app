@@ -120,8 +120,8 @@ class MediaUploadService {
       if (xFile == null) return null;
 
       final bytes = await xFile.readAsBytes();
-      if (bytes.length > 50 * 1024 * 1024) {
-        throw Exception('El video no debe superar los 50MB');
+      if (bytes.length > 200 * 1024 * 1024) {
+        throw Exception('El video no debe superar los 200MB');
       }
 
       final filename = MediaUploadPayload.resolveFilename(

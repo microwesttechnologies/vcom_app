@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:vcom_app/core/chat/chat_module_cache.dart';
 import 'package:vcom_app/core/chat/chat_push.service.dart';
+import 'package:vcom_app/core/chat/chat_unread_badge.service.dart';
 import 'package:vcom_app/core/common/biometric.service.dart';
 import 'package:vcom_app/core/common/credentials.service.dart';
 import 'package:vcom_app/core/common/envirotment.dev.dart';
@@ -653,6 +654,7 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
     await ChatModuleCache.instance.clear();
     await ChatPushService().unregisterCurrentDevice();
     await userStatusService.setOffline();
+    ChatUnreadBadgeService().clearAll();
     tokenService.clear();
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(

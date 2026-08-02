@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vcom_app/core/chat/chat_api.service.dart';
 import 'package:vcom_app/core/chat/chat_socket.service.dart';
 import 'package:vcom_app/core/chat/chat_ui_state.service.dart';
+import 'package:vcom_app/core/chat/chat_unread_badge.service.dart';
 import 'package:vcom_app/core/common/firebase_env.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/models/chat/chat_message.model.dart';
@@ -48,6 +49,7 @@ class ChatPushService {
       FlutterLocalNotificationsPlugin();
   final ChatApiService _chatApi = ChatApiService();
   final ChatUiStateService _chatUiStateService = ChatUiStateService();
+  final ChatUnreadBadgeService _unreadBadge = ChatUnreadBadgeService();
   final TokenService _tokenService = TokenService();
 
   bool _initialized = false;
@@ -109,6 +111,7 @@ class ChatPushService {
 
   Future<void> initialize() async {
     await _tokenService.initialize();
+    unawaited(_unreadBadge.refreshFromApi());
 
     if (kIsWeb) {
       await _initializeWebPush();
@@ -349,6 +352,15 @@ class ChatPushService {
     try {
       final msg = ChatMessageModel.fromJson(data);
       unawaited(_maybeShowTrayForInboundSocketMessage(msg));
+      final me = (_tokenService.getUserId() ?? '').trim();
+      if (me.isNotEmpty &&
+          msg.recipientId.trim() == me &&
+          msg.senderId.trim() != me &&
+          !_chatUiStateService.shouldSuppressTrayForConversation(
+            msg.idConversation,
+          )) {
+        unawaited(_unreadBadge.refreshFromApi());
+      }
     } catch (_) {}
   }
 
@@ -516,6 +528,7 @@ class ChatPushService {
   }
 
   Future<void> _handleWebForegroundMessage(RemoteMessage message) async {
+    unawaited(_unreadBadge.refreshFromApi());
     // Con la pestaña en segundo plano el service worker ya muestra la notificación.
     if (!isPageVisible) return;
 
@@ -531,6 +544,7 @@ class ChatPushService {
   }
 
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
+    unawaited(_unreadBadge.refreshFromApi());
     final data = Map<String, dynamic>.from(message.data);
     if (!_shouldDisplayTray(message, data)) return;
 

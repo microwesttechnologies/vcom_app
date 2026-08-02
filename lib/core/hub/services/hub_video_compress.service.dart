@@ -27,9 +27,9 @@ class HubVideoCompressService {
       );
     }
 
-    if (media.bytes.length > HubConstants.maxVideoSizeBytes) {
+    if (media.bytes.length > HubConstants.maxVideoPickSizeBytes) {
       throw Exception(
-        'El video supera el máximo de 500 MB',
+        'El video supera el máximo de 200 MB',
       );
     }
 
@@ -49,7 +49,7 @@ class HubVideoCompressService {
 
     if (outBytes.length > HubConstants.maxVideoSizeBytes) {
       throw Exception(
-        'El video sigue superando 500 MB después de comprimir. '
+        'El video sigue superando 100 MB después de comprimir. '
         'Usa un archivo más liviano.',
       );
     }
