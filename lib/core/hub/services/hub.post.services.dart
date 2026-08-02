@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:vcom_app/core/common/envirotment.dev.dart';
 import 'package:vcom_app/core/common/token.service.dart';
 import 'package:vcom_app/core/hub/hub_upload_media.dart';
+import 'package:vcom_app/core/hub/services/hub_web_uploader_platform.dart';
 
 int? _readInt(dynamic v) {
   if (v == null) return null;
@@ -97,7 +99,9 @@ class HubPostsService {
   /// - Si hay videos → usa el proxy Node (comprime con FFmpeg en VPS).
   /// - Si es solo texto/imágenes → va directo a Laravel (más rápido).
   ///
-  /// Usa [dio] para multipart con progreso real de subida.
+  /// En web: usa FormData nativa del browser + XHR (dart:html) para que
+  /// multer en Node reciba los archivos correctamente en req.files.
+  /// En nativo: usa [Dio] con progreso real de subida.
   /// [onProgress] recibe (bytesSent, totalBytes).
   Future<void> createPost({
     required String titlePost,
@@ -114,6 +118,42 @@ class HubPostsService {
         ? '${EnvironmentDev.hubProxyBaseUrl}/api/hub/posts'
         : '${EnvironmentDev.baseUrl}${EnvironmentDev.hubPostsList}';
 
+    // En web usamos FormData nativa del browser vía XHR (dart:html).
+    // Esto garantiza que el browser incluya el filename en Content-Disposition
+    // y multer en Node.js detecte los archivos en req.files correctamente.
+    if (kIsWeb) {
+      await uploadPostWeb(
+        url: url,
+        titlePost: titlePost,
+        headers: _headers(),
+        content: content,
+        tagId: tagId,
+        mediaFiles: mediaFiles,
+        onProgress: onProgress,
+      );
+      return;
+    }
+
+    // Nativo: Dio con progreso real.
+    await _createPostDio(
+      url: url,
+      titlePost: titlePost,
+      content: content,
+      tagId: tagId,
+      mediaFiles: mediaFiles,
+      onProgress: onProgress,
+    );
+  }
+
+  /// Implementación para nativo usando [Dio] con progreso real.
+  Future<void> _createPostDio({
+    required String url,
+    required String titlePost,
+    String? content,
+    int? tagId,
+    List<HubUploadMedia> mediaFiles = const [],
+    void Function(int sent, int total)? onProgress,
+  }) async {
     final formData = FormData();
     formData.fields.add(MapEntry('title_post', titlePost));
     if (content != null && content.isNotEmpty) {

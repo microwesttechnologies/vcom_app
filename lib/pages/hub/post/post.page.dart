@@ -68,6 +68,11 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
       return;
     }
 
+    if (_pickedMedia.isEmpty) {
+      _showSheetTopError('Agrega al menos una foto o video para publicar');
+      return;
+    }
+
     final mediaError = _mediaValidator.validateMedia(
       _pickedMedia
           .map(
@@ -146,18 +151,21 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
       if (ok) {
         Navigator.of(context).pop(true);
       } else {
+        final err = widget.postComponent.error ?? '';
         _showSheetTopError(
-          widget.postComponent.error ?? 'No se pudo crear la publicación',
+          err.isNotEmpty ? err : 'No se pudo crear la publicación',
         );
       }
     } catch (e) {
       _uploadHeartbeatTimer?.cancel();
       if (mounted) {
-        final msg = e.toString().replaceFirst('Exception: ', '');
+        final msg = e.toString().replaceFirst('Exception: ', '').trim();
         _showSheetTopError(
-          msg.contains('TimeoutException')
+          msg.contains('TimeoutException') || msg.contains('Tiempo agotado')
               ? 'Tiempo agotado al subir el video. Intenta con un archivo más liviano.'
-              : 'Error: $msg',
+              : msg.isNotEmpty
+                  ? msg
+                  : 'Error al crear la publicación',
         );
       }
     } finally {

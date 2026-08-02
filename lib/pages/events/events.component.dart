@@ -39,16 +39,12 @@ class EventsComponent extends ChangeNotifier {
     );
   }
 
-  bool get _isMonitorOrAdmin {
-    final role = UserRole.normalize(_tokenService.getRole());
-    return role == UserRole.monitor || role == UserRole.admin;
-  }
+  bool get _isMonitorOrAdmin =>
+      UserRole.isMonitorLike(_tokenService.getRole());
 
   bool get _canReadByRole {
     final role = UserRole.normalize(_tokenService.getRole());
-    return role == UserRole.monitor ||
-        role == UserRole.admin ||
-        role == UserRole.modelo;
+    return UserRole.isMonitorLike(role) || role == UserRole.modelo;
   }
 
   bool get canReadEvents =>

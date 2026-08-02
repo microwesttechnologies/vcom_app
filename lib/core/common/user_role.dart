@@ -33,6 +33,12 @@ class UserRole {
 
   static bool isAdmin(String? raw) => normalize(raw) == admin;
 
+  /// Admin opera en la app con la misma experiencia y privilegios que Monitor.
+  static bool isMonitorLike(String? raw) {
+    final role = normalize(raw);
+    return role == monitor || role == admin;
+  }
+
   /// Experiencia visual de modelo/monitor.
   ///
   /// Esta app es exclusiva para modelos y monitores: siempre la misma UI.

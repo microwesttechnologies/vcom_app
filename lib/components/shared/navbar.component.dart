@@ -187,8 +187,7 @@ class ModeloNavbar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     // App exclusiva de modelos/monitores: siempre la misma barra de inicio.
     final token = TokenService();
-    final normalizedRole = UserRole.normalize(token.getRole());
-    final isMonitor = normalizedRole == UserRole.monitor;
+    final isMonitor = UserRole.isMonitorLike(token.getRole());
     final roleLabel = isMonitor ? 'ESPACIO MONITOR' : 'ESPACIO MODELO';
     final fallbackName = isMonitor ? 'Monitor' : 'Modelo';
     final firstName = _resolveFirstName(token.getUserName(), fallbackName);
@@ -279,7 +278,7 @@ class _UserMenuSheetState extends State<_UserMenuSheet> {
   @override
   Widget build(BuildContext context) {
     final token = TokenService();
-    final isMonitor = UserRole.isMonitor(token.getRole());
+    final isMonitor = UserRole.isMonitorLike(token.getRole());
     final roleLabel = isMonitor ? 'MONITOR' : 'MODELO';
     final fallbackName = isMonitor ? 'Monitor' : 'Modelo';
     final name = token.getUserName() ?? fallbackName;

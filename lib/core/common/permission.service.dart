@@ -1,5 +1,6 @@
 import 'package:vcom_app/core/auth/login/login.services.dart';
 import 'package:vcom_app/core/common/token.service.dart';
+import 'package:vcom_app/core/common/user_role.dart';
 import 'package:vcom_app/core/models/module.model.dart';
 
 class PermissionService {
@@ -12,9 +13,19 @@ class PermissionService {
 
   List<ModuleModel> get modules => _tokenService.getModules();
 
-  List<ModuleModel> get readableModules => modules
-      .where((module) => module.state && module.permissions.read)
-      .toList(growable: false);
+  bool get _hasFullAccess => UserRole.isAdmin(_tokenService.getRole());
+
+  List<ModuleModel> get readableModules {
+    if (_hasFullAccess) {
+      return modules
+          .where((module) => module.state)
+          .toList(growable: false);
+    }
+
+    return modules
+        .where((module) => module.state && module.permissions.read)
+        .toList(growable: false);
+  }
 
   Future<List<ModuleModel>> loadPermissions({bool forceRefresh = false}) async {
     if (!forceRefresh && _tokenService.hasPermissions()) {
@@ -39,14 +50,17 @@ class PermissionService {
     List<String> routeHints = const [],
     List<String> nameHints = const [],
   }) {
-    final normalizedRouteHints = routeHints.map(_normalize).where((hint) => hint.isNotEmpty).toList();
-    final normalizedNameHints = nameHints.map(_normalize).where((hint) => hint.isNotEmpty).toList();
+    final normalizedRouteHints =
+        routeHints.map(_normalize).where((hint) => hint.isNotEmpty).toList();
+    final normalizedNameHints =
+        nameHints.map(_normalize).where((hint) => hint.isNotEmpty).toList();
 
     for (final module in modules) {
       final route = _normalize(module.route);
       final name = _normalize(module.nameModule);
 
-      final routeMatch = normalizedRouteHints.any((hint) => route.contains(hint));
+      final routeMatch =
+          normalizedRouteHints.any((hint) => route.contains(hint));
       final nameMatch = normalizedNameHints.any((hint) => name.contains(hint));
 
       if (routeMatch || nameMatch) {
@@ -61,6 +75,7 @@ class PermissionService {
     List<String> routeHints = const [],
     List<String> nameHints = const [],
   }) {
+    if (_hasFullAccess) return true;
     final module = findModule(routeHints: routeHints, nameHints: nameHints);
     return module?.state == true && module?.permissions.read == true;
   }
@@ -69,6 +84,7 @@ class PermissionService {
     List<String> routeHints = const [],
     List<String> nameHints = const [],
   }) {
+    if (_hasFullAccess) return true;
     final module = findModule(routeHints: routeHints, nameHints: nameHints);
     return module?.state == true && module?.permissions.create == true;
   }
@@ -77,6 +93,7 @@ class PermissionService {
     List<String> routeHints = const [],
     List<String> nameHints = const [],
   }) {
+    if (_hasFullAccess) return true;
     final module = findModule(routeHints: routeHints, nameHints: nameHints);
     return module?.state == true && module?.permissions.update == true;
   }
@@ -85,6 +102,7 @@ class PermissionService {
     List<String> routeHints = const [],
     List<String> nameHints = const [],
   }) {
+    if (_hasFullAccess) return true;
     final module = findModule(routeHints: routeHints, nameHints: nameHints);
     return module?.state == true && module?.permissions.delete == true;
   }

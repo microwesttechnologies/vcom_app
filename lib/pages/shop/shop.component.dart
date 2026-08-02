@@ -36,7 +36,8 @@ class ShopComponent extends ChangeNotifier {
   int? get selectedCategoryId => _selectedCategoryId;
   String get searchQuery => _searchQuery;
 
-  bool get canManageProducts => UserRole.isMonitor(_tokenService.getRole());
+  bool get canManageProducts =>
+      UserRole.isMonitorLike(_tokenService.getRole());
 
   String _cacheKey(String namespace) {
     return _cache.scopedKey(

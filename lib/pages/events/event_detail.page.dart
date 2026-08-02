@@ -35,10 +35,8 @@ class _EventDetailPageState extends State<EventDetailPage> {
     _event = widget.event;
   }
 
-  bool get _canManageEvents {
-    final role = UserRole.normalize(_tokenService.getRole());
-    return role == UserRole.monitor || role == UserRole.admin;
-  }
+  bool get _canManageEvents =>
+      UserRole.isMonitorLike(_tokenService.getRole());
 
   bool get _canUpdateEvents => _permissionService.canUpdateModule(
     routeHints: const ['event', 'evento', 'calendar', 'calendario'],

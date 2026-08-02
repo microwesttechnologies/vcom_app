@@ -24,10 +24,8 @@ class _EventsPageState extends State<EventsPage> {
   final TokenService _tokenService = TokenService();
   final TextEditingController _searchController = TextEditingController();
 
-  bool get _canManageEvents {
-    final role = UserRole.normalize(_tokenService.getRole());
-    return role == UserRole.monitor || role == UserRole.admin;
-  }
+  bool get _canManageEvents =>
+      UserRole.isMonitorLike(_tokenService.getRole());
 
   @override
   void initState() {
